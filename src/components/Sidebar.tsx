@@ -1,83 +1,128 @@
-'use client'
+"use client";
 
-import { useState } from 'react';
-import { Menu, X, Calendar, Home, Award, FileText } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import Link from "next/link";
+import { Menu, X, Calendar, Home, Trophy, Mail } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
+type SidebarProps = {
+  isOpen?: boolean;
+  onClose?: () => void;
+  // Nye props for å matche footer:
+  level?: number;
+  progressPercent?: number; 
+  avatar?: string;
+};
+
+export default function Sidebar({
+  isOpen: externalIsOpen,
+  onClose,
+  // Standardverdier som matcher StudentFooter:
+  level = 3,
+  progressPercent = 42,
+  avatar = "🦄",
+}: SidebarProps = {}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const handleClose = onClose || (() => setInternalIsOpen(false));
+  const handleOpen = () => setInternalIsOpen(true);
 
   const menuItems = [
-    { name: 'Dagen i dag', icon: <Home size={20} /> },
-    { name: 'Timeplan', icon: <Calendar size={20} /> },
-    { name: 'Ukebrev', icon: <FileText size={20} /> },
-    { name: 'Belønninger', icon: <Award size={20} /> },
+    { name: "Dagen i dag", icon: Home, href: "/" },
+    { name: "Timeplan", icon: Calendar, href: "/timeplan" },
+    { name: "Ukebrev", icon: Mail, href: "/ukebrev" },
+    { name: "Belønninger", icon: Trophy, href: "/belonninger" },
   ];
+
+  const safeProgress = Math.max(0, Math.min(100, progressPercent));
 
   return (
     <>
-      {/* Hamburger Ikon */}
-      <button 
-        onClick={() => setIsOpen(true)} 
-        className="fixed top-4 left-4 z-40 p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-gray-800"
-      >
-        <Menu size={24} />
-      </button>
+      {/* Hamburger Button - only show if using internal state */}
+      {externalIsOpen === undefined && (
+        <button
+          onClick={handleOpen}
+          className="fixed top-4 left-4 z-40 p-2 bg-white rounded-full shadow-md hover:bg-gray-50 text-gray-800 transition-colors"
+        >
+          <Menu size={24} />
+        </button>
+      )}
 
-      {/* Mørk bakgrunn (Overlay) når menyen er åpen */}
+      {/* Dark Overlay Backdrop */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsOpen(false)}
+            transition={{ duration: 0.3 }}
+            onClick={handleClose}
             className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
 
-      {/* Selve menyen (Drawer) */}
+      {/* Sidebar Drawer */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ x: '-100%' }}
+          <motion.nav
+            initial={{ x: "-100%" }}
             animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 bottom-0 w-64 z-50 bg-white shadow-xl p-6"
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed top-0 left-0 bottom-0 w-[80%] max-w-[300px] z-50 bg-white/95 backdrop-blur-md shadow-2xl"
           >
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-2xl font-bold text-blue-600">Klar</h2>
-              <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-gray-100 rounded">
-                <X size={24} />
+            {/* Header with Close Button */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <h2 className="text-2xl font-bold text-indigo-600">Klar</h2>
+              <button
+                onClick={handleClose}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Lukk meny"
+              >
+                <X size={24} className="text-gray-700" />
               </button>
             </div>
 
-            <nav className="space-y-4">
-              {menuItems.map((item) => (
-                <div 
-                  key={item.name} 
-                  className="flex items-center space-x-3 p-3 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors text-gray-700 hover:text-blue-700"
-                >
-                  {item.icon}
-                  <span className="font-medium">{item.name}</span>
-                </div>
-              ))}
-            </nav>
-            
-            <div className="absolute bottom-8 left-6 right-6">
-              <div className="bg-blue-50 p-4 rounded-xl text-center">
-                 <span className="text-2xl">🐎</span>
-                 <p className="text-sm text-gray-500 mt-2">Nivå 3</p>
-                 {/* Her skal progressbaren komme senere */}
-                 <div className="w-full bg-gray-200 h-2 rounded-full mt-1">
-                    <div className="bg-blue-500 h-2 rounded-full w-1/3"></div>
-                 </div>
-              </div>
+            {/* Navigation Menu Items */}
+            <div className="py-4 px-2">
+              {menuItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={handleClose}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-indigo-50 transition-colors text-gray-700 hover:text-indigo-700 group"
+                  >
+                    <Icon
+                      size={20}
+                      className="group-hover:scale-110 transition-transform"
+                    />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                );
+              })}
             </div>
 
-          </motion.div>
+            {/* Bottom Progress Card (Nå synkronisert med footer!) */}
+            <div className="absolute bottom-6 left-6 right-6">
+              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl text-center border border-indigo-100">
+                <span className="text-3xl block mb-1">{avatar}</span>
+                <p className="text-sm text-gray-600 mt-1 font-semibold">
+                  Nivå {level}
+                </p>
+                <div className="w-full bg-gray-200 h-2.5 rounded-full mt-3 overflow-hidden">
+                  <div 
+                    className="bg-green-500 h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${safeProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </motion.nav>
         )}
       </AnimatePresence>
     </>

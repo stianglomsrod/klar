@@ -1,62 +1,130 @@
-import WelcomeOverlay from '@/components/WelcomeOverlay';
-import Sidebar from '@/components/Sidebar';
+"use client";
+
+import { createClient } from "@/utils/supabase/client";
+import WelcomeOverlay from "@/components/WelcomeOverlay";
+import Sidebar from "@/components/Sidebar";
+import SubjectCard from "@/components/SubjectCard";
+import { useEffect, useState } from "react";
+
+// Definer typene vi får fra databasen
+type Task = {
+  id: string;
+  is_completed: boolean;
+};
+
+type Subject = {
+  id: string;
+  title: string;
+  emoji: string;
+  color_theme: string;
+  tasks: Task[];
+};
+
+type Profile = {
+  id: string;
+  level: number;
+  points_earned: number;
+  current_avatar: string;
+  petals_progress: number;
+  flowers_collected: number;
+};
 
 export default function Home() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const supabase = createClient();
+
+      // Fetch user profile
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .limit(1)
+        .single();
+
+      if (profileError) {
+        console.error("Feil ved henting av profil:", profileError);
+        // Use default values if no profile exists
+      } else {
+        setProfile(profileData);
+      }
+
+      // Fetch subjects with all tasks
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from("subjects")
+        .select(`
+          *,
+          tasks (*)
+        `);
+
+      if (subjectsError) {
+        console.error("Feil ved henting av fag:", subjectsError);
+      } else {
+        setSubjects(subjectsData || []);
+      }
+
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
+  // Extract profile data with defaults
+  const userLevel = profile?.level || 1;
+  const progressPercent = profile?.petals_progress || 0;
+  const userAvatar = profile?.current_avatar || "🦄";
+
   return (
-    <main className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-20">
-      
-      {/* 1. Velkomst-ritualet (Overlay) */}
+    // ENDRING 1: Ny bakgrunn (en subtil gradient fra indigo til cyan)
+    <main className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-indigo-100 via-slate-50 to-cyan-100 font-sans text-gray-900 pb-20 relative overflow-hidden">
+      {/* Dekorativ "blob" i bakgrunnen for ekstra dybde */}
+      <div className="absolute top-[-20%] right-[-20%] w-[800px] h-[800px] rounded-full bg-purple-200/30 blur-3xl -z-10 pointer-events-none mix-blend-multiply" />
+
       <WelcomeOverlay />
+      <Sidebar 
+        level={userLevel}
+        progressPercent={progressPercent}
+        avatar={userAvatar}
+      />
 
-      {/* 2. Navigasjon */}
-      <Sidebar />
+      {/* ENDRING 2: Økt padding (px-6) og max-bredde (max-w-5xl) for mer luft */}
+      <div className="pt-24 px-8 pb-24 max-w-5xl mx-auto space-y-12">
+        <header className="flex flex-col items-start px-2"></header>
 
-      {/* 3. Innholdet på siden */}
-      <div className="pt-20 px-4 max-w-md mx-auto space-y-6">
-        
-        {/* Overskrift */}
-        <header>
-          <h1 className="text-3xl font-bold text-gray-800">Dagen i dag</h1>
-          <p className="text-gray-500">Tirsdag 27. desember</p>
-        </header>
-
-        {/* Timeplan-kort (Placeholder for neste steg) */}
-        <section className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Akkurat nå</h3>
-               <h2 className="text-2xl font-bold text-blue-600">2. Time: Matte</h2>
-            </div>
-            {/* Her skal Time-Timeren (Sirkelen) komme */}
-            <div className="w-12 h-12 rounded-full border-4 border-red-500 flex items-center justify-center font-bold text-red-500">
-              15m
-            </div>
-          </div>
-          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-red-500 h-full w-3/4"></div>
-          </div>
-        </section>
-
-        {/* Oppgaver (Placeholder) */}
+        {/* --- FAG-KORTENE (GRID) --- */}
         <section>
-          <h3 className="font-bold text-lg mb-3 ml-1">Mine Gjøremål</h3>
-          <div className="space-y-3">
-            {/* Eksempel oppgavekort */}
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-               <div className="flex items-center space-x-3">
-                 <div className="w-6 h-6 rounded-full border-2 border-gray-300"></div>
-                 <div>
-                   <p className="font-medium">Gjør ferdig matteark</p>
-                   <div className="flex items-center text-xs text-gray-400 mt-1 space-x-2">
-                     <span>⏱️ 15 min</span>
-                     <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">10 poeng</span>
-                   </div>
-                 </div>
-               </div>
+          {loading ? (
+            <div className="text-center py-20 text-indigo-400 animate-pulse font-medium">
+              Laster fagene dine...
             </div>
-          </div>
+          ) : (
+            // ENDRING 4: Responsiv grid og mer mellomrom
+            // 'sm:grid-cols-2' betyr 2 kort i bredden på små skjermer/nettbrett
+            // 'lg:grid-cols-3' betyr 3 kort i bredden på større skjermer
+            // 'gap-8' gir mye mer luft mellom kortene enn 'gap-5'
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
+              {subjects.map((subject, index) => {
+                const totalTasks = subject.tasks?.length || 0;
+                const completedTasks = subject.tasks?.filter(t => t.is_completed).length || 0;
+                
+                return (
+                  <SubjectCard
+                    key={subject.id}
+                    index={index}
+                    title={subject.title}
+                    emoji={subject.emoji}
+                    colorTheme={subject.color_theme}
+                    taskCount={totalTasks}
+                    completedCount={completedTasks}
+                  />
+                );
+              })}
+            </div>
+          )}
         </section>
-
       </div>
     </main>
   );
