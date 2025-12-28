@@ -6,17 +6,24 @@ type FlowerPotProps = {
   petalsFilled?: number;
   colors?: string[];
   size?: number;
+  onPetalClick?: () => void;
+  isInteractive?: boolean;
+  hasPaint?: boolean;
 };
 
 export default function FlowerPot({
   petalsFilled = 0,
   colors = ["#FF69B4", "#FFA500", "#FFD700", "#FF6B6B", "#4ECDC4"],
   size = 200,
+  onPetalClick,
+  isInteractive = false,
+  hasPaint = false,
 }: FlowerPotProps) {
   const center = size / 2;
   const flowerCenter = center - size * 0.05; // Position flower higher
   const petalLength = size * 0.26;
   const petalWidth = size * 0.22;
+  const nextPetalIndex = petalsFilled; // Index of the next empty petal to fill
 
   // Generate petal positions (5 petals evenly distributed around center)
   const petals = Array.from({ length: 5 }, (_, i) => {
@@ -39,8 +46,8 @@ export default function FlowerPot({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div className="flex flex-col items-center justify-center cursor-none [&_*]:cursor-none">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ cursor: 'none' }}>
         {/* Layer 1: Stem (background) */}
         <line
           x1={center}
@@ -88,6 +95,8 @@ export default function FlowerPot({
           {petals.map((petal) => {
             const isFilled = petal.index < petalsFilled;
             const petalColor = isFilled ? colors[petal.index] : "#E5E7EB";
+            const isNextPetal = petal.index === nextPetalIndex;
+            const isClickable = isInteractive && isNextPetal && hasPaint;
 
             return (
               <motion.g
@@ -100,15 +109,60 @@ export default function FlowerPot({
                   type: "spring",
                   stiffness: 100,
                 }}
+                style={{
+                  pointerEvents: isClickable ? 'auto' : 'none',
+                  cursor: 'none',
+                }}
               >
-                <path
+                {/* Interactive glow for next petal */}
+                {isNextPetal && isInteractive && hasPaint && (
+                  <motion.path
+                    d={createTeardropPetal()}
+                    fill="none"
+                    stroke={colors[nextPetalIndex] || "#FFD700"}
+                    strokeWidth={size * 0.015}
+                    opacity={0.3}
+                    transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
+                    animate={{ opacity: [0.2, 0.6, 0.2] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                )}
+
+                {/* Main petal */}
+                <motion.path
                   d={createTeardropPetal()}
                   fill={petalColor}
-                  stroke={isFilled ? "none" : "#9CA3AF"}
-                  strokeWidth={isFilled ? 0 : 2}
+                  stroke={
+                    isNextPetal && isInteractive && hasPaint
+                      ? colors[nextPetalIndex]
+                      : isFilled
+                        ? "none"
+                        : "#9CA3AF"
+                  }
+                  strokeWidth={
+                    isNextPetal && isInteractive && hasPaint
+                      ? size * 0.02
+                      : isFilled
+                        ? 0
+                        : 2
+                  }
                   strokeDasharray={isFilled ? "none" : "5,3"}
                   opacity={isFilled ? 1 : 0.5}
                   transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
+                  onClick={() => {
+                    if (isClickable && onPetalClick) {
+                      onPetalClick();
+                    }
+                  }}
+                  whileHover={
+                    isClickable
+                      ? { filter: "drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.8))" }
+                      : {}
+                  }
                 />
               </motion.g>
             );

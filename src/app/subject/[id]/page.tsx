@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
+import LevelUpModal from "@/components/LevelUpModal";
 import { ArrowLeft } from "lucide-react";
 
 type Task = {
@@ -42,6 +43,8 @@ export default function SubjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+  const [newLevel, setNewLevel] = useState(0);
 
   // Fetch data on mount
   useEffect(() => {
@@ -119,18 +122,31 @@ export default function SubjectDetailPage() {
 
       if (taskError) throw taskError;
 
-      // 2. Update user profile - increment points and flowers
+      // 2. Calculate new points and check for level up
+      const currentPoints = profile.points_earned;
+      const totalPoints = currentPoints + task.points_value;
+      const currentLevel = profile.level;
+      const calculatedLevel = Math.floor(totalPoints / 100);
+
+      // 3. Update user profile - increment points and flowers
+      const profileUpdates: any = {
+        points_earned: totalPoints,
+        flowers_collected: profile.flowers_collected + 1,
+      };
+
+      // Check if user leveled up
+      if (calculatedLevel > currentLevel) {
+        profileUpdates.level = calculatedLevel;
+      }
+
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({
-          points_earned: profile.points_earned + task.points_value,
-          flowers_collected: profile.flowers_collected + 1,
-        })
+        .update(profileUpdates)
         .eq("id", profile.id);
 
       if (profileError) throw profileError;
 
-      // 3. Optimistic update: mark task completed locally so UI turns green
+      // 4. Optimistic update: mark task completed locally so UI turns green
       setTasks((prev) =>
         prev.map((t) =>
           t.id === selectedTaskId ? { ...t, is_completed: true } : t
@@ -142,17 +158,94 @@ export default function SubjectDetailPage() {
         prevProfile
           ? {
               ...prevProfile,
-              points_earned: prevProfile.points_earned + task.points_value,
+              points_earned: totalPoints,
               flowers_collected: prevProfile.flowers_collected + 1,
+              level: calculatedLevel > currentLevel ? calculatedLevel : prevProfile.level,
             }
           : null
       );
 
-      // Close modal
+      // Close completion modal
       setIsModalOpen(false);
       setSelectedTaskId(null);
+
+      // 5. Show level up modal if user leveled up
+      if (calculatedLevel > currentLevel) {
+        setNewLevel(calculatedLevel);
+        setShowLevelUpModal(true);
+      }
     } catch (error) {
       console.error("Feil ved fullføring av oppgave:", error);
+      alert("Noe gikk galt. Prøv igjen.");
+    }
+  };
+
+  // Handle reward selection from Level Up modal
+  const handleRewardSelection = async (
+    rewardType: "petal" | "uno" | "break",
+    payload?: string
+  ) => {
+    if (!profile) return;
+
+    const supabase = createClient();
+
+    try {
+      if (rewardType === "petal" && payload) {
+        // Get current petal data
+        const currentPetals = profile.petals_progress;
+        const currentColors = profile.petal_colors || [];
+
+        // Calculate new petal progress
+        const newPetalsProgress = currentPetals + 1;
+        const newColors = [...currentColors, payload];
+
+        // Check if flower is complete (5 petals)
+        const isFlowerComplete = newPetalsProgress >= 5;
+
+        const profileUpdates: any = {
+          petals_progress: isFlowerComplete ? 0 : newPetalsProgress,
+          petal_colors: isFlowerComplete ? [] : newColors,
+        };
+
+        if (isFlowerComplete) {
+          profileUpdates.flowers_collected = profile.flowers_collected + 1;
+        }
+
+        // Update Supabase
+        const { error } = await supabase
+          .from("profiles")
+          .update(profileUpdates)
+          .eq("id", profile.id);
+
+        if (error) throw error;
+
+        // Update local state
+        setProfile((prevProfile) =>
+          prevProfile
+            ? {
+                ...prevProfile,
+                petals_progress: profileUpdates.petals_progress,
+                petal_colors: profileUpdates.petal_colors,
+                flowers_collected: isFlowerComplete
+                  ? prevProfile.flowers_collected + 1
+                  : prevProfile.flowers_collected,
+              }
+            : null
+        );
+
+        // Play success sound (optional)
+        try {
+          const audio = new Audio("/sounds/success.mp3");
+          audio.play().catch(() => {});
+        } catch (e) {
+          // Ignore audio errors
+        }
+      }
+
+      // Close level up modal
+      setShowLevelUpModal(false);
+    } catch (error) {
+      console.error("Feil ved valg av belønning:", error);
       alert("Noe gikk galt. Prøv igjen.");
     }
   };
@@ -268,6 +361,14 @@ export default function SubjectDetailPage() {
           setSelectedTaskId(null);
         }}
         onConfirm={handleConfirmCompletion}
+      />
+
+      {/* Level Up Modal */}
+      <LevelUpModal
+        isOpen={showLevelUpModal}
+        newLevel={newLevel}
+        onClose={() => setShowLevelUpModal(false)}
+        onSelectReward={handleRewardSelection}
       />
     </main>
   );
