@@ -13,7 +13,11 @@ type LevelUpModalProps = {
   isOpen: boolean;
   newLevel: number;
   onClose: () => void;
-  onSelectReward: (rewardType: RewardType, payload?: string, petalIndex?: number) => void;
+  onSelectReward: (
+    rewardType: RewardType,
+    payload?: string,
+    petalIndex?: number
+  ) => void;
   existingPetals: number;
   existingColors: string[];
 };
@@ -42,10 +46,15 @@ export default function LevelUpModal({
   );
   const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [hoveredPetalIndex, setHoveredPetalIndex] = useState<number | null>(null);
+  const [hoveredPetalIndex, setHoveredPetalIndex] = useState<number | null>(
+    null
+  );
   const [isAnimatingSuccess, setIsAnimatingSuccess] = useState<boolean>(false);
-  const normalizeColors = (arr: string[]) => Array.from({ length: 5 }, (_, i) => arr[i] || "");
-  const [modalColors, setModalColors] = useState<string[]>(normalizeColors(existingColors));
+  const normalizeColors = (arr: string[]) =>
+    Array.from({ length: 5 }, (_, i) => arr[i] || "");
+  const [modalColors, setModalColors] = useState<string[]>(
+    normalizeColors(existingColors)
+  );
 
   // Re-sync local colors when modal opens or existing colors change
   useEffect(() => {
@@ -269,8 +278,10 @@ export default function LevelUpModal({
               >
                 <FlowerPot
                   size={280}
-                    petalsFilled={modalColors.filter((c) => c && c.trim().length > 0).length}
-                    colors={modalColors}
+                  petalsFilled={
+                    modalColors.filter((c) => c && c.trim().length > 0).length
+                  }
+                  colors={modalColors}
                   isInteractive={true}
                   hasPaint={!!selectedColor}
                   onPetalClick={handlePetalConfirm}

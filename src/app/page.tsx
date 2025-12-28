@@ -75,7 +75,8 @@ export default function Home() {
 
   // Only show welcome overlay on first login (until dismissed)
   useEffect(() => {
-    const seen = typeof window !== "undefined" ? localStorage.getItem("welcomeSeen") : "1";
+    const seen =
+      typeof window !== "undefined" ? localStorage.getItem("welcomeSeen") : "1";
     if (!seen) {
       setShowWelcome(true);
     }

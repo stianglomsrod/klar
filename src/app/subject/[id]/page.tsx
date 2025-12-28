@@ -197,14 +197,22 @@ export default function SubjectDetailPage() {
       if (rewardType === "petal" && payload) {
         // Prepare a fixed-length colors array of 5 slots
         const currentColors = profile.petal_colors || [];
-        const normalizedColors = Array.from({ length: 5 }, (_, i) => currentColors[i] || "");
-        const targetIndex = typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5 ? petalIndex : 0;
+        const normalizedColors = Array.from(
+          { length: 5 },
+          (_, i) => currentColors[i] || ""
+        );
+        const targetIndex =
+          typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5
+            ? petalIndex
+            : 0;
 
         // Place color at the chosen index
         normalizedColors[targetIndex] = payload;
 
         // Recalculate progress as count of non-empty colors
-        const newPetalsProgress = normalizedColors.filter((c) => c && c.trim().length > 0).length;
+        const newPetalsProgress = normalizedColors.filter(
+          (c) => c && c.trim().length > 0
+        ).length;
 
         // Check if flower is complete (5 petals)
         const isFlowerComplete = newPetalsProgress >= 5;
