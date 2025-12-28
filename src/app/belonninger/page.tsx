@@ -41,7 +41,8 @@ export default function RewardsHubPage() {
                 Min Blomsterhage 🌸
               </h2>
               <p className="text-gray-600 text-sm leading-relaxed">
-                Se samlingen din og fargelegg nye blomster. Fullfør oppgaver for å samle kronblader.
+                Se samlingen din og fargelegg nye blomster. Fullfør oppgaver for
+                å samle kronblader.
               </p>
               <div className="mt-6 flex items-center text-sm font-semibold text-pink-600 group-hover:text-pink-700">
                 Gå til hagen
@@ -76,7 +77,8 @@ export default function RewardsHubPage() {
               Mine Kuponger 🎫
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed">
-              Her kommer belønninger som Utetime og Uno. Få kuponger ved å fullføre oppgaver og samlinger.
+              Her kommer belønninger som Utetime og Uno. Få kuponger ved å
+              fullføre oppgaver og samlinger.
             </p>
             <div className="mt-6 flex items-center text-sm font-semibold text-gray-400">
               Kommer snart
