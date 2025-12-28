@@ -2,7 +2,6 @@
 
 import { createClient } from "@/utils/supabase/client";
 import WelcomeOverlay from "@/components/WelcomeOverlay";
-import Sidebar from "@/components/Sidebar";
 import SubjectCard from "@/components/SubjectCard";
 import { useEffect, useState } from "react";
 
@@ -102,11 +101,6 @@ export default function Home() {
           }}
         />
       )}
-      <Sidebar
-        level={userLevel}
-        progressPercent={progressPercent}
-        avatar={userAvatar}
-      />
 
       {/* ENDRING 2: Økt padding (px-6) og max-bredde (max-w-5xl) for mer luft */}
       <div className="pt-24 px-8 pb-24 max-w-5xl mx-auto space-y-12">
