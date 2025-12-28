@@ -1,11 +1,14 @@
 "use client";
 
+import { CheckCircle } from "lucide-react";
+
 type Task = {
   id: string;
   title: string;
   description: string;
   points_value: number;
   type: string;
+  is_completed: boolean;
 };
 
 type TaskCardProps = {
@@ -14,38 +17,44 @@ type TaskCardProps = {
 };
 
 export default function TaskCard({ task, onComplete }: TaskCardProps) {
+  const isDone = task.is_completed;
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4 hover:shadow-xl transition-shadow border border-gray-100">
-      {/* Task Type Badge */}
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
-          {task.type}
-        </span>
-        <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
-          <span className="text-amber-600 font-bold text-sm">
-            {task.points_value}
+    <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">
+            {task.title}
+          </h3>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            {task.description}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {task.type === "quiz" && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
+              Quiz
+            </span>
+          )}
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">
+            {task.points_value} poeng
           </span>
-          <span className="text-amber-600 text-xs font-medium">pts</span>
         </div>
       </div>
 
-      {/* Task Content */}
-      <div className="flex-1">
-        <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
-          {task.title}
-        </h3>
-        <p className="text-gray-600 text-sm leading-relaxed">
-          {task.description}
-        </p>
-      </div>
-
-      {/* Action Button */}
-      <button
-        onClick={onComplete}
-        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 transition-all duration-200 active:scale-[0.98]"
-      >
-        Lever oppgave 🚀
-      </button>
+      {isDone ? (
+        <div className="w-full flex items-center justify-center px-4 py-3 rounded-xl bg-green-50 border border-green-200 text-green-700 font-semibold">
+          Fullført! ✅
+        </div>
+      ) : (
+        <button
+          onClick={onComplete}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-wide py-4 px-6 rounded-xl shadow-md border-b-4 border-indigo-800 active:translate-y-[1px] active:border-b-2 transition-all duration-150 flex items-center justify-center gap-2"
+        >
+          <CheckCircle className="h-5 w-5" />
+          Fullfør
+        </button>
+      )}
     </div>
   );
 }

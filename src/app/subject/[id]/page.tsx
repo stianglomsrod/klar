@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
@@ -32,17 +32,15 @@ type Profile = {
   flowers_collected: number;
 };
 
-export default function SubjectDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function SubjectDetailPage() {
   const router = useRouter();
+  const params = useParams();
+  const subjectId = useMemo(() => (params?.id as string) || "", [params]);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch data on mount
@@ -54,7 +52,7 @@ export default function SubjectDetailPage({
       const { data: subjectData, error: subjectError } = await supabase
         .from("subjects")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", subjectId)
         .single();
 
       if (subjectError) {
@@ -67,7 +65,7 @@ export default function SubjectDetailPage({
       const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
         .select("*")
-        .eq("subject_id", params.id)
+        .eq("subject_id", subjectId)
         .eq("is_completed", false)
         .order("created_at", { ascending: true });
 
@@ -93,17 +91,22 @@ export default function SubjectDetailPage({
       setLoading(false);
     };
 
-    fetchData();
-  }, [params.id]);
+    if (subjectId) {
+      fetchData();
+    }
+  }, [subjectId]);
 
   // Handle task completion
   const handleTaskComplete = (task: Task) => {
-    setSelectedTask(task);
+    setSelectedTaskId(task.id);
     setIsModalOpen(true);
   };
 
   const handleConfirmCompletion = async () => {
-    if (!selectedTask || !profile) return;
+    if (!selectedTaskId || !profile) return;
+
+    const task = tasks.find((t) => t.id === selectedTaskId);
+    if (!task) return;
 
     const supabase = createClient();
 
@@ -112,7 +115,7 @@ export default function SubjectDetailPage({
       const { error: taskError } = await supabase
         .from("tasks")
         .update({ is_completed: true })
-        .eq("id", selectedTask.id);
+        .eq("id", selectedTaskId);
 
       if (taskError) throw taskError;
 
@@ -120,16 +123,18 @@ export default function SubjectDetailPage({
       const { error: profileError } = await supabase
         .from("profiles")
         .update({
-          points_earned: profile.points_earned + selectedTask.points_value,
+          points_earned: profile.points_earned + task.points_value,
           flowers_collected: profile.flowers_collected + 1,
         })
         .eq("id", profile.id);
 
       if (profileError) throw profileError;
 
-      // 3. Update local state - remove completed task from list
-      setTasks((prevTasks) =>
-        prevTasks.filter((t) => t.id !== selectedTask.id)
+      // 3. Optimistic update: mark task completed locally so UI turns green
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === selectedTaskId ? { ...t, is_completed: true } : t
+        )
       );
 
       // Update local profile state
@@ -137,8 +142,7 @@ export default function SubjectDetailPage({
         prevProfile
           ? {
               ...prevProfile,
-              points_earned:
-                prevProfile.points_earned + selectedTask.points_value,
+              points_earned: prevProfile.points_earned + task.points_value,
               flowers_collected: prevProfile.flowers_collected + 1,
             }
           : null
@@ -146,7 +150,7 @@ export default function SubjectDetailPage({
 
       // Close modal
       setIsModalOpen(false);
-      setSelectedTask(null);
+      setSelectedTaskId(null);
     } catch (error) {
       console.error("Feil ved fullføring av oppgave:", error);
       alert("Noe gikk galt. Prøv igjen.");
@@ -156,12 +160,12 @@ export default function SubjectDetailPage({
   // Map color theme to Tailwind classes
   const getHeaderColorClass = (theme: string) => {
     const colorMap: Record<string, string> = {
-      blue: "bg-gradient-to-br from-blue-500 to-blue-600",
-      green: "bg-gradient-to-br from-green-500 to-green-600",
-      purple: "bg-gradient-to-br from-purple-500 to-purple-600",
-      orange: "bg-gradient-to-br from-orange-500 to-orange-600",
-      pink: "bg-gradient-to-br from-pink-500 to-pink-600",
-      indigo: "bg-gradient-to-br from-indigo-500 to-indigo-600",
+      blue: "bg-gradient-to-r from-blue-700 to-blue-500",
+      green: "bg-gradient-to-r from-green-700 to-green-500",
+      purple: "bg-gradient-to-r from-purple-700 to-purple-500",
+      orange: "bg-gradient-to-r from-orange-700 to-orange-500",
+      pink: "bg-gradient-to-r from-pink-700 to-pink-500",
+      indigo: "bg-gradient-to-r from-indigo-700 to-indigo-500",
     };
     return colorMap[theme] || colorMap.blue;
   };
@@ -200,72 +204,70 @@ export default function SubjectDetailPage({
       <header
         className={`${getHeaderColorClass(
           subject.color_theme
-        )} text-white py-8 px-6 shadow-lg`}
+        )} text-white py-3 px-4 shadow-lg`}
       >
-        <div className="max-w-4xl mx-auto">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center gap-2 text-white/90 hover:text-white mb-4 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span className="font-medium">Tilbake</span>
-          </button>
-
+        <div className="w-full flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <span className="text-5xl">{subject.emoji}</span>
-            <div>
-              <h1 className="text-3xl font-black tracking-tight">
-                {subject.title}
-              </h1>
-              <p className="text-white/80 mt-1">
-                {tasks.length} {tasks.length === 1 ? "oppgave" : "oppgaver"}{" "}
-                igjen
-              </p>
-            </div>
+            <button
+              onClick={() => router.push("/")}
+              className="p-2 rounded-full text-white/90 hover:text-white transition-colors"
+              aria-label="Tilbake"
+            >
+              <ArrowLeft size={28} />
+            </button>
+            <span className="text-4xl">{subject.emoji}</span>
+            <h1 className="text-xl font-bold leading-tight tracking-tight">
+              {subject.title}
+            </h1>
+          </div>
+
+          <div className="inline-flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm font-medium">
+            {tasks.length} {tasks.length === 1 ? "oppgave" : "oppgaver"} igjen
           </div>
         </div>
       </header>
 
       {/* Tasks Grid */}
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        {tasks.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="text-6xl mb-4">🎉</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Gratulerer!
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Du har fullført alle oppgavene i dette faget.
-            </p>
-            <button
-              onClick={() => router.push("/")}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-            >
-              Tilbake til hjemme
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onComplete={() => handleTaskComplete(task)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+      <section className="max-w-4xl mx-auto px-4 py-6">
+        <div className="flex-1 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 shadow-sm overflow-y-auto">
+          {tasks.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="text-6xl mb-4">🎉</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Gratulerer!
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Du har fullført alle oppgavene i dette faget.
+              </p>
+              <button
+                onClick={() => router.push("/")}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+              >
+                Tilbake til hjemme
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {tasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onComplete={() => handleTaskComplete(task)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Completion Modal */}
       <CompletionModal
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setSelectedTask(null);
+          setSelectedTaskId(null);
         }}
         onConfirm={handleConfirmCompletion}
-        avatar={profile?.current_avatar || "🦄"}
       />
     </main>
   );

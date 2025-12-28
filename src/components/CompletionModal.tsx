@@ -7,20 +7,17 @@ type CompletionModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  avatar?: string;
 };
 
 export default function CompletionModal({
   isOpen,
   onClose,
   onConfirm,
-  avatar = "🦄",
 }: CompletionModalProps) {
-  // Play success sound when confirmed
   const handleConfirm = () => {
-    // Simple HTML5 Audio for success sound
-    const audio = new Audio("/sounds/success.mp3"); // Placeholder URL
-    audio.play().catch((e) => console.log("Audio play failed:", e));
+    // Play success sound (placeholder)
+    const audio = new Audio("/sounds/success.mp3");
+    audio.play().catch(() => {});
     onConfirm();
   };
 
@@ -58,28 +55,20 @@ export default function CompletionModal({
             className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl max-w-lg mx-auto"
           >
             <div className="p-8 text-center">
-              {/* Avatar */}
-              <div className="text-6xl mb-4 animate-bounce">{avatar}</div>
-
-              {/* Question */}
+              <div className="text-6xl mb-4 animate-bounce">🦄</div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Er du sikker på at du vil levere?
+                Er du sikker på at du er ferdig?
               </h2>
-              <p className="text-gray-600 mb-8">
-                Du kan ikke angre på dette valget.
-              </p>
+              <p className="text-gray-600 mb-8">Dette kan ikke angres.</p>
 
-              {/* Action Buttons */}
               <div className="flex flex-col gap-3">
-                {/* Confirm Button - Large and Exciting */}
                 <button
                   onClick={handleConfirm}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-black text-lg py-5 px-6 rounded-2xl shadow-lg shadow-green-500/40 hover:shadow-xl hover:shadow-green-500/50 transition-all duration-200 uppercase tracking-wide animate-pulse hover:animate-none active:scale-[0.98]"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-black text-lg py-5 px-6 rounded-2xl shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:shadow-emerald-500/50 transition-all duration-200 uppercase tracking-wide animate-pulse hover:animate-none active:scale-[0.98]"
                 >
-                  JA, JEG ER FERDIG! 🎉
+                  JA, SEND INN!
                 </button>
 
-                {/* Cancel Button - Subtle */}
                 <button
                   onClick={onClose}
                   className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-4 px-6 rounded-xl transition-colors"
