@@ -52,9 +52,30 @@ export default function PaintBrushCursor({ color }: PaintBrushCursorProps) {
         {/* Bristle texture lines for depth */}
         {color && (
           <>
-            <line x1="14" y1="8" x2="14" y2="14" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" />
-            <line x1="20" y1="6" x2="20" y2="15" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" />
-            <line x1="26" y1="8" x2="26" y2="14" stroke="rgba(0,0,0,0.1)" strokeWidth="0.8" />
+            <line
+              x1="14"
+              y1="8"
+              x2="14"
+              y2="14"
+              stroke="rgba(0,0,0,0.1)"
+              strokeWidth="0.8"
+            />
+            <line
+              x1="20"
+              y1="6"
+              x2="20"
+              y2="15"
+              stroke="rgba(0,0,0,0.1)"
+              strokeWidth="0.8"
+            />
+            <line
+              x1="26"
+              y1="8"
+              x2="26"
+              y2="14"
+              stroke="rgba(0,0,0,0.1)"
+              strokeWidth="0.8"
+            />
           </>
         )}
 
@@ -89,7 +110,14 @@ export default function PaintBrushCursor({ color }: PaintBrushCursorProps) {
         />
 
         {/* End cap */}
-        <circle cx="20" cy="31" r="2.5" fill="#8B6F47" stroke="#6B5437" strokeWidth="0.8" />
+        <circle
+          cx="20"
+          cy="31"
+          r="2.5"
+          fill="#8B6F47"
+          stroke="#6B5437"
+          strokeWidth="0.8"
+        />
       </svg>
     </div>
   );

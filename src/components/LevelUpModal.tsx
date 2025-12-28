@@ -33,7 +33,9 @@ export default function LevelUpModal({
   onClose,
   onSelectReward,
 }: LevelUpModalProps) {
-  const [step, setStep] = useState<"celebration" | "colorPicker">("celebration");
+  const [step, setStep] = useState<"celebration" | "colorPicker">(
+    "celebration"
+  );
   const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
 
@@ -115,9 +117,7 @@ export default function LevelUpModal({
           }`}
         >
           {/* Paint Brush Cursor (only in color picker) */}
-          {step === "colorPicker" && (
-            <PaintBrushCursor color={selectedColor} />
-          )}
+          {step === "colorPicker" && <PaintBrushCursor color={selectedColor} />}
           {/* Close Button */}
           <button
             onClick={handleClose}

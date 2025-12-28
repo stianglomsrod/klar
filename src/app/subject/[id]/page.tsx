@@ -160,7 +160,10 @@ export default function SubjectDetailPage() {
               ...prevProfile,
               points_earned: totalPoints,
               flowers_collected: prevProfile.flowers_collected + 1,
-              level: calculatedLevel > currentLevel ? calculatedLevel : prevProfile.level,
+              level:
+                calculatedLevel > currentLevel
+                  ? calculatedLevel
+                  : prevProfile.level,
             }
           : null
       );

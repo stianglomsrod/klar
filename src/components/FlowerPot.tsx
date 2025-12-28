@@ -47,7 +47,12 @@ export default function FlowerPot({
 
   return (
     <div className="flex flex-col items-center justify-center cursor-none [&_*]:cursor-none">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ cursor: 'none' }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        style={{ cursor: "none" }}
+      >
         {/* Layer 1: Stem (background) */}
         <line
           x1={center}
@@ -110,8 +115,8 @@ export default function FlowerPot({
                   stiffness: 100,
                 }}
                 style={{
-                  pointerEvents: isClickable ? 'auto' : 'none',
-                  cursor: 'none',
+                  pointerEvents: isClickable ? "auto" : "none",
+                  cursor: "none",
                 }}
               >
                 {/* Interactive glow for next petal */}
@@ -140,15 +145,15 @@ export default function FlowerPot({
                     isNextPetal && isInteractive && hasPaint
                       ? colors[nextPetalIndex]
                       : isFilled
-                        ? "none"
-                        : "#9CA3AF"
+                      ? "none"
+                      : "#9CA3AF"
                   }
                   strokeWidth={
                     isNextPetal && isInteractive && hasPaint
                       ? size * 0.02
                       : isFilled
-                        ? 0
-                        : 2
+                      ? 0
+                      : 2
                   }
                   strokeDasharray={isFilled ? "none" : "5,3"}
                   opacity={isFilled ? 1 : 0.5}
@@ -160,7 +165,10 @@ export default function FlowerPot({
                   }}
                   whileHover={
                     isClickable
-                      ? { filter: "drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.8))" }
+                      ? {
+                          filter:
+                            "drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.8))",
+                        }
                       : {}
                   }
                 />
