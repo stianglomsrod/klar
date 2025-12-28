@@ -53,9 +53,9 @@ export default function Home() {
       }
 
       // Fetch subjects with all tasks
-      const { data: subjectsData, error: subjectsError } = await supabase
-        .from("subjects")
-        .select(`
+      const { data: subjectsData, error: subjectsError } = await supabase.from(
+        "subjects"
+      ).select(`
           *,
           tasks (*)
         `);
@@ -84,7 +84,7 @@ export default function Home() {
       <div className="absolute top-[-20%] right-[-20%] w-[800px] h-[800px] rounded-full bg-purple-200/30 blur-3xl -z-10 pointer-events-none mix-blend-multiply" />
 
       <WelcomeOverlay />
-      <Sidebar 
+      <Sidebar
         level={userLevel}
         progressPercent={progressPercent}
         avatar={userAvatar}
@@ -108,11 +108,13 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
               {subjects.map((subject, index) => {
                 const totalTasks = subject.tasks?.length || 0;
-                const completedTasks = subject.tasks?.filter(t => t.is_completed).length || 0;
-                
+                const completedTasks =
+                  subject.tasks?.filter((t) => t.is_completed).length || 0;
+
                 return (
                   <SubjectCard
                     key={subject.id}
+                    id={subject.id}
                     index={index}
                     title={subject.title}
                     emoji={subject.emoji}
