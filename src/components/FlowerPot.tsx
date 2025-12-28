@@ -6,9 +6,12 @@ type FlowerPotProps = {
   petalsFilled?: number;
   colors?: string[];
   size?: number;
-  onPetalClick?: () => void;
+  onPetalClick?: (index: number) => void;
   isInteractive?: boolean;
   hasPaint?: boolean;
+  hoveredPetalIndex?: number | null;
+  setHoveredPetalIndex?: (index: number | null) => void;
+  isAnimatingSuccess?: boolean;
 };
 
 export default function FlowerPot({
@@ -18,14 +21,15 @@ export default function FlowerPot({
   onPetalClick,
   isInteractive = false,
   hasPaint = false,
+  hoveredPetalIndex = null,
+  setHoveredPetalIndex,
+  isAnimatingSuccess = false,
 }: FlowerPotProps) {
   const center = size / 2;
   const flowerCenter = center - size * 0.05; // Position flower higher
   const petalLength = size * 0.26;
   const petalWidth = size * 0.22;
-  const nextPetalIndex = petalsFilled; // Index of the next empty petal to fill
-
-  // Generate petal positions (5 petals evenly distributed around center)
+  // Generate petal positions (5 fixed petals evenly distributed around center)
   const petals = Array.from({ length: 5 }, (_, i) => {
     const angle = (i * 2 * Math.PI) / 5;
     return { angle: (angle * 180) / Math.PI, index: i };
@@ -47,11 +51,15 @@ export default function FlowerPot({
 
   return (
     <div className="flex flex-col items-center justify-center cursor-none [&_*]:cursor-none">
+      <motion.div
+        animate={isAnimatingSuccess ? { scale: [1, 1.08, 1] } : {}}
+        transition={isAnimatingSuccess ? { duration: 0.6, repeat: 2, ease: "easeInOut" } : {}}
+      >
       <svg
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
-        style={{ cursor: "none" }}
+        style={{ cursor: "none", pointerEvents: "auto" }}
       >
         {/* Layer 1: Stem (background) */}
         <line
@@ -98,79 +106,86 @@ export default function FlowerPot({
         {/* Layer 5: Petals (behind center) - with 36° rotation */}
         <g transform={`rotate(36, ${center}, ${flowerCenter})`}>
           {petals.map((petal) => {
-            const isFilled = petal.index < petalsFilled;
-            const petalColor = isFilled ? colors[petal.index] : "#E5E7EB";
-            const isNextPetal = petal.index === nextPetalIndex;
-            const isClickable = isInteractive && isNextPetal && hasPaint;
+            const explicitColor = colors[petal.index];
+            const hasExplicitColor = Boolean(explicitColor && explicitColor.trim && explicitColor.trim().length > 0);
+            const petalColor = hasExplicitColor ? explicitColor : "#E5E7EB";
+            const isPaintable = isInteractive && hasPaint && !hasExplicitColor;
+            const isHovered = hoveredPetalIndex === petal.index;
 
             return (
               <motion.g
                 key={`petal-${petal.index}`}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 transition={{
                   delay: petal.index * 0.1,
-                  duration: 0.5,
-                  type: "spring",
-                  stiffness: 100,
+                  duration: 0.4,
                 }}
                 style={{
-                  pointerEvents: isClickable ? "auto" : "none",
+                  pointerEvents: isAnimatingSuccess ? "none" : "auto",
                   cursor: "none",
                 }}
+                // Base placement: translate to flower center and rotate to petal angle
+                transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
               >
-                {/* Interactive glow for next petal */}
-                {isNextPetal && isInteractive && hasPaint && (
-                  <motion.path
-                    d={createTeardropPetal()}
-                    fill="none"
-                    stroke={colors[nextPetalIndex] || "#FFD700"}
-                    strokeWidth={size * 0.015}
-                    opacity={0.3}
-                    transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
-                    animate={{ opacity: [0.2, 0.6, 0.2] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                )}
-
                 {/* Main petal */}
                 <motion.path
                   d={createTeardropPetal()}
                   fill={petalColor}
                   stroke={
-                    isNextPetal && isInteractive && hasPaint
-                      ? colors[nextPetalIndex]
-                      : isFilled
+                    hasExplicitColor
                       ? "none"
                       : "#9CA3AF"
                   }
                   strokeWidth={
-                    isNextPetal && isInteractive && hasPaint
-                      ? size * 0.02
-                      : isFilled
+                    hasExplicitColor
                       ? 0
                       : 2
                   }
-                  strokeDasharray={isFilled ? "none" : "5,3"}
-                  opacity={isFilled ? 1 : 0.5}
-                  transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
+                  strokeDasharray={hasExplicitColor ? "none" : "5,3"}
+                  opacity={hasExplicitColor ? 1 : 0.6}
                   onClick={() => {
-                    if (isClickable && onPetalClick) {
-                      onPetalClick();
+                    if (hasPaint && isPaintable && onPetalClick) {
+                      onPetalClick(petal.index);
+                    }
+                  }}
+                  onMouseEnter={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(petal.index);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(null);
+                    }
+                  }}
+                  onTouchStart={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(petal.index);
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    if (hasPaint && isPaintable && onPetalClick) {
+                      onPetalClick(petal.index);
+                    }
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(null);
                     }
                   }}
                   whileHover={
-                    isClickable
+                    isPaintable && !isAnimatingSuccess
                       ? {
-                          filter:
-                            "drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.8))",
+                          scale: 1.1,
+                          filter: "drop-shadow(0px 0px 12px rgba(255, 255, 255, 0.95))",
+                          transition: { duration: 0.15 },
                         }
                       : {}
                   }
+                  animate={{ scale: 1, filter: "none" }}
+                  style={{
+                    pointerEvents: isAnimatingSuccess ? "none" : "auto",
+                  }}
+                  className="[transform-box:fill-box] [transform-origin:center]"
                 />
               </motion.g>
             );
@@ -190,6 +205,7 @@ export default function FlowerPot({
           transition={{ delay: 0.5, duration: 0.4 }}
         />
       </svg>
+      </motion.div>
     </div>
   );
 }

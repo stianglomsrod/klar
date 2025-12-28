@@ -3,12 +3,18 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 
-export default function WelcomeOverlay() {
-  const [isVisible, setIsVisible] = useState(true);
+type WelcomeOverlayProps = {
+  initialVisible?: boolean;
+  onDismiss?: () => void;
+};
+
+export default function WelcomeOverlay({ initialVisible = true, onDismiss }: WelcomeOverlayProps) {
+  const [isVisible, setIsVisible] = useState(initialVisible);
 
   // Når man klikker, fader vi ut skjermen
   const handleDismiss = () => {
     setIsVisible(false);
+    onDismiss?.();
   };
 
   return (

@@ -33,6 +33,7 @@ export default function Home() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -72,6 +73,14 @@ export default function Home() {
     fetchData();
   }, []);
 
+  // Only show welcome overlay on first login (until dismissed)
+  useEffect(() => {
+    const seen = typeof window !== "undefined" ? localStorage.getItem("welcomeSeen") : "1";
+    if (!seen) {
+      setShowWelcome(true);
+    }
+  }, []);
+
   // Extract profile data with defaults
   const userLevel = profile?.level || 1;
   const progressPercent = profile?.petals_progress || 0;
@@ -83,7 +92,15 @@ export default function Home() {
       {/* Dekorativ "blob" i bakgrunnen for ekstra dybde */}
       <div className="absolute top-[-20%] right-[-20%] w-[800px] h-[800px] rounded-full bg-purple-200/30 blur-3xl -z-10 pointer-events-none mix-blend-multiply" />
 
-      <WelcomeOverlay />
+      {showWelcome && (
+        <WelcomeOverlay
+          initialVisible={true}
+          onDismiss={() => {
+            localStorage.setItem("welcomeSeen", "1");
+            setShowWelcome(false);
+          }}
+        />
+      )}
       <Sidebar
         level={userLevel}
         progressPercent={progressPercent}

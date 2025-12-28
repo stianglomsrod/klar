@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { X } from "lucide-react";
@@ -13,7 +13,9 @@ type LevelUpModalProps = {
   isOpen: boolean;
   newLevel: number;
   onClose: () => void;
-  onSelectReward: (rewardType: RewardType, payload?: string) => void;
+  onSelectReward: (rewardType: RewardType, payload?: string, petalIndex?: number) => void;
+  existingPetals: number;
+  existingColors: string[];
 };
 
 const colorPalette = [
@@ -32,12 +34,25 @@ export default function LevelUpModal({
   newLevel,
   onClose,
   onSelectReward,
+  existingPetals,
+  existingColors,
 }: LevelUpModalProps) {
   const [step, setStep] = useState<"celebration" | "colorPicker">(
     "celebration"
   );
   const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [hoveredPetalIndex, setHoveredPetalIndex] = useState<number | null>(null);
+  const [isAnimatingSuccess, setIsAnimatingSuccess] = useState<boolean>(false);
+  const normalizeColors = (arr: string[]) => Array.from({ length: 5 }, (_, i) => arr[i] || "");
+  const [modalColors, setModalColors] = useState<string[]>(normalizeColors(existingColors));
+
+  // Re-sync local colors when modal opens or existing colors change
+  useEffect(() => {
+    if (isOpen) {
+      setModalColors(normalizeColors(existingColors));
+    }
+  }, [isOpen, existingColors]);
 
   const handleRewardSelect = (rewardType: RewardType) => {
     if (rewardType === "petal") {
@@ -56,11 +71,25 @@ export default function LevelUpModal({
     }
   };
 
-  const handlePetalClick = () => {
-    if (selectedColor && selectedReward) {
-      onSelectReward(selectedReward, selectedColor);
+  const handlePetalConfirm = (index: number) => {
+    if (!selectedColor || !selectedReward) return;
+    // Optimistically color the clicked petal in the modal before the success pulse
+    setModalColors((prev) => {
+      const next = [...prev];
+      next[index] = selectedColor!;
+      return next;
+    });
+    setIsAnimatingSuccess(true);
+    // Optional success sound
+    try {
+      const audio = new Audio("/sounds/success.mp3");
+      audio.play().catch(() => {});
+    } catch {}
+    // Delay closing to let the pulse animation play
+    setTimeout(() => {
+      onSelectReward(selectedReward, selectedColor, index);
       handleClose();
-    }
+    }, 1500);
   };
 
   const handleDipBrush = (color: string) => {
@@ -78,6 +107,8 @@ export default function LevelUpModal({
     setStep("celebration");
     setSelectedReward(null);
     setSelectedColor(null);
+    setHoveredPetalIndex(null);
+    setIsAnimatingSuccess(false);
     onClose();
   };
 
@@ -238,11 +269,14 @@ export default function LevelUpModal({
               >
                 <FlowerPot
                   size={280}
-                  petalsFilled={0}
-                  colors={colorPalette.map((c) => c.hex)}
+                    petalsFilled={modalColors.filter((c) => c && c.trim().length > 0).length}
+                    colors={modalColors}
                   isInteractive={true}
                   hasPaint={!!selectedColor}
-                  onPetalClick={handlePetalClick}
+                  onPetalClick={handlePetalConfirm}
+                  hoveredPetalIndex={hoveredPetalIndex}
+                  setHoveredPetalIndex={setHoveredPetalIndex}
+                  isAnimatingSuccess={isAnimatingSuccess}
                 />
               </motion.div>
 

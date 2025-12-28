@@ -186,7 +186,8 @@ export default function SubjectDetailPage() {
   // Handle reward selection from Level Up modal
   const handleRewardSelection = async (
     rewardType: "petal" | "uno" | "break",
-    payload?: string
+    payload?: string,
+    petalIndex?: number
   ) => {
     if (!profile) return;
 
@@ -194,20 +195,23 @@ export default function SubjectDetailPage() {
 
     try {
       if (rewardType === "petal" && payload) {
-        // Get current petal data
-        const currentPetals = profile.petals_progress;
+        // Prepare a fixed-length colors array of 5 slots
         const currentColors = profile.petal_colors || [];
+        const normalizedColors = Array.from({ length: 5 }, (_, i) => currentColors[i] || "");
+        const targetIndex = typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5 ? petalIndex : 0;
 
-        // Calculate new petal progress
-        const newPetalsProgress = currentPetals + 1;
-        const newColors = [...currentColors, payload];
+        // Place color at the chosen index
+        normalizedColors[targetIndex] = payload;
+
+        // Recalculate progress as count of non-empty colors
+        const newPetalsProgress = normalizedColors.filter((c) => c && c.trim().length > 0).length;
 
         // Check if flower is complete (5 petals)
         const isFlowerComplete = newPetalsProgress >= 5;
 
         const profileUpdates: any = {
           petals_progress: isFlowerComplete ? 0 : newPetalsProgress,
-          petal_colors: isFlowerComplete ? [] : newColors,
+          petal_colors: isFlowerComplete ? [] : normalizedColors,
         };
 
         if (isFlowerComplete) {
@@ -372,6 +376,8 @@ export default function SubjectDetailPage() {
         newLevel={newLevel}
         onClose={() => setShowLevelUpModal(false)}
         onSelectReward={handleRewardSelection}
+        existingPetals={profile?.petals_progress || 0}
+        existingColors={profile?.petal_colors || []}
       />
     </main>
   );
