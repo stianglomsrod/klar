@@ -20,8 +20,8 @@ export default function TaskCard({ task, onComplete }: TaskCardProps) {
   const isDone = task.is_completed;
 
   return (
-    <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 p-5 flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-3">
+    <div className="h-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 p-5 flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3 flex-1">
         <div className="flex-1">
           <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">
             {task.title}
