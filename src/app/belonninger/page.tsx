@@ -8,14 +8,7 @@ export default function RewardsHubPage() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-50 pb-32">
       <div className="max-w-4xl mx-auto px-4 py-6 md:px-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Link
-            href="/"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Tilbake til hjem"
-          >
-            <ArrowLeft className="h-5 w-5 text-gray-700" />
-          </Link>
+        <div className="flex items-center justify-end mb-8">
           <div className="text-right">
             <p className="text-sm text-gray-500">Belønninger</p>
             <h1 className="text-2xl font-bold text-gray-900">

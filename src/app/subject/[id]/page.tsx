@@ -46,6 +46,11 @@ export default function SubjectDetailPage() {
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
 
+  // Ensure we start at the top when opening a subject (avoids mid-scroll render)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [subjectId]);
+
   // Fetch data on mount
   useEffect(() => {
     const fetchData = async () => {
@@ -103,6 +108,16 @@ export default function SubjectDetailPage() {
   const handleTaskComplete = (task: Task) => {
     setSelectedTaskId(task.id);
     setIsModalOpen(true);
+  };
+
+  const playSuccessSound = () => {
+    const audio = new Audio("/sounds/pling.mp3");
+    audio.volume = 0.5; // Not too loud
+    audio
+      .play()
+      .catch((e) =>
+        console.log("Audio play failed (user interaction needed first):", e)
+      );
   };
 
   const handleConfirmCompletion = async () => {
@@ -167,6 +182,9 @@ export default function SubjectDetailPage() {
             }
           : null
       );
+
+      // Play success sound
+      playSuccessSound();
 
       // Close completion modal
       setIsModalOpen(false);
@@ -266,14 +284,54 @@ export default function SubjectDetailPage() {
   };
 
   // Map color theme to Tailwind classes
-  const getHeaderColorClass = (theme: string) => {
+  // Map color theme to text colors for hero section
+  const getColorClass = (theme: string) => {
     const colorMap: Record<string, string> = {
-      blue: "bg-gradient-to-r from-blue-700 to-blue-500",
-      green: "bg-gradient-to-r from-green-700 to-green-500",
-      purple: "bg-gradient-to-r from-purple-700 to-purple-500",
-      orange: "bg-gradient-to-r from-orange-700 to-orange-500",
-      pink: "bg-gradient-to-r from-pink-700 to-pink-500",
-      indigo: "bg-gradient-to-r from-indigo-700 to-indigo-500",
+      blue: "text-blue-700",
+      green: "text-green-700",
+      purple: "text-purple-700",
+      orange: "text-orange-700",
+      pink: "text-pink-700",
+      indigo: "text-indigo-700",
+    };
+    return colorMap[theme] || colorMap.blue;
+  };
+
+  // Map color theme to badge border colors
+  const getBorderColorClass = (theme: string) => {
+    const colorMap: Record<string, string> = {
+      blue: "border-blue-300",
+      green: "border-green-300",
+      purple: "border-purple-300",
+      orange: "border-orange-300",
+      pink: "border-pink-300",
+      indigo: "border-indigo-300",
+    };
+    return colorMap[theme] || colorMap.blue;
+  };
+
+  // Map color theme to gradient background for hero section
+  const getGradientClass = (theme: string) => {
+    const colorMap: Record<string, string> = {
+      blue: "bg-gradient-to-b from-blue-200 via-blue-100 to-white",
+      green: "bg-gradient-to-b from-green-200 via-green-100 to-white",
+      purple: "bg-gradient-to-b from-purple-200 via-purple-100 to-white",
+      orange: "bg-gradient-to-b from-orange-200 via-orange-100 to-white",
+      pink: "bg-gradient-to-b from-pink-200 via-pink-100 to-white",
+      indigo: "bg-gradient-to-b from-indigo-200 via-indigo-100 to-white",
+    };
+    return colorMap[theme] || colorMap.blue;
+  };
+
+  // Map color theme to fill/background colors for progress pill
+  const getFillColorClass = (theme: string) => {
+    const colorMap: Record<string, string> = {
+      blue: "bg-blue-500",
+      green: "bg-green-500",
+      purple: "bg-purple-500",
+      orange: "bg-orange-500",
+      pink: "bg-pink-500",
+      indigo: "bg-indigo-500",
     };
     return colorMap[theme] || colorMap.blue;
   };
@@ -306,67 +364,86 @@ export default function SubjectDetailPage() {
     );
   }
 
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter((t) => t.is_completed).length;
+  const progressPercent =
+    totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-indigo-50 to-white pb-32">
-      {/* Header with subject info */}
-      <header
-        className={`${getHeaderColorClass(
-          subject.color_theme
-        )} text-white py-3 px-4 shadow-lg`}
-      >
-        <div className="w-full flex flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/")}
-              className="p-2 rounded-full text-white/90 hover:text-white transition-colors"
-              aria-label="Tilbake"
+    <main className="bg-gradient-to-b from-gray-50 to-white pb-32">
+      <div className="max-w-5xl mx-auto w-full px-4 space-y-4">
+        {/* Hero Section */}
+        <section className="pb-2 pt-3">
+          <div
+            className={`w-full text-center rounded-3xl shadow-sm ${getGradientClass(
+              subject.color_theme
+            )} px-4 py-5 md:py-6 flex flex-col items-center`}
+          >
+            {/* Subject Icon (Boss) */}
+            <div className="flex justify-center mb-2 md:mb-3">
+              <div className="text-6xl md:text-6xl drop-shadow-md animate-bounce-settle">
+                {subject.emoji}
+              </div>
+            </div>
+
+            {/* Subject Title */}
+            <h1
+              className={`text-3xl font-extrabold tracking-tight md:text-4xl mb-2 ${getColorClass(
+                subject.color_theme
+              )}`}
             >
-              <ArrowLeft size={28} />
-            </button>
-            <span className="text-4xl">{subject.emoji}</span>
-            <h1 className="text-xl font-bold leading-tight tracking-tight">
               {subject.title}
             </h1>
-          </div>
 
-          <div className="inline-flex items-center bg-white/20 text-white px-3 py-1 rounded-full text-sm font-medium">
-            {tasks.length} {tasks.length === 1 ? "oppgave" : "oppgaver"} igjen
+            {/* Progress Pill */}
+            <div className="mt-2 w-32 h-6 bg-gray-200 rounded-full relative overflow-hidden shadow-inner">
+              <div
+                className={`absolute top-0 left-0 h-full ${getFillColorClass(
+                  subject.color_theme
+                )} transition-all duration-500 ease-out`}
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 z-10">
+                {completedTasks} / {totalTasks}
+              </div>
+            </div>
           </div>
-        </div>
-      </header>
+        </section>
 
-      {/* Tasks Grid */}
-      <section className="max-w-4xl mx-auto px-4 py-6">
-        <div className="flex-1 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 shadow-sm overflow-y-auto">
-          {tasks.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Gratulerer!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Du har fullført alle oppgavene i dette faget.
-              </p>
-              <button
-                onClick={() => router.push("/")}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-              >
-                Tilbake til hjemme
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  onComplete={() => handleTaskComplete(task)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
+        {/* Tasks Grid */}
+        <section className="w-full">
+          <div className="w-full bg-gray-50/50 p-4 rounded-2xl border border-gray-100 shadow-sm">
+            {tasks.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center w-full max-w-md md:max-w-lg mx-auto bg-white/90 backdrop-blur-sm rounded-3xl border border-gray-100 shadow-sm p-6 mb-32">
+                <div className="text-4xl mb-2">🎉</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-1">
+                  Gratulerer!
+                </h2>
+                <p className="text-gray-600 mb-3">
+                  Du har fullført alle oppgavene i dette faget.
+                </p>
+                <button
+                  onClick={() => router.push("/")}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+                >
+                  Tilbake til hjemme
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {tasks.map((task) => (
+                  <div key={task.id} className="w-full h-full">
+                    <TaskCard
+                      task={task}
+                      onComplete={() => handleTaskComplete(task)}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
 
       {/* Completion Modal */}
       <CompletionModal

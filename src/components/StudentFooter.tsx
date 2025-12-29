@@ -28,9 +28,9 @@ export default function StudentFooter({
   }, []);
 
   const safeProgress = Math.max(0, Math.min(100, progressPercent));
-  
+
   // Juster denne for å sentrere avataren nøyaktig på prosent-streken
-  const avatarOffset = `calc(${safeProgress}% - 0.75rem)`; 
+  const avatarOffset = `calc(${safeProgress}% - 0.75rem)`;
 
   return (
     <motion.div
@@ -40,16 +40,18 @@ export default function StudentFooter({
       className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"
     >
       <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
-        
         {/* Gamified Progress Section */}
-        <div className="flex-1 pb-1"> {/* pb-1 to make space for avatar shadow if needed */}
+        <div className="flex-1 pb-1">
+          {" "}
+          {/* pb-1 to make space for avatar shadow if needed */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-700 tracking-wide">
               LEVEL {level}
             </span>
-            <span className="text-xs font-medium text-gray-500">{safeProgress}%</span>
+            <span className="text-xs font-medium text-gray-500">
+              {safeProgress}%
+            </span>
           </div>
-
           <div className="relative h-3 w-full">
             {/* Background Track */}
             <div className="absolute inset-0 bg-gray-200 rounded-full overflow-hidden">
@@ -59,7 +61,7 @@ export default function StudentFooter({
                 style={{ width: `${safeProgress}%` }}
               />
             </div>
-            
+
             {/* Avatar marker - Positioned absolute relative to the bar container */}
             <motion.div
               className="absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center select-none"
@@ -89,11 +91,13 @@ export default function StudentFooter({
                 : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 hover:border-gray-300"
             }`}
         >
-          <Timer 
-            className={`h-6 w-6 transition-transform duration-300 ${toolEnabled ? "scale-110" : "scale-100"}`} 
+          <Timer
+            className={`h-6 w-6 transition-transform duration-300 ${
+              toolEnabled ? "scale-110" : "scale-100"
+            }`}
             strokeWidth={toolEnabled ? 2.5 : 2}
           />
-          
+
           {/* Optional: Small indicator dot for extra clarity */}
           {toolEnabled && (
             <span className="absolute top-0 right-0 h-3 w-3 bg-indigo-500 border-2 border-white rounded-full shadow-sm animate-pulse" />
