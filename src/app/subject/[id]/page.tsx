@@ -268,7 +268,7 @@ export default function SubjectDetailPage() {
         points_earned: totalPoints,
         flowers_collected: profile.flowers_collected + 1,
       };
-      
+
       // Check if user is breaking a NEW record (anti-exploit: check against highest_level_reached)
       if (calculatedLevel > highestLevelReached) {
         // New level record achieved!
