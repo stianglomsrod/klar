@@ -132,10 +132,8 @@ export default function SubjectDetailPage() {
           (profileData.highest_level_reached === null ||
             profileData.highest_level_reached === undefined)
         ) {
-          const baseline = Math.max(
-            Math.floor((profileData.points_earned || 0) / 100),
-            profileData.level || 0
-          );
+          // Use the current level as the baseline for highest_level_reached
+          const baseline = profileData.level || 1;
           try {
             await supabase
               .from("profiles")
@@ -144,6 +142,8 @@ export default function SubjectDetailPage() {
             profileData.highest_level_reached = baseline;
           } catch (e) {
             console.warn("Kunne ikke oppdatere highest_level_reached:", e);
+            // Ensure it's set in local state even if DB update fails
+            profileData.highest_level_reached = baseline;
           }
         }
         setProfile(profileData);
@@ -259,24 +259,29 @@ export default function SubjectDetailPage() {
       // 2. Calculate new points and check for level up (against high water mark)
       const currentPoints = profile.points_earned;
       const totalPoints = currentPoints + task.points_value;
-      const currentLevel = profile.level;
-      const highestLevelReached = profile.highest_level_reached || currentLevel; // fallback for legacy data
+      const currentLevel = profile.level ?? 1;
+      // Ensure highest_level_reached has a valid value - default to 1 if missing
+      const highestLevelReached = profile.highest_level_reached ?? 1;
       const calculatedLevel = Math.floor(totalPoints / 100);
+
+      // Determine if this is a new level record
+      const isNewLevelRecord = calculatedLevel > highestLevelReached;
+
+      console.log(
+        `Level up check: currentLevel=${currentLevel}, highestLevelReached=${highestLevelReached}, calculatedLevel=${calculatedLevel}, isNewRecord=${isNewLevelRecord}`
+      );
 
       // 3. Update user profile - increment points and flowers
       const profileUpdates: any = {
         points_earned: totalPoints,
         flowers_collected: profile.flowers_collected + 1,
+        level: calculatedLevel, // ALWAYS update level to match calculated level based on points
       };
 
       // Check if user is breaking a NEW record (anti-exploit: check against highest_level_reached)
-      if (calculatedLevel > highestLevelReached) {
+      if (isNewLevelRecord) {
         // New level record achieved!
-        profileUpdates.level = calculatedLevel;
         profileUpdates.highest_level_reached = calculatedLevel;
-      } else if (calculatedLevel > currentLevel) {
-        // Regaining a previously reached level (no confetti, just update level)
-        profileUpdates.level = calculatedLevel;
       }
 
       const { error: profileError } = await supabase
@@ -285,6 +290,26 @@ export default function SubjectDetailPage() {
         .eq("id", profile.id);
 
       if (profileError) throw profileError;
+
+      // CRITICAL: Fetch fresh profile from DB to ensure we have accurate points_earned and level
+      const { data: freshProfile, error: freshError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", profile.id)
+        .single();
+
+      if (freshError) {
+        console.warn(
+          "Could not fetch fresh profile, using optimistic values:",
+          freshError
+        );
+      } else if (freshProfile) {
+        console.log(
+          `Fresh profile from DB: level=${freshProfile.level}, points_earned=${freshProfile.points_earned}, highest_level_reached=${freshProfile.highest_level_reached}`
+        );
+        // Use the fresh data from database - this is authoritative
+        setProfile(freshProfile);
+      }
 
       // 4. Optimistic update: move task from active to completed list
       const completedTask = tasks.find((t) => t.id === selectedTaskId);
@@ -296,25 +321,6 @@ export default function SubjectDetailPage() {
         ]);
       }
 
-      // Update local profile state
-      setProfile((prevProfile) =>
-        prevProfile
-          ? {
-              ...prevProfile,
-              points_earned: totalPoints,
-              flowers_collected: prevProfile.flowers_collected + 1,
-              level:
-                calculatedLevel > currentLevel
-                  ? calculatedLevel
-                  : prevProfile.level,
-              highest_level_reached:
-                calculatedLevel > highestLevelReached
-                  ? calculatedLevel
-                  : prevProfile.highest_level_reached,
-            }
-          : null
-      );
-
       // Play success sound
       playSuccessSound();
 
@@ -322,13 +328,30 @@ export default function SubjectDetailPage() {
       setIsModalOpen(false);
       setSelectedTaskId(null);
 
-      // 5. Show level up modal ONLY if breaking a NEW record (high water mark)
-      if (calculatedLevel > highestLevelReached) {
-        setNewLevel(calculatedLevel);
+      // 5. Show level up modal - Check fresh profile data
+      // If we got fresh data, use it; otherwise fall back to calculated values
+      const finalProfile = freshProfile || profile;
+      // Use nullish coalescing to handle 0 as a valid level (don't convert 0 to 1!)
+      const freshHighestLevel = finalProfile.highest_level_reached ?? 1;
+      const freshLevel = finalProfile.level ?? 1;
+      const previousLevel = profile.level ?? 1;
+
+      console.log(
+        `Modal check: Previous level=${previousLevel}, Fresh level=${freshLevel}, Fresh highest=${freshHighestLevel}`
+      );
+
+      // The authoritative check: did the level in the database increase?
+      const levelIncreased = freshLevel > previousLevel;
+
+      // Only show the modal if this is a TRUE level increase from the fresh DB data
+      if (levelIncreased) {
+        console.log(`Showing level up modal for level ${freshLevel}`);
+        setNewLevel(freshLevel);
         setShowLevelUpModal(true);
       } else {
-        // Regaining a level: no confetti, just log it
-        console.log("Welcome back to level " + calculatedLevel);
+        console.log(
+          `No level increase. Previous: ${previousLevel}, Fresh: ${freshLevel}`
+        );
       }
     } catch (error) {
       console.error("Feil ved fullføring av oppgave:", error);

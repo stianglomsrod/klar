@@ -50,7 +50,11 @@ export default function FlowerPot({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center cursor-none [&_*]:cursor-none">
+    <div
+      className={`flex flex-col items-center justify-center ${
+        isInteractive ? "cursor-none [&_*]:cursor-none" : "cursor-default"
+      }`}
+    >
       <motion.div
         animate={isAnimatingSuccess ? { scale: [1, 1.08, 1] } : {}}
         transition={
@@ -63,7 +67,10 @@ export default function FlowerPot({
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
-          style={{ cursor: "none", pointerEvents: "auto" }}
+          style={{
+            cursor: isInteractive ? "none" : "default",
+            pointerEvents: "auto",
+          }}
         >
           {/* Layer 1: Stem (background) */}
           <line
@@ -132,7 +139,7 @@ export default function FlowerPot({
                   }}
                   style={{
                     pointerEvents: isAnimatingSuccess ? "none" : "auto",
-                    cursor: "none",
+                    cursor: isInteractive ? "none" : "default",
                   }}
                   // Base placement: translate to flower center and rotate to petal angle
                   transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
