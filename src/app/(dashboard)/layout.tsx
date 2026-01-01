@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Menu, X, GraduationCap } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 
-export default function TeacherLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
