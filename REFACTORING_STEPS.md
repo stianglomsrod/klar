@@ -11,16 +11,19 @@
 ## What You Need to Do Manually in VS Code
 
 ### Step 1: Move the teacher folder
-- Cut: `src/app/teacher/` 
+
+- Cut: `src/app/teacher/`
 - Paste into: `src/app/(dashboard)/teacher/`
 - Result: `src/app/(dashboard)/teacher/`
 
 ### Step 2: Move the student folder (if it exists)
+
 - Cut: `src/app/student/` (if this folder exists)
 - Paste into: `src/app/(dashboard)/student/`
 - Result: `src/app/(dashboard)/student/`
 
 ### Step 3: Delete old locations (if empty)
+
 - Delete: `src/app/teacher/` (if it's now empty)
 - Delete: `src/app/student/` (if it's now empty)
 - Delete: `src/app/login/` (we've moved this to (auth))
@@ -51,12 +54,14 @@ src/app/
 
 ## How It Works
 
-1. **User visits `/login`** 
+1. **User visits `/login`**
+
    - Loaded by root layout (minimal)
    - Loaded by (auth) layout (clean wrapper)
    - Login page renders without sidebar/footer ✓
 
 2. **User logs in as teacher/student**
+
    - Redirects to `/dashboard/teacher` or `/dashboard/student`
    - Loaded by root layout (minimal)
    - Loaded by (dashboard) layout (with sidebar + mobile menu)
@@ -70,12 +75,14 @@ src/app/
 ## Important: URL Fix Needed
 
 ⚠️ The login page currently redirects to `/dashboard/teacher`, but since (dashboard) is a route group, the actual URL is `/teacher`. The redirect needs to be:
+
 - `/teacher` (not `/dashboard/teacher`)
 - `/student` (not `/dashboard/student`)
 
 But you're already at those paths if teacher/student are inside (dashboard)!
 
 Actually, let me clarify: When you move teacher and student folders into (dashboard), the route group makes them appear at `/teacher` and `/student` in the URL bar, but internally they're organized in (dashboard). The login redirect should be:
+
 - `router.push("/teacher")`
 - `router.push("/student")`
 
@@ -84,6 +91,7 @@ The login file has already been updated with these correct paths in the (auth) v
 ## Summary
 
 After you move the folders as described above:
+
 - ✅ Login page will be clean (no sidebar/footer)
 - ✅ Dashboard pages will have full sidebar and mobile menu
 - ✅ All URLs remain clean (route groups are invisible)

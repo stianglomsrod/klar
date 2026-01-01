@@ -10,16 +10,19 @@
 ## Next Steps - Folder Moves (Do in VS Code)
 
 ### Manual Step 1: Move teacher folder
+
 ```
 MOVE: src/app/teacher/ → src/app/(dashboard)/teacher/
 ```
 
 ### Manual Step 2: Move student folder (if exists)
+
 ```
 MOVE: src/app/student/ → src/app/(dashboard)/student/
 ```
 
 ### Manual Step 3: Delete old login folder
+
 ```
 DELETE: src/app/login/ (we've moved this to (auth))
 ```
@@ -43,11 +46,11 @@ After moving the folders, verify:
 
 ## Updated URLs After Refactoring
 
-| Page | URL | Layout |
-|------|-----|--------|
-| Login | `/login` | Root + (auth) → clean ✓ |
+| Page              | URL        | Layout                         |
+| ----------------- | ---------- | ------------------------------ |
+| Login             | `/login`   | Root + (auth) → clean ✓        |
 | Teacher Dashboard | `/teacher` | Root + (dashboard) + sidebar ✓ |
-| Student Dashboard | `/student` | Root + (dashboard) + layout ✓ |
+| Student Dashboard | `/student` | Root + (dashboard) + layout ✓  |
 
 ---
 
