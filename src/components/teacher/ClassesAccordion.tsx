@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import {
   ChevronDown,
@@ -44,6 +45,7 @@ type DropdownPosition = {
 export default function ClassesAccordion({
   onStudentClick,
 }: ClassesAccordionProps) {
+  const router = useRouter();
   const [trinnGroups, setTrinnGroups] = useState<Trinn[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTrinn, setExpandedTrinn] = useState<Set<string>>(new Set());
@@ -53,6 +55,7 @@ export default function ClassesAccordion({
   const [openMenu, setOpenMenu] = useState<{
     type: "trinn" | "class" | "student";
     id: string;
+    student?: Student;
     position: DropdownPosition;
   } | null>(null);
 
@@ -170,18 +173,20 @@ export default function ClassesAccordion({
   const handleMenuClick = (
     e: React.MouseEvent,
     type: "trinn" | "class" | "student",
-    id: string
+    id: string,
+    student?: Student
   ) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     setOpenMenu({
       type,
       id,
+      student,
       position: { x: rect.right - 200, y: rect.bottom + 5 },
     });
   };
 
-  const handleMenuAction = (action: string, id: string) => {
+  const handleMenuAction = (action: string, id: string, student?: Student) => {
     setOpenMenu(null);
 
     switch (action) {
@@ -201,7 +206,12 @@ export default function ClassesAccordion({
         console.log("Edit class name", id);
         break;
       case "view-profile":
-        console.log("View student profile", id);
+        router.push(`/teacher/students/${id}`);
+        break;
+      case "edit-student":
+        if (student && onStudentClick) {
+          onStudentClick(student);
+        }
         break;
       case "move-student":
         console.log("Move student", id);
@@ -343,12 +353,13 @@ export default function ClassesAccordion({
                                 cls.students.map((student) => (
                                   <div
                                     key={student.id}
-                                    className="w-full px-4 py-2 pl-20 flex items-center gap-3 hover:bg-slate-50 transition-colors"
+                                    className="w-full px-4 py-2 pl-20 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer"
                                   >
                                     <button
                                       onClick={() =>
-                                        onStudentClick &&
-                                        onStudentClick(student)
+                                        router.push(
+                                          `/teacher/students/${student.id}`
+                                        )
                                       }
                                       className="flex-1 flex items-center gap-3 text-left"
                                     >
@@ -386,13 +397,15 @@ export default function ClassesAccordion({
                                       </div>
                                     </button>
                                     <button
-                                      onClick={(e) =>
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         handleMenuClick(
                                           e,
                                           "student",
-                                          student.id
-                                        )
-                                      }
+                                          student.id,
+                                          student
+                                        );
+                                      }}
                                       className="ml-2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
                                       title="More actions"
                                     >
@@ -468,6 +481,18 @@ export default function ClassesAccordion({
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
                 View Profile
+              </button>
+              <button
+                onClick={() =>
+                  handleMenuAction(
+                    "edit-student",
+                    openMenu.id,
+                    openMenu.student
+                  )
+                }
+                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Rediger
               </button>
               <button
                 onClick={() => handleMenuAction("move-student", openMenu.id)}
