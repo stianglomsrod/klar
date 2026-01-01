@@ -230,7 +230,7 @@ export default function StudentTable({
     [handleMenuClick]
   );
 
-  // @ts-expect-error - TanStack Table's useReactTable returns functions that cannot be memoized
+  // eslint-disable-next-line react-compiler/react-compiler
   const table = useReactTable({
     data: students,
     columns,

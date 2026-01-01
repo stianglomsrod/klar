@@ -85,7 +85,7 @@ export default function EditStudentSheet({
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold flex-shrink-0">
                   {student.avatar_url ? (
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={student.avatar_url}
                       alt={student.full_name}
