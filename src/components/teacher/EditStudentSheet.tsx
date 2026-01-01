@@ -94,12 +94,17 @@ export default function EditStudentSheet({
                     student.full_name.charAt(0).toUpperCase()
                   )}
                 </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {student.full_name}
-                  </h2>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-slate-900">
+                      {student.full_name}
+                    </h2>
+                    <span className="px-2 py-1 text-xs font-semibold text-indigo-700 bg-indigo-100 rounded-full">
+                      Nivå {student.level}
+                    </span>
+                  </div>
                   <p className="text-sm text-slate-600">
-                    {student.class_name || "Ingen klasse"} • Lvl {student.level}
+                    {student.class_name || "Ingen klasse"}
                   </p>
                 </div>
               </div>
@@ -176,33 +181,6 @@ export default function EditStudentSheet({
                     stå tomt for å bruke systemets standardmelding.
                   </p>
                 </div>
-              </div>
-
-              {/* Info Section */}
-              <div className="pt-4 border-t border-slate-200">
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">
-                  Elevinfo
-                </h3>
-                <dl className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <dt className="text-slate-600">Elev-ID:</dt>
-                    <dd className="text-slate-900 font-mono text-xs">
-                      {student.id.slice(0, 8)}...
-                    </dd>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <dt className="text-slate-600">Klasse:</dt>
-                    <dd className="text-slate-900 font-medium">
-                      {student.class_name || "Ikke tildelt"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <dt className="text-slate-600">Nivå:</dt>
-                    <dd className="text-slate-900 font-medium">
-                      Level {student.level}
-                    </dd>
-                  </div>
-                </dl>
               </div>
             </div>
 
