@@ -25,6 +25,14 @@ export default function FlowerPot({
   setHoveredPetalIndex,
   isAnimatingSuccess = false,
 }: FlowerPotProps) {
+  console.log(
+    "FlowerPot received colors:",
+    colors,
+    "isInteractive:",
+    isInteractive,
+    "hasPaint:",
+    hasPaint
+  );
   const center = size / 2;
   const flowerCenter = center - size * 0.05; // Position flower higher
   const petalLength = size * 0.26;
@@ -121,29 +129,73 @@ export default function FlowerPot({
               const hasExplicitColor = Boolean(
                 explicitColor &&
                   explicitColor.trim &&
-                  explicitColor.trim().length > 0
+                  explicitColor.trim().length > 0 &&
+                  explicitColor.trim() !== "#E0E0E0"
               );
               const petalColor = hasExplicitColor ? explicitColor : "#E5E7EB";
               const isPaintable =
                 isInteractive && hasPaint && !hasExplicitColor;
               const isHovered = hoveredPetalIndex === petal.index;
 
+              if (petal.index === 0) {
+                console.log(
+                  `Petal 0 - explicitColor: "${explicitColor}", hasExplicitColor: ${hasExplicitColor}, isPaintable: ${isPaintable}, petalColor: ${petalColor}`
+                );
+              }
+
               return (
-                <motion.g
+                <g
                   key={`petal-${petal.index}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{
-                    delay: petal.index * 0.1,
-                    duration: 0.4,
+                  transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
+                  onMouseEnter={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(petal.index);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(null);
+                    }
+                  }}
+                  onTouchStart={() => {
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(petal.index);
+                    }
+                  }}
+                  onTouchEnd={() => {
+                    if (isPaintable && onPetalClick) {
+                      console.log(
+                        `Petal ${petal.index} clicked via touchEnd, isPaintable=${isPaintable}`
+                      );
+                      onPetalClick(petal.index);
+                    }
+                    if (isPaintable && setHoveredPetalIndex) {
+                      setHoveredPetalIndex(null);
+                    }
                   }}
                   style={{
                     pointerEvents: isAnimatingSuccess ? "none" : "auto",
                     cursor: isInteractive ? "none" : "default",
                   }}
-                  // Base placement: translate to flower center and rotate to petal angle
-                  transform={`translate(${center}, ${flowerCenter}) rotate(${petal.angle})`}
                 >
+                  {/* Invisible clickable overlay for better hit detection */}
+                  <rect
+                    x={-petalWidth * 0.5}
+                    y={0}
+                    width={petalWidth}
+                    height={petalLength}
+                    fill="transparent"
+                    style={{ pointerEvents: isPaintable ? "auto" : "none" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isPaintable && onPetalClick) {
+                        console.log(
+                          `Petal ${petal.index} clicked via rect, isPaintable=${isPaintable}`
+                        );
+                        onPetalClick(petal.index);
+                      }
+                    }}
+                  />
                   {/* Main petal */}
                   <motion.path
                     d={createTeardropPetal()}
@@ -151,52 +203,27 @@ export default function FlowerPot({
                     stroke={hasExplicitColor ? "none" : "#9CA3AF"}
                     strokeWidth={hasExplicitColor ? 0 : 2}
                     strokeDasharray={hasExplicitColor ? "none" : "5,3"}
-                    opacity={hasExplicitColor ? 1 : 0.6}
-                    onClick={() => {
-                      if (hasPaint && isPaintable && onPetalClick) {
-                        onPetalClick(petal.index);
-                      }
-                    }}
-                    onMouseEnter={() => {
-                      if (isPaintable && setHoveredPetalIndex) {
-                        setHoveredPetalIndex(petal.index);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (isPaintable && setHoveredPetalIndex) {
-                        setHoveredPetalIndex(null);
-                      }
-                    }}
-                    onTouchStart={() => {
-                      if (isPaintable && setHoveredPetalIndex) {
-                        setHoveredPetalIndex(petal.index);
-                      }
-                    }}
-                    onTouchEnd={() => {
-                      if (hasPaint && isPaintable && onPetalClick) {
-                        onPetalClick(petal.index);
-                      }
-                      if (isPaintable && setHoveredPetalIndex) {
-                        setHoveredPetalIndex(null);
-                      }
-                    }}
-                    whileHover={
-                      isPaintable && !isAnimatingSuccess
+                    opacity={hasExplicitColor ? 1 : isHovered ? 0.9 : 0.4}
+                    animate={
+                      isHovered && isPaintable && !isAnimatingSuccess
                         ? {
-                            scale: 1.1,
+                            scale: 1.15,
                             filter:
-                              "drop-shadow(0px 0px 12px rgba(255, 255, 255, 0.95))",
-                            transition: { duration: 0.15 },
+                              "drop-shadow(0px 0px 16px rgba(255, 255, 255, 1))",
                           }
-                        : {}
+                        : {
+                            scale: 1,
+                            filter: "none",
+                          }
                     }
-                    animate={{ scale: 1, filter: "none" }}
+                    transition={{ duration: 0.2 }}
                     style={{
-                      pointerEvents: isAnimatingSuccess ? "none" : "auto",
+                      pointerEvents: "none",
+                      cursor: "none",
                     }}
                     className="[transform-box:fill-box] [transform-origin:center]"
                   />
-                </motion.g>
+                </g>
               );
             })}
           </g>

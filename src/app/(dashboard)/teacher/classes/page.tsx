@@ -37,14 +37,38 @@ export default function ClassesPage() {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, avatar_url, level, class_name, class_id, show_flower_garden, custom_welcome_message"
+          `
+          id, 
+          full_name, 
+          avatar_url, 
+          student_profiles (
+            level,
+            show_flower_garden,
+            custom_welcome_message
+          )
+          `
         )
         .eq("role", "student")
         .order("full_name", { ascending: true });
 
       if (error) throw error;
-      setStudents(data || []);
-      setFilteredStudents(data || []);
+
+      // Transform data to match Student type
+      const transformedData = (data || []).map((profile: any) => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
+        level: profile.student_profiles?.level ?? 1,
+        class_name: null, // Note: class relationship not in current query
+        class_id: null,
+        show_flower_garden:
+          profile.student_profiles?.show_flower_garden ?? true,
+        custom_welcome_message:
+          profile.student_profiles?.custom_welcome_message ?? null,
+      }));
+
+      setStudents(transformedData);
+      setFilteredStudents(transformedData);
     } catch (error) {
       console.error("Error fetching students:", error);
     } finally {
@@ -104,7 +128,7 @@ export default function ClassesPage() {
   ) => {
     try {
       const { error } = await supabase
-        .from("profiles")
+        .from("student_profiles")
         .update(updates)
         .eq("id", studentId);
 

@@ -1,16 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import FlowerPot from "@/components/FlowerPot";
-
-type Profile = {
-  petals_progress: number;
-  flowers_collected: number;
-  petal_colors?: string[] | null;
-};
+import { useStudentProfile } from "@/contexts/StudentProfileContext";
 
 const defaultColors = ["#FF69B4", "#FFA500", "#FFD700", "#FF6B6B", "#4ECDC4"];
 const gardenPalettes = [
@@ -20,35 +14,7 @@ const gardenPalettes = [
 ];
 
 export default function GardenPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .limit(1)
-          .single();
-
-        if (error) throw error;
-        setProfile(profileData);
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        setProfile({
-          petals_progress: 0,
-          flowers_collected: 0,
-          petal_colors: defaultColors,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [supabase]);
+  const { profile, loading } = useStudentProfile();
 
   const petalsFilled = Math.max(0, Math.min(5, profile?.petals_progress ?? 0));
   const petalColors = useMemo(() => {
@@ -63,6 +29,29 @@ export default function GardenPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-600">Laster inn belønninger...</p>
+      </div>
+    );
+  }
+
+  // Check if garden is enabled
+  if (!profile?.show_flower_garden) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">
+            Blomsterhagen er ikke aktivert
+          </h1>
+          <p className="text-gray-600 mb-8">
+            Be læreren din om å aktivere blomsterhagen for deg.
+          </p>
+          <Link
+            href="/belonninger"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Tilbake til Belønninger
+          </Link>
+        </div>
       </div>
     );
   }
@@ -160,21 +149,20 @@ export default function GardenPage() {
                     <div className="grid grid-cols-3 gap-2">
                       {Array.from({
                         length: Math.min(3, profile.flowers_collected),
-                      }).map((_, index) => (
-                        <div key={index} className="flex justify-center">
-                          <FlowerPot
-                            petalsFilled={5}
-                            colors={[
-                              "#FFD700",
-                              "#FF69B4",
-                              "#87CEEB",
-                              "#FFA500",
-                              "#90EE90",
-                            ]}
-                            size={60}
-                          />
-                        </div>
-                      ))}
+                      }).map((_, index) => {
+                        const palette =
+                          gardenPalettes[index % gardenPalettes.length];
+                        return (
+                          <div key={index} className="flex justify-center">
+                            <FlowerPot
+                              petalsFilled={5}
+                              colors={palette}
+                              size={60}
+                              isInteractive={false}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-xs text-gray-600 italic">
@@ -204,7 +192,12 @@ export default function GardenPage() {
                   const palette = gardenPalettes[index % gardenPalettes.length];
                   return (
                     <div key={index} className="flex justify-center">
-                      <FlowerPot petalsFilled={5} colors={palette} size={140} />
+                      <FlowerPot
+                        petalsFilled={5}
+                        colors={palette}
+                        size={140}
+                        isInteractive={false}
+                      />
                     </div>
                   );
                 }

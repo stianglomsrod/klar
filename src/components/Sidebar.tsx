@@ -10,7 +10,7 @@ type SidebarProps = {
   onClose?: () => void;
   // Nye props for å matche footer:
   level?: number;
-  progressPercent?: number; 
+  progressPercent?: number;
   avatar?: string;
 };
 
@@ -110,13 +110,21 @@ export default function Sidebar({
             {/* Bottom Progress Card (Nå synkronisert med footer!) */}
             <div className="absolute bottom-6 left-6 right-6">
               <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl text-center border border-indigo-100">
-                <span className="text-3xl block mb-1">{avatar}</span>
+                {avatar && avatar.startsWith("http") ? (
+                  <img
+                    src={avatar}
+                    alt="Avatar"
+                    className="w-12 h-12 rounded-full mx-auto mb-1 object-cover border-2 border-indigo-200"
+                  />
+                ) : (
+                  <span className="text-3xl block mb-1">{avatar}</span>
+                )}
                 <p className="text-sm text-gray-600 mt-1 font-semibold">
                   Nivå {level}
                 </p>
                 <div className="w-full bg-gray-200 h-2.5 rounded-full mt-3 overflow-hidden">
-                  <div 
-                    className="bg-green-500 h-full rounded-full transition-all duration-500" 
+                  <div
+                    className="bg-green-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${safeProgress}%` }}
                   ></div>
                 </div>

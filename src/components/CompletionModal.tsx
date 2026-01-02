@@ -16,7 +16,7 @@ export default function CompletionModal({
 }: CompletionModalProps) {
   const handleConfirm = () => {
     // Play success sound (placeholder)
-    const audio = new Audio("/sounds/success.mp3");
+    const audio = new Audio("/sounds/pling.mp3");
     audio.play().catch(() => {});
     onConfirm();
   };

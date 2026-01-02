@@ -4,16 +4,16 @@ import Navigation from "@/components/Navigation";
 import StudentFooterWrapper from "@/components/StudentFooterWrapper";
 import { StudentProfileProvider } from "@/contexts/StudentProfileContext";
 
-export default function StudentLayout({
+export default function SubjectLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <StudentProfileProvider>
-      <div className="flex flex-col min-h-screen">
+      <div className="min-h-screen">
         <Navigation />
-        <main className="flex-1 pt-16">{children}</main>
+        <div className="pt-16 pb-24">{children}</div>
         <StudentFooterWrapper />
       </div>
     </StudentProfileProvider>

@@ -51,7 +51,7 @@ export default function LevelUpModal({
   );
   const [isAnimatingSuccess, setIsAnimatingSuccess] = useState<boolean>(false);
   const normalizeColors = (arr: string[]) =>
-    Array.from({ length: 5 }, (_, i) => arr[i] || "");
+    Array.from({ length: 5 }, (_, i) => arr[i] || "#E0E0E0");
   const [modalColors, setModalColors] = useState<string[]>(
     normalizeColors(existingColors)
   );
@@ -91,7 +91,7 @@ export default function LevelUpModal({
     setIsAnimatingSuccess(true);
     // Optional success sound
     try {
-      const audio = new Audio("/sounds/success.mp3");
+      const audio = new Audio("/sounds/pling.mp3");
       audio.play().catch(() => {});
     } catch {}
     // Delay closing to let the pulse animation play
@@ -103,9 +103,10 @@ export default function LevelUpModal({
 
   const handleDipBrush = (color: string) => {
     setSelectedColor(color);
-    // Play confirmation animation
+    // Play confirmation sound
     try {
-      const audio = new Audio("/sounds/dip.mp3");
+      const audio = new Audio("/sounds/pling.mp3");
+      audio.volume = 0.5;
       audio.play().catch(() => {});
     } catch (e) {
       // Ignore audio errors
@@ -276,6 +277,12 @@ export default function LevelUpModal({
                 transition={{ delay: 0.2 }}
                 className="flex justify-center"
               >
+                {console.log("FlowerPot props:", {
+                  modalColors,
+                  selectedColor,
+                  isInteractive: true,
+                  hasPaint: !!selectedColor,
+                })}
                 <FlowerPot
                   size={280}
                   petalsFilled={

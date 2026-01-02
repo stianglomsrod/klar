@@ -1,9 +1,9 @@
 "use client";
 
-import { createClient } from "@/utils/supabase/client";
 import WelcomeOverlay from "@/components/WelcomeOverlay";
 import SubjectCard from "@/components/SubjectCard";
 import { useEffect, useState } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 // Definer typene vi får fra databasen
 type Task = {
@@ -19,38 +19,20 @@ type Subject = {
   tasks: Task[];
 };
 
-type Profile = {
-  id: string;
-  level: number;
-  points_earned: number;
-  current_avatar: string;
-  petals_progress: number;
-  flowers_collected: number;
-};
-
 export default function StudentPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(() => {
+    // Initialize from localStorage to avoid hydration mismatch
+    if (typeof window !== "undefined") {
+      return !localStorage.getItem("welcomeSeen");
+    }
+    return false;
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       const supabase = createClient();
-
-      // Fetch user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .limit(1)
-        .single();
-
-      if (profileError) {
-        console.error("Feil ved henting av profil:", profileError);
-        // Use default values if no profile exists
-      } else {
-        setProfile(profileData);
-      }
 
       // Fetch subjects with all tasks
       const { data: subjectsData, error: subjectsError } = await supabase.from(
@@ -70,15 +52,6 @@ export default function StudentPage() {
     };
 
     fetchData();
-  }, []);
-
-  // Only show welcome overlay on first login (until dismissed)
-  useEffect(() => {
-    const seen =
-      typeof window !== "undefined" ? localStorage.getItem("welcomeSeen") : "1";
-    if (!seen) {
-      setShowWelcome(true);
-    }
   }, []);
 
   return (

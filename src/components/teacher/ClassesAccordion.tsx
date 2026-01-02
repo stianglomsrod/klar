@@ -125,21 +125,42 @@ export default function ClassesAccordion({
 
       if (classesError) throw classesError;
 
-      // Fetch all students
+      // Fetch all students with their student_profiles and classes
       const { data: studentsData, error: studentsError } = await supabase
         .from("profiles")
         .select(
-          "id, full_name, avatar_url, level, show_flower_garden, class_id, class_name"
+          `
+          id, 
+          full_name, 
+          avatar_url, 
+          student_profiles (
+            level,
+            class_id,
+            show_flower_garden
+          )
+          `
         )
         .eq("role", "student")
         .order("full_name", { ascending: true });
 
       if (studentsError) throw studentsError;
 
+      // Transform students data to include class_id from student_profiles
+      const transformedStudents = (studentsData || []).map((profile: any) => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
+        level: profile.student_profiles?.level ?? 1,
+        show_flower_garden:
+          profile.student_profiles?.show_flower_garden ?? true,
+        class_id: profile.student_profiles?.class_id ?? null,
+        class_name: null, // Will be populated from classes data
+      }));
+
       // Group classes by trinn dynamically
       const trinnGroups = groupClassesByTrinn(
         classesData || [],
-        studentsData || []
+        transformedStudents
       );
 
       setTrinnGroups(trinnGroups);

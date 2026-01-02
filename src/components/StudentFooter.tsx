@@ -71,9 +71,19 @@ export default function StudentFooter({
               transition={{ type: "spring", stiffness: 100, damping: 15 }}
             >
               <div className="relative">
-                <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block">
-                  {avatar}
-                </span>
+                {avatar && avatar.startsWith("http") ? (
+                  // Avatar is a URL (image)
+                  <img
+                    src={avatar}
+                    alt="User avatar"
+                    className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover"
+                  />
+                ) : (
+                  // Avatar is an emoji
+                  <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block">
+                    {avatar}
+                  </span>
+                )}
               </div>
             </motion.div>
           </div>

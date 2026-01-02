@@ -1,34 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
+import { useStudentProfile } from "@/contexts/StudentProfileContext";
 
-type NavigationProps = {
-  level?: number;
-  progressPercent?: number;
-  avatar?: string;
-};
-
-export default function Navigation({
-  level = 3,
-  progressPercent = 42,
-  avatar = "🦄",
-}: NavigationProps = {}) {
+export default function Navigation() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { profile, refresh } = useStudentProfile();
 
-  const isRootPage = pathname === "/";
+  // Expose refresh via window for subject page to call
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      (window as any).__refreshStudentProfile = refresh;
+      console.log("Refresh function registered on window");
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        delete (window as any).__refreshStudentProfile;
+      }
+    };
+  }, [refresh]);
+
+  const isRootPage = pathname === "/" || pathname === "/student";
+
+  // Use current_xp for progress bar (per-level accumulator)
+  const userLevel = profile?.level ?? 1;
+  const currentGoal = profile?.current_goal_total ?? 1000;
+  const currentXp = profile?.current_xp ?? 0;
+  const progressPercent = (currentXp / currentGoal) * 100;
+  const userAvatar = profile?.avatar_url || "🦄";
 
   return (
     <>
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        level={level}
+        level={userLevel}
         progressPercent={progressPercent}
-        avatar={avatar}
+        avatar={userAvatar}
       />
 
       {/* Native Header / Top App Bar */}
@@ -38,7 +50,7 @@ export default function Navigation({
           <div className="flex-shrink-0">
             {isRootPage ? (
               <button
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => setSidebarOpen((prev) => !prev)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-800"
                 aria-label="Åpne meny"
               >

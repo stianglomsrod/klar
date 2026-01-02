@@ -29,10 +29,11 @@ type Profile = {
   id: string;
   level: number;
   points_earned: number;
-  current_avatar: string;
+  current_goal_total: number;
+  current_xp: number;
   petals_progress: number;
   flowers_collected: number;
-  highest_level_reached?: number;
+  petal_colors: string[];
 };
 
 export default function SubjectDetailPage() {
@@ -116,37 +117,25 @@ export default function SubjectDetailPage() {
         setCompletedTasks(completedTasksData || []);
       }
 
-      // Fetch user profile
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .limit(1)
-        .single();
+      // Fetch user profile from student_profiles
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (profileError) {
-        console.error("Feil ved henting av profil:", profileError);
-      } else {
-        // Initialize high water mark if missing (legacy data)
-        if (
-          profileData &&
-          (profileData.highest_level_reached === null ||
-            profileData.highest_level_reached === undefined)
-        ) {
-          // Use the current level as the baseline for highest_level_reached
-          const baseline = profileData.level || 1;
-          try {
-            await supabase
-              .from("profiles")
-              .update({ highest_level_reached: baseline })
-              .eq("id", profileData.id);
-            profileData.highest_level_reached = baseline;
-          } catch (e) {
-            console.warn("Kunne ikke oppdatere highest_level_reached:", e);
-            // Ensure it's set in local state even if DB update fails
-            profileData.highest_level_reached = baseline;
-          }
+      if (user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("student_profiles")
+          .select(
+            "id, level, points_earned, current_goal_total, current_xp, petals_progress, flowers_collected, petal_colors"
+          )
+          .eq("id", user.id)
+          .single();
+
+        if (profileError && profileError.code !== "PGRST116") {
+          console.error("Feil ved henting av student profil:", profileError);
+        } else if (profileData) {
+          setProfile(profileData);
         }
-        setProfile(profileData);
       }
 
       setLoading(false);
@@ -195,20 +184,22 @@ export default function SubjectDetailPage() {
 
       if (updateError) throw updateError;
 
-      // 3. Update profile: decrement points (NO change to highest_level_reached)
+      // 3. Update profile: decrement points and current_xp
       if (profile) {
-        const newPoints = Math.max(
+        const newPointsEarned = Math.max(
           0,
           profile.points_earned - taskData.points_value
         );
-        const newLevel = Math.floor(newPoints / 100);
+        const newCurrentXp = Math.max(
+          0,
+          profile.current_xp - taskData.points_value
+        );
 
         const { error: profileError } = await supabase
-          .from("profiles")
+          .from("student_profiles")
           .update({
-            points_earned: newPoints,
-            level: newLevel,
-            // highest_level_reached is NOT updated - it stays at the peak
+            points_earned: newPointsEarned,
+            current_xp: newCurrentXp,
           })
           .eq("id", profile.id);
 
@@ -219,9 +210,8 @@ export default function SubjectDetailPage() {
           prevProfile
             ? {
                 ...prevProfile,
-                points_earned: newPoints,
-                level: newLevel,
-                // highest_level_reached remains unchanged
+                points_earned: newPointsEarned,
+                current_xp: newCurrentXp,
               }
             : null
         );
@@ -256,45 +246,41 @@ export default function SubjectDetailPage() {
 
       if (taskError) throw taskError;
 
-      // 2. Calculate new points and check for level up (against high water mark)
-      const currentPoints = profile.points_earned;
-      const totalPoints = currentPoints + task.points_value;
+      // 2. Calculate new points and current_xp, check for level up
+      const newPointsEarned = profile.points_earned + task.points_value;
+      const newCurrentXp = profile.current_xp + task.points_value;
       const currentLevel = profile.level ?? 1;
-      // Ensure highest_level_reached has a valid value - default to 1 if missing
-      const highestLevelReached = profile.highest_level_reached ?? 1;
-      const calculatedLevel = Math.floor(totalPoints / 100);
+      const goalTotal = profile.current_goal_total ?? 1000;
 
-      // Determine if this is a new level record
-      const isNewLevelRecord = calculatedLevel > highestLevelReached;
+      // Check if we've reached the level-up threshold
+      const shouldLevelUp = newCurrentXp >= goalTotal;
+      const newLevel = shouldLevelUp ? currentLevel + 1 : currentLevel;
+      const finalCurrentXp = shouldLevelUp ? 0 : newCurrentXp; // Reset current_xp on level-up
 
       console.log(
-        `Level up check: currentLevel=${currentLevel}, highestLevelReached=${highestLevelReached}, calculatedLevel=${calculatedLevel}, isNewRecord=${isNewLevelRecord}`
+        `Level up check: currentLevel=${currentLevel}, newCurrentXp=${newCurrentXp}, goalTotal=${goalTotal}, shouldLevelUp=${shouldLevelUp}`
       );
 
-      // 3. Update user profile - increment points and flowers
+      // 3. Update user profile in student_profiles
       const profileUpdates: any = {
-        points_earned: totalPoints,
-        flowers_collected: profile.flowers_collected + 1,
-        level: calculatedLevel, // ALWAYS update level to match calculated level based on points
+        points_earned: newPointsEarned,
+        current_xp: finalCurrentXp,
+        level: newLevel,
       };
 
-      // Check if user is breaking a NEW record (anti-exploit: check against highest_level_reached)
-      if (isNewLevelRecord) {
-        // New level record achieved!
-        profileUpdates.highest_level_reached = calculatedLevel;
-      }
-
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("student_profiles")
         .update(profileUpdates)
         .eq("id", profile.id);
 
       if (profileError) throw profileError;
 
-      // CRITICAL: Fetch fresh profile from DB to ensure we have accurate points_earned and level
+      // CRITICAL: Fetch fresh profile from DB to ensure we have accurate data
       const { data: freshProfile, error: freshError } = await supabase
-        .from("profiles")
-        .select("*")
+        .from("student_profiles")
+        .select(
+          "id, level, points_earned, current_goal_total, current_xp, petals_progress, flowers_collected, petal_colors"
+        )
         .eq("id", profile.id)
         .single();
 
@@ -328,16 +314,29 @@ export default function SubjectDetailPage() {
       setIsModalOpen(false);
       setSelectedTaskId(null);
 
-      // 5. Show level up modal - Check fresh profile data
-      // If we got fresh data, use it; otherwise fall back to calculated values
+      // Refresh student profile to update footer/navigation
+      console.log("Attempting to refresh student profile...");
+      if (
+        typeof window !== "undefined" &&
+        (window as any).__refreshStudentProfile
+      ) {
+        try {
+          await (window as any).__refreshStudentProfile();
+          console.log("Student profile refreshed successfully");
+        } catch (err) {
+          console.error("Failed to refresh profile:", err);
+        }
+      } else {
+        console.warn("Refresh function not available on window");
+      }
+
+      // 5. Show level up modal - Check if level increased
       const finalProfile = freshProfile || profile;
-      // Use nullish coalescing to handle 0 as a valid level (don't convert 0 to 1!)
-      const freshHighestLevel = finalProfile.highest_level_reached ?? 1;
       const freshLevel = finalProfile.level ?? 1;
       const previousLevel = profile.level ?? 1;
 
       console.log(
-        `Modal check: Previous level=${previousLevel}, Fresh level=${freshLevel}, Fresh highest=${freshHighestLevel}`
+        `Modal check: Previous level=${previousLevel}, Fresh level=${freshLevel}`
       );
 
       // The authoritative check: did the level in the database increase?
@@ -375,7 +374,7 @@ export default function SubjectDetailPage() {
         const currentColors = profile.petal_colors || [];
         const normalizedColors = Array.from(
           { length: 5 },
-          (_, i) => currentColors[i] || ""
+          (_, i) => currentColors[i] || "#E0E0E0"
         );
         const targetIndex =
           typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5
@@ -385,9 +384,9 @@ export default function SubjectDetailPage() {
         // Place color at the chosen index
         normalizedColors[targetIndex] = payload;
 
-        // Recalculate progress as count of non-empty colors
+        // Recalculate progress as count of non-grey colors (exclude #E0E0E0 which is the grey/empty marker)
         const newPetalsProgress = normalizedColors.filter(
-          (c) => c && c.trim().length > 0
+          (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0"
         ).length;
 
         // Check if flower is complete (5 petals)
@@ -404,7 +403,7 @@ export default function SubjectDetailPage() {
 
         // Update Supabase
         const { error } = await supabase
-          .from("profiles")
+          .from("student_profiles")
           .update(profileUpdates)
           .eq("id", profile.id);
 
@@ -426,7 +425,7 @@ export default function SubjectDetailPage() {
 
         // Play success sound (optional)
         try {
-          const audio = new Audio("/sounds/success.mp3");
+          const audio = new Audio("/sounds/pling.mp3");
           audio.play().catch(() => {});
         } catch (e) {
           // Ignore audio errors

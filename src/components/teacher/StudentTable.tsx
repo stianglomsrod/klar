@@ -230,7 +230,6 @@ export default function StudentTable({
     [handleMenuClick]
   );
 
-  // eslint-disable-next-line react-compiler/react-compiler
   const table = useReactTable({
     data: students,
     columns,
