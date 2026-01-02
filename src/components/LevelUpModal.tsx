@@ -323,77 +323,83 @@ export default function LevelUpModal({
                   style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                 >
                   <div className="flex gap-2 sm:gap-3 md:gap-6 px-4 sm:px-6 md:px-8 lg:px-10 py-3 md:py-4 min-w-min">
-                {/* Flower Reward - Only show if enabled */}
-                {showFlowerGarden && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.7 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => handleRewardSelect("petal")}
-                    className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-pink-100 to-purple-100 border-2 border-pink-300 hover:border-pink-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer"
-                  >
-                    <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">🌸</div>
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
-                      Fargelegg Kronblad
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      Velg en farge til blomsten din
-                    </p>
-                  </motion.button>
-                )}
+                    {/* Flower Reward - Only show if enabled */}
+                    {showFlowerGarden && (
+                      <motion.button
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.7 }}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => handleRewardSelect("petal")}
+                        className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-pink-100 to-purple-100 border-2 border-pink-300 hover:border-pink-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                      >
+                        <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
+                          🌸
+                        </div>
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
+                          Fargelegg Kronblad
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600">
+                          Velg en farge til blomsten din
+                        </p>
+                      </motion.button>
+                    )}
 
-                {/* Database Rewards */}
-                {loadingRewards ? (
-                  <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-gray-500 text-center text-sm sm:text-base"
-                    >
-                      Laster premier...
-                    </motion.div>
-                  </div>
-                ) : rewards.length === 0 && !showFlowerGarden ? (
-                  <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-gray-500 text-center text-sm sm:text-base"
-                    >
-                      Ingen premier tilgjengelig
-                    </motion.div>
-                  </div>
-                ) : (
-                  rewards.map((reward, index) => (
-                    <motion.button
-                      key={reward.id}
-                      initial={{ opacity: 0, y: 30 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{
-                        delay: 0.7 + (showFlowerGarden ? index * 0.1 : index * 0.1),
-                      }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleRewardSelect("database", reward.id)}
-                      disabled={savingReward}
-                      className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-300 hover:border-blue-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
-                        {savingReward ? "⏳" : reward.emoji || "🎁"}
+                    {/* Database Rewards */}
+                    {loadingRewards ? (
+                      <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-gray-500 text-center text-sm sm:text-base"
+                        >
+                          Laster premier...
+                        </motion.div>
                       </div>
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
-                        {reward.title}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        {savingReward
-                          ? "Lagrer premie..."
-                          : reward.description || "En fantastisk premie!"}
-                      </p>
-                    </motion.button>
-                  ))
-                )}
+                    ) : rewards.length === 0 && !showFlowerGarden ? (
+                      <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="text-gray-500 text-center text-sm sm:text-base"
+                        >
+                          Ingen premier tilgjengelig
+                        </motion.div>
+                      </div>
+                    ) : (
+                      rewards.map((reward, index) => (
+                        <motion.button
+                          key={reward.id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            delay:
+                              0.7 +
+                              (showFlowerGarden ? index * 0.1 : index * 0.1),
+                          }}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() =>
+                            handleRewardSelect("database", reward.id)
+                          }
+                          disabled={savingReward}
+                          className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-300 hover:border-blue-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
+                            {savingReward ? "⏳" : reward.emoji || "🎁"}
+                          </div>
+                          <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
+                            {reward.title}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-gray-600">
+                            {savingReward
+                              ? "Lagrer premie..."
+                              : reward.description || "En fantastisk premie!"}
+                          </p>
+                        </motion.button>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -429,7 +435,13 @@ export default function LevelUpModal({
                 className="flex justify-center w-full max-w-[240px] sm:max-w-[260px] md:max-w-[300px]"
               >
                 <FlowerPot
-                  size={typeof window !== 'undefined' && window.innerWidth < 640 ? 180 : window.innerWidth < 768 ? 220 : 260}
+                  size={
+                    typeof window !== "undefined" && window.innerWidth < 640
+                      ? 180
+                      : window.innerWidth < 768
+                      ? 220
+                      : 260
+                  }
                   petalsFilled={
                     modalColors.filter((c) => c && c.trim().length > 0).length
                   }
