@@ -135,8 +135,10 @@ export default function StudentDashboardPage() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
-  const [rewardModalView, setRewardModalView] = useState<'list' | 'create'>('list');
-  const [newRewardForm, setNewRewardForm] = useState({ title: '', emoji: '' });
+  const [rewardModalView, setRewardModalView] = useState<"list" | "create">(
+    "list"
+  );
+  const [newRewardForm, setNewRewardForm] = useState({ title: "", emoji: "" });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedRewards, setSelectedRewards] = useState<string[]>([]);
   const [studentRewards, setStudentRewards] = useState<Reward[]>([]);
@@ -194,7 +196,7 @@ export default function StudentDashboardPage() {
     if (isRewardModalOpen) {
       fetchAvailableRewards();
       // Pre-select rewards that are already assigned to student
-      setSelectedRewards(studentRewards.map(r => r.id));
+      setSelectedRewards(studentRewards.map((r) => r.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRewardModalOpen]);
@@ -298,7 +300,8 @@ export default function StudentDashboardPage() {
     try {
       const { data, error } = await supabase
         .from("student_profiles")
-        .select(`
+        .select(
+          `
           *,
           profiles!inner (
             full_name,
@@ -308,7 +311,8 @@ export default function StudentDashboardPage() {
           classes (
             name
           )
-        `)
+        `
+        )
         .eq("id", studentId)
         .single();
 
@@ -378,9 +382,13 @@ export default function StudentDashboardPage() {
   const handleAddReward = async () => {
     try {
       // Determine which rewards to add and which to remove
-      const currentRewardIds = studentRewards.map(r => r.id);
-      const rewardsToAdd = selectedRewards.filter(id => !currentRewardIds.includes(id));
-      const rewardsToRemove = currentRewardIds.filter(id => !selectedRewards.includes(id));
+      const currentRewardIds = studentRewards.map((r) => r.id);
+      const rewardsToAdd = selectedRewards.filter(
+        (id) => !currentRewardIds.includes(id)
+      );
+      const rewardsToRemove = currentRewardIds.filter(
+        (id) => !selectedRewards.includes(id)
+      );
 
       // Add new rewards
       if (rewardsToAdd.length > 0) {
@@ -404,10 +412,10 @@ export default function StudentDashboardPage() {
 
       // Refresh the student rewards list
       await fetchStudentRewards();
-      
+
       setIsRewardModalOpen(false);
       setSelectedRewards([]);
-      setRewardModalView('list');
+      setRewardModalView("list");
     } catch (error) {
       console.error("Error updating rewards:", error);
       alert("Kunne ikke oppdatere belønninger. Prøv igjen.");
@@ -421,7 +429,9 @@ export default function StudentDashboardPage() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       // Insert new reward with specific_student_id set to current student
@@ -429,10 +439,10 @@ export default function StudentDashboardPage() {
         .from("rewards")
         .insert({
           title: newRewardForm.title.trim(),
-          emoji: newRewardForm.emoji.trim() || '🎁', // Use default if no emoji selected
+          emoji: newRewardForm.emoji.trim() || "🎁", // Use default if no emoji selected
           created_by: user.id,
           specific_student_id: studentId,
-          cost_type: 'level',
+          cost_type: "level",
           cost_value: 0,
         })
         .select()
@@ -443,16 +453,16 @@ export default function StudentDashboardPage() {
       // Refresh both the student rewards list and available rewards list
       await fetchStudentRewards();
       await fetchAvailableRewards();
-      
+
       // Add the newly created reward to selected rewards so it appears checked
       if (data?.id) {
-        setSelectedRewards(prev => [...prev, data.id]);
+        setSelectedRewards((prev) => [...prev, data.id]);
       }
-      
+
       // Reset form and switch back to list view
-      setNewRewardForm({ title: '', emoji: '' });
+      setNewRewardForm({ title: "", emoji: "" });
       setShowEmojiPicker(false);
-      setRewardModalView('list');
+      setRewardModalView("list");
     } catch (error) {
       console.error("Error creating reward:", error);
       alert("Kunne ikke opprette belønning. Prøv igjen.");
@@ -460,7 +470,11 @@ export default function StudentDashboardPage() {
   };
 
   const handleDeleteReward = async (rewardId: string) => {
-    if (!confirm("Er du sikker på at du vil slette denne belønningen permanent? Dette vil også fjerne den fra elever som har mottatt den.")) {
+    if (
+      !confirm(
+        "Er du sikker på at du vil slette denne belønningen permanent? Dette vil også fjerne den fra elever som har mottatt den."
+      )
+    ) {
       return;
     }
 
@@ -474,8 +488,8 @@ export default function StudentDashboardPage() {
       if (rewardError) throw rewardError;
 
       // Remove from selectedRewards if it was selected
-      setSelectedRewards(prev => prev.filter(id => id !== rewardId));
-      
+      setSelectedRewards((prev) => prev.filter((id) => id !== rewardId));
+
       // Refresh both lists
       await fetchStudentRewards();
       await fetchAvailableRewards();
@@ -1301,13 +1315,15 @@ export default function StudentDashboardPage() {
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900">
-                {rewardModalView === 'create' ? 'Opprett ny belønning' : `Legg til belønning for ${student?.full_name}`}
+                {rewardModalView === "create"
+                  ? "Opprett ny belønning"
+                  : `Legg til belønning for ${student?.full_name}`}
               </h2>
               <button
                 onClick={() => {
                   setIsRewardModalOpen(false);
-                  setRewardModalView('list');
-                  setNewRewardForm({ title: '', emoji: '' });
+                  setRewardModalView("list");
+                  setNewRewardForm({ title: "", emoji: "" });
                   setShowEmojiPicker(false);
                 }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -1318,7 +1334,7 @@ export default function StudentDashboardPage() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-6">
-              {rewardModalView === 'list' ? (
+              {rewardModalView === "list" ? (
                 <>
                   {/* Reward Selection */}
                   <div>
@@ -1342,7 +1358,9 @@ export default function StudentDashboardPage() {
                               <input
                                 type="checkbox"
                                 checked={isSelected}
-                                onChange={() => toggleRewardSelection(reward.id)}
+                                onChange={() =>
+                                  toggleRewardSelection(reward.id)
+                                }
                                 className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
                               />
                               <span className="text-xl">{reward.emoji}</span>
@@ -1372,13 +1390,15 @@ export default function StudentDashboardPage() {
                       <div className="w-full border-t border-slate-200"></div>
                     </div>
                     <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-slate-500">Eller</span>
+                      <span className="px-2 bg-white text-slate-500">
+                        Eller
+                      </span>
                     </div>
                   </div>
 
                   {/* Create New Reward Button */}
-                  <button 
-                    onClick={() => setRewardModalView('create')}
+                  <button
+                    onClick={() => setRewardModalView("create")}
                     className="w-full px-4 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <Sparkles className="h-5 w-5" />
@@ -1397,7 +1417,12 @@ export default function StudentDashboardPage() {
                       <input
                         type="text"
                         value={newRewardForm.title}
-                        onChange={(e) => setNewRewardForm({ ...newRewardForm, title: e.target.value })}
+                        onChange={(e) =>
+                          setNewRewardForm({
+                            ...newRewardForm,
+                            title: e.target.value,
+                          })
+                        }
                         placeholder="F.eks. Ekstra frikvarter"
                         className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
@@ -1406,7 +1431,10 @@ export default function StudentDashboardPage() {
                     {/* Emoji Field */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Ikon (Emoji) <span className="text-xs font-normal text-slate-500">(valgfritt)</span>
+                        Ikon (Emoji){" "}
+                        <span className="text-xs font-normal text-slate-500">
+                          (valgfritt)
+                        </span>
                       </label>
                       <div className="relative">
                         <button
@@ -1414,26 +1442,82 @@ export default function StudentDashboardPage() {
                           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                           className="w-full px-4 py-3 text-4xl border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-center gap-3"
                         >
-                          {newRewardForm.emoji || '😊'}
-                          <span className="text-xs text-slate-500 font-normal">Trykk for å velge</span>
+                          {newRewardForm.emoji || "😊"}
+                          <span className="text-xs text-slate-500 font-normal">
+                            Trykk for å velge
+                          </span>
                         </button>
-                        
+
                         {/* Emoji Picker Popup */}
                         {showEmojiPicker && (
                           <div className="absolute z-10 mt-2 w-full bg-white border border-slate-300 rounded-lg shadow-lg p-2">
                             <div className="grid grid-cols-8 gap-1.5 max-h-32 overflow-y-auto">
-                              {['🎁', '🍕', '⏰', '🎨', '📱', '🎵', '⭐', '🌟',
-                                '✏️', '📚', '🏆', '🎯', '🎮', '🍦', '🍰', '🎪',
-                                '🎭', '🎬', '🎤', '🎧', '🎸', '🎹', '🎺', '🎻',
-                                '🏀', '⚽', '🏈', '⚾', '🎾', '🏐', '🏓', '🥇',
-                                '🥈', '🥉', '🏅', '🎖️', '🌈', '🌸', '🌺', '🌻',
-                                '🌼', '🌷', '🌹', '💐', '🎀', '💝', '💖', '💫',
-                                '✨', '💡', '🔥', '⚡', '🌙', '☀️', '🌤️', '🎉'].map((emoji) => (
+                              {[
+                                "🎁",
+                                "🍕",
+                                "⏰",
+                                "🎨",
+                                "📱",
+                                "🎵",
+                                "⭐",
+                                "🌟",
+                                "✏️",
+                                "📚",
+                                "🏆",
+                                "🎯",
+                                "🎮",
+                                "🍦",
+                                "🍰",
+                                "🎪",
+                                "🎭",
+                                "🎬",
+                                "🎤",
+                                "🎧",
+                                "🎸",
+                                "🎹",
+                                "🎺",
+                                "🎻",
+                                "🏀",
+                                "⚽",
+                                "🏈",
+                                "⚾",
+                                "🎾",
+                                "🏐",
+                                "🏓",
+                                "🥇",
+                                "🥈",
+                                "🥉",
+                                "🏅",
+                                "🎖️",
+                                "🌈",
+                                "🌸",
+                                "🌺",
+                                "🌻",
+                                "🌼",
+                                "🌷",
+                                "🌹",
+                                "💐",
+                                "🎀",
+                                "💝",
+                                "💖",
+                                "💫",
+                                "✨",
+                                "💡",
+                                "🔥",
+                                "⚡",
+                                "🌙",
+                                "☀️",
+                                "🌤️",
+                                "🎉",
+                              ].map((emoji) => (
                                 <button
                                   key={emoji}
                                   type="button"
                                   onClick={() => {
-                                    setNewRewardForm({ ...newRewardForm, emoji });
+                                    setNewRewardForm({
+                                      ...newRewardForm,
+                                      emoji,
+                                    });
                                     setShowEmojiPicker(false);
                                   }}
                                   className="text-xl p-1.5 hover:bg-indigo-50 rounded transition-colors"
@@ -1446,7 +1530,10 @@ export default function StudentDashboardPage() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setNewRewardForm({ ...newRewardForm, emoji: '' });
+                                  setNewRewardForm({
+                                    ...newRewardForm,
+                                    emoji: "",
+                                  });
                                   setShowEmojiPicker(false);
                                 }}
                                 className="mt-1.5 w-full px-3 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
@@ -1464,7 +1551,8 @@ export default function StudentDashboardPage() {
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-xs text-blue-800">
-                        <strong>Merk:</strong> Denne belønningen vil kun være tilgjengelig for {student?.full_name}.
+                        <strong>Merk:</strong> Denne belønningen vil kun være
+                        tilgjengelig for {student?.full_name}.
                       </p>
                     </div>
                   </div>
@@ -1474,12 +1562,12 @@ export default function StudentDashboardPage() {
 
             {/* Modal Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              {rewardModalView === 'list' ? (
+              {rewardModalView === "list" ? (
                 <>
                   <button
                     onClick={() => {
                       setIsRewardModalOpen(false);
-                      setRewardModalView('list');
+                      setRewardModalView("list");
                     }}
                     className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
                   >
@@ -1496,8 +1584,8 @@ export default function StudentDashboardPage() {
                 <>
                   <button
                     onClick={() => {
-                      setRewardModalView('list');
-                      setNewRewardForm({ title: '', emoji: '' });
+                      setRewardModalView("list");
+                      setNewRewardForm({ title: "", emoji: "" });
                       setShowEmojiPicker(false);
                     }}
                     className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"

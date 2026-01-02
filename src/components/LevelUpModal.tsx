@@ -82,16 +82,18 @@ export default function LevelUpModal({
         setLoadingRewards(true);
         try {
           const supabase = createClient();
-          
+
           console.log("Fetching rewards for student:", studentId);
-          
+
           // Fetch rewards that are either:
           // 1. Available to all students (specific_student_id IS NULL)
           // 2. Specifically assigned to this student (specific_student_id = studentId)
           const { data, error } = await supabase
             .from("rewards")
             .select("*")
-            .or(`specific_student_id.is.null,specific_student_id.eq.${studentId}`)
+            .or(
+              `specific_student_id.is.null,specific_student_id.eq.${studentId}`
+            )
             .order("created_at", { ascending: true });
 
           if (error) {
