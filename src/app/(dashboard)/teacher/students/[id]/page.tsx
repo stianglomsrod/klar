@@ -135,8 +135,12 @@ export default function StudentDashboardPage() {
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
+  const [rewardModalView, setRewardModalView] = useState<'list' | 'create'>('list');
+  const [newRewardForm, setNewRewardForm] = useState({ title: '', emoji: '' });
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedRewards, setSelectedRewards] = useState<string[]>([]);
-  const [studentRewards, setStudentRewards] = useState<Reward[]>(mockRewards);
+  const [studentRewards, setStudentRewards] = useState<Reward[]>([]);
+  const [availableRewards, setAvailableRewards] = useState<Reward[]>([]);
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -181,8 +185,19 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     fetchStudent();
     fetchSubjects();
+    fetchStudentRewards();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
+
+  // Fetch available rewards when reward modal opens
+  useEffect(() => {
+    if (isRewardModalOpen) {
+      fetchAvailableRewards();
+      // Pre-select rewards that are already assigned to student
+      setSelectedRewards(studentRewards.map(r => r.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRewardModalOpen]);
 
   // Fetch recipients data when modal opens
   useEffect(() => {
@@ -203,6 +218,39 @@ export default function StudentDashboardPage() {
       setSubjects(data || []);
     } catch (error) {
       console.error("Error fetching subjects:", error);
+    }
+  };
+
+  const fetchStudentRewards = async () => {
+    try {
+      // Fetch rewards assigned to this specific student
+      const { data, error } = await supabase
+        .from("rewards")
+        .select("id, name:title, emoji, cost:cost_value")
+        .eq("specific_student_id", studentId);
+
+      if (error) throw error;
+      setStudentRewards(data || []);
+    } catch (error) {
+      console.error("Error fetching student rewards:", error);
+    }
+  };
+
+  const fetchAvailableRewards = async () => {
+    try {
+      // Fetch rewards that are either:
+      // 1. Not assigned to anyone (specific_student_id IS NULL)
+      // 2. Already assigned to this student
+      const { data, error } = await supabase
+        .from("rewards")
+        .select("id, name:title, emoji, cost:cost_value")
+        .or(`specific_student_id.is.null,specific_student_id.eq.${studentId}`)
+        .order("title");
+
+      if (error) throw error;
+      setAvailableRewards(data || []);
+    } catch (error) {
+      console.error("Error fetching available rewards:", error);
     }
   };
 
@@ -249,16 +297,36 @@ export default function StudentDashboardPage() {
   const fetchStudent = async () => {
     try {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, level, class_name")
+        .from("student_profiles")
+        .select(`
+          *,
+          profiles!inner (
+            full_name,
+            avatar_url,
+            role
+          ),
+          classes (
+            name
+          )
+        `)
         .eq("id", studentId)
         .single();
 
       if (error) throw error;
-      setStudent(data);
-      setSelectedClass(data.class_name || "");
+
+      // Map the joined data to our StudentProfile type
+      const studentData: StudentProfile = {
+        id: data.id,
+        full_name: data.profiles.full_name,
+        avatar_url: data.profiles.avatar_url,
+        level: data.level,
+        class_name: data.classes?.name || null,
+      };
+
+      setStudent(studentData);
+      setSelectedClass(studentData.class_name || "");
     } catch (error) {
-      console.error("Error fetching student:", error);
+      console.error("Error fetching student:", error?.message || error);
     } finally {
       setLoading(false);
     }
@@ -289,30 +357,132 @@ export default function StudentDashboardPage() {
     return colors[subject] || "bg-slate-100 text-slate-700";
   };
 
-  const handleRemoveReward = (rewardId: string) => {
-    setStudentRewards((prev) => prev.filter((r) => r.id !== rewardId));
+  const handleRemoveReward = async (rewardId: string) => {
+    try {
+      // Update reward to remove specific_student_id (make it available to all again)
+      const { error } = await supabase
+        .from("rewards")
+        .update({ specific_student_id: null })
+        .eq("id", rewardId);
+
+      if (error) throw error;
+
+      // Refresh the student rewards list
+      await fetchStudentRewards();
+    } catch (error) {
+      console.error("Error removing reward:", error);
+      alert("Kunne ikke fjerne belønning. Prøv igjen.");
+    }
   };
 
-  const handleAddReward = () => {
-    if (selectedRewards.length === 0) return;
+  const handleAddReward = async () => {
+    try {
+      // Determine which rewards to add and which to remove
+      const currentRewardIds = studentRewards.map(r => r.id);
+      const rewardsToAdd = selectedRewards.filter(id => !currentRewardIds.includes(id));
+      const rewardsToRemove = currentRewardIds.filter(id => !selectedRewards.includes(id));
 
-    const rewardsToAdd = mockRewardLibrary.filter((r) =>
-      selectedRewards.includes(r.id)
-    );
+      // Add new rewards
+      if (rewardsToAdd.length > 0) {
+        const { error: addError } = await supabase
+          .from("rewards")
+          .update({ specific_student_id: studentId })
+          .in("id", rewardsToAdd);
 
-    // Filter out rewards that already exist
-    const newRewards = rewardsToAdd.filter(
-      (reward) => !studentRewards.some((r) => r.id === reward.id)
-    );
+        if (addError) throw addError;
+      }
 
-    if (newRewards.length === 0) {
-      alert("Alle valgte belønninger er allerede lagt til!");
+      // Remove unchecked rewards
+      if (rewardsToRemove.length > 0) {
+        const { error: removeError } = await supabase
+          .from("rewards")
+          .update({ specific_student_id: null })
+          .in("id", rewardsToRemove);
+
+        if (removeError) throw removeError;
+      }
+
+      // Refresh the student rewards list
+      await fetchStudentRewards();
+      
+      setIsRewardModalOpen(false);
+      setSelectedRewards([]);
+      setRewardModalView('list');
+    } catch (error) {
+      console.error("Error updating rewards:", error);
+      alert("Kunne ikke oppdatere belønninger. Prøv igjen.");
+    }
+  };
+
+  const handleCreateReward = async () => {
+    if (!newRewardForm.title.trim()) {
+      alert("Vennligst skriv inn en tittel");
       return;
     }
 
-    setStudentRewards((prev) => [...prev, ...newRewards]);
-    setIsRewardModalOpen(false);
-    setSelectedRewards([]);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Insert new reward with specific_student_id set to current student
+      const { data, error } = await supabase
+        .from("rewards")
+        .insert({
+          title: newRewardForm.title.trim(),
+          emoji: newRewardForm.emoji.trim() || '🎁', // Use default if no emoji selected
+          created_by: user.id,
+          specific_student_id: studentId,
+          cost_type: 'level',
+          cost_value: 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Refresh both the student rewards list and available rewards list
+      await fetchStudentRewards();
+      await fetchAvailableRewards();
+      
+      // Add the newly created reward to selected rewards so it appears checked
+      if (data?.id) {
+        setSelectedRewards(prev => [...prev, data.id]);
+      }
+      
+      // Reset form and switch back to list view
+      setNewRewardForm({ title: '', emoji: '' });
+      setShowEmojiPicker(false);
+      setRewardModalView('list');
+    } catch (error) {
+      console.error("Error creating reward:", error);
+      alert("Kunne ikke opprette belønning. Prøv igjen.");
+    }
+  };
+
+  const handleDeleteReward = async (rewardId: string) => {
+    if (!confirm("Er du sikker på at du vil slette denne belønningen permanent? Dette vil også fjerne den fra elever som har mottatt den.")) {
+      return;
+    }
+
+    try {
+      // Delete the reward - CASCADE will automatically delete related student_rewards
+      const { error: rewardError } = await supabase
+        .from("rewards")
+        .delete()
+        .eq("id", rewardId);
+
+      if (rewardError) throw rewardError;
+
+      // Remove from selectedRewards if it was selected
+      setSelectedRewards(prev => prev.filter(id => id !== rewardId));
+      
+      // Refresh both lists
+      await fetchStudentRewards();
+      await fetchAvailableRewards();
+    } catch (error) {
+      console.error("Error deleting reward:", error);
+      alert("Kunne ikke slette belønning. Prøv igjen.");
+    }
   };
 
   const toggleRewardSelection = (rewardId: string) => {
@@ -1131,10 +1301,15 @@ export default function StudentDashboardPage() {
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900">
-                Legg til belønning for {student?.full_name}
+                {rewardModalView === 'create' ? 'Opprett ny belønning' : `Legg til belønning for ${student?.full_name}`}
               </h2>
               <button
-                onClick={() => setIsRewardModalOpen(false)}
+                onClick={() => {
+                  setIsRewardModalOpen(false);
+                  setRewardModalView('list');
+                  setNewRewardForm({ title: '', emoji: '' });
+                  setShowEmojiPicker(false);
+                }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -1143,86 +1318,201 @@ export default function StudentDashboardPage() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-6">
-              {/* Reward Selection */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-3">
-                  Velg belønninger fra bibliotek
-                </label>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {mockRewardLibrary.map((reward) => {
-                    const isAlreadyAdded = studentRewards.some(
-                      (r) => r.id === reward.id
-                    );
-                    const isSelected = selectedRewards.includes(reward.id);
+              {rewardModalView === 'list' ? (
+                <>
+                  {/* Reward Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-3">
+                      Velg belønninger fra bibliotek
+                    </label>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {availableRewards.map((reward) => {
+                        const isSelected = selectedRewards.includes(reward.id);
 
-                    return (
-                      <label
-                        key={reward.id}
-                        className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer ${
-                          isAlreadyAdded
-                            ? "bg-slate-50 border-slate-200 opacity-50 cursor-not-allowed"
-                            : isSelected
-                            ? "bg-indigo-50 border-indigo-500"
-                            : "bg-white border-slate-200 hover:border-indigo-300"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleRewardSelection(reward.id)}
-                          disabled={isAlreadyAdded}
-                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 disabled:cursor-not-allowed"
-                        />
-                        <span className="text-xl">{reward.emoji}</span>
-                        <span className="text-sm font-medium text-slate-700 flex-1">
-                          {reward.name}
-                        </span>
-                        {isAlreadyAdded && (
-                          <span className="text-xs text-slate-500 italic">
-                            Allerede lagt til
-                          </span>
-                        )}
+                        return (
+                          <div
+                            key={reward.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                              isSelected
+                                ? "bg-indigo-50 border-indigo-500"
+                                : "bg-white border-slate-200 hover:border-indigo-300"
+                            }`}
+                          >
+                            <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleRewardSelection(reward.id)}
+                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                              />
+                              <span className="text-xl">{reward.emoji}</span>
+                              <span className="text-sm font-medium text-slate-700 flex-1">
+                                {reward.name}
+                              </span>
+                            </label>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteReward(reward.id);
+                              }}
+                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Slett belønning permanent"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-200"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-2 bg-white text-slate-500">Eller</span>
+                    </div>
+                  </div>
+
+                  {/* Create New Reward Button */}
+                  <button 
+                    onClick={() => setRewardModalView('create')}
+                    className="w-full px-4 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="h-5 w-5" />
+                    Opprett ny belønning
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Create Reward Form */}
+                  <div className="space-y-4">
+                    {/* Title Field */}
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Tittel <span className="text-red-500">*</span>
                       </label>
-                    );
-                  })}
-                </div>
-              </div>
+                      <input
+                        type="text"
+                        value={newRewardForm.title}
+                        onChange={(e) => setNewRewardForm({ ...newRewardForm, title: e.target.value })}
+                        placeholder="F.eks. Ekstra frikvarter"
+                        className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
 
-              {/* Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-slate-500">Eller</span>
-                </div>
-              </div>
+                    {/* Emoji Field */}
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Ikon (Emoji) <span className="text-xs font-normal text-slate-500">(valgfritt)</span>
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          className="w-full px-4 py-3 text-4xl border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-center gap-3"
+                        >
+                          {newRewardForm.emoji || '😊'}
+                          <span className="text-xs text-slate-500 font-normal">Trykk for å velge</span>
+                        </button>
+                        
+                        {/* Emoji Picker Popup */}
+                        {showEmojiPicker && (
+                          <div className="absolute z-10 mt-2 w-full bg-white border border-slate-300 rounded-lg shadow-lg p-2">
+                            <div className="grid grid-cols-8 gap-1.5 max-h-32 overflow-y-auto">
+                              {['🎁', '🍕', '⏰', '🎨', '📱', '🎵', '⭐', '🌟',
+                                '✏️', '📚', '🏆', '🎯', '🎮', '🍦', '🍰', '🎪',
+                                '🎭', '🎬', '🎤', '🎧', '🎸', '🎹', '🎺', '🎻',
+                                '🏀', '⚽', '🏈', '⚾', '🎾', '🏐', '🏓', '🥇',
+                                '🥈', '🥉', '🏅', '🎖️', '🌈', '🌸', '🌺', '🌻',
+                                '🌼', '🌷', '🌹', '💐', '🎀', '💝', '💖', '💫',
+                                '✨', '💡', '🔥', '⚡', '🌙', '☀️', '🌤️', '🎉'].map((emoji) => (
+                                <button
+                                  key={emoji}
+                                  type="button"
+                                  onClick={() => {
+                                    setNewRewardForm({ ...newRewardForm, emoji });
+                                    setShowEmojiPicker(false);
+                                  }}
+                                  className="text-xl p-1.5 hover:bg-indigo-50 rounded transition-colors"
+                                >
+                                  {emoji}
+                                </button>
+                              ))}
+                            </div>
+                            {newRewardForm.emoji && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewRewardForm({ ...newRewardForm, emoji: '' });
+                                  setShowEmojiPicker(false);
+                                }}
+                                className="mt-1.5 w-full px-3 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors"
+                              >
+                                Fjern emoji
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Hvis ingen emoji velges, brukes standardikon (🎁)
+                      </p>
+                    </div>
 
-              {/* Create New Reward Button */}
-              <button className="w-full px-4 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Opprett ny belønning
-              </button>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <p className="text-xs text-blue-800">
+                        <strong>Merk:</strong> Denne belønningen vil kun være tilgjengelig for {student?.full_name}.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Modal Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setIsRewardModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleAddReward}
-                disabled={selectedRewards.length === 0}
-                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors"
-              >
-                Tildel{" "}
-                {selectedRewards.length > 0
-                  ? `(${selectedRewards.length})`
-                  : "Belønning"}
-              </button>
+              {rewardModalView === 'list' ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsRewardModalOpen(false);
+                      setRewardModalView('list');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    onClick={handleAddReward}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+                  >
+                    Oppdater valg
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      setRewardModalView('list');
+                      setNewRewardForm({ title: '', emoji: '' });
+                      setShowEmojiPicker(false);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    Tilbake
+                  </button>
+                  <button
+                    onClick={handleCreateReward}
+                    disabled={!newRewardForm.title.trim()}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  >
+                    Lagre
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

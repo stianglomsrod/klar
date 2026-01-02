@@ -82,14 +82,24 @@ export default function LevelUpModal({
         setLoadingRewards(true);
         try {
           const supabase = createClient();
+          
+          console.log("Fetching rewards for student:", studentId);
+          
+          // Fetch rewards that are either:
+          // 1. Available to all students (specific_student_id IS NULL)
+          // 2. Specifically assigned to this student (specific_student_id = studentId)
           const { data, error } = await supabase
             .from("rewards")
             .select("*")
+            .or(`specific_student_id.is.null,specific_student_id.eq.${studentId}`)
             .order("created_at", { ascending: true });
 
           if (error) {
-            console.error("Error fetching rewards:", error);
+            console.error("Error fetching rewards:", error?.message || error);
+            console.error("Full error object:", error);
           } else {
+            console.log("Fetched rewards:", data);
+            console.log("Total rewards found:", data?.length || 0);
             setRewards(data || []);
           }
         } catch (err) {
@@ -100,7 +110,7 @@ export default function LevelUpModal({
       };
       fetchRewards();
     }
-  }, [isOpen, step]);
+  }, [isOpen, step, studentId]);
 
   // Re-sync local colors when modal opens or existing colors change
   useEffect(() => {
