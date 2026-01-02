@@ -25,14 +25,6 @@ export default function FlowerPot({
   setHoveredPetalIndex,
   isAnimatingSuccess = false,
 }: FlowerPotProps) {
-  console.log(
-    "FlowerPot received colors:",
-    colors,
-    "isInteractive:",
-    isInteractive,
-    "hasPaint:",
-    hasPaint
-  );
   const center = size / 2;
   const flowerCenter = center - size * 0.05; // Position flower higher
   const petalLength = size * 0.26;
@@ -137,12 +129,6 @@ export default function FlowerPot({
                 isInteractive && hasPaint && !hasExplicitColor;
               const isHovered = hoveredPetalIndex === petal.index;
 
-              if (petal.index === 0) {
-                console.log(
-                  `Petal 0 - explicitColor: "${explicitColor}", hasExplicitColor: ${hasExplicitColor}, isPaintable: ${isPaintable}, petalColor: ${petalColor}`
-                );
-              }
-
               return (
                 <g
                   key={`petal-${petal.index}`}
@@ -164,9 +150,6 @@ export default function FlowerPot({
                   }}
                   onTouchEnd={() => {
                     if (isPaintable && onPetalClick) {
-                      console.log(
-                        `Petal ${petal.index} clicked via touchEnd, isPaintable=${isPaintable}`
-                      );
                       onPetalClick(petal.index);
                     }
                     if (isPaintable && setHoveredPetalIndex) {
@@ -189,9 +172,6 @@ export default function FlowerPot({
                     onClick={(e) => {
                       e.stopPropagation();
                       if (isPaintable && onPetalClick) {
-                        console.log(
-                          `Petal ${petal.index} clicked via rect, isPaintable=${isPaintable}`
-                        );
                         onPetalClick(petal.index);
                       }
                     }}

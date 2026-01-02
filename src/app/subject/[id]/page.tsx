@@ -8,6 +8,7 @@ import CompletionModal from "@/components/CompletionModal";
 import LevelUpModal from "@/components/LevelUpModal";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useStudentProfile } from "@/contexts/StudentProfileContext";
 
 type Task = {
   id: string;
@@ -43,7 +44,7 @@ export default function SubjectDetailPage() {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const { profile, refresh: refreshProfile } = useStudentProfile();
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -117,27 +118,6 @@ export default function SubjectDetailPage() {
         setCompletedTasks(completedTasksData || []);
       }
 
-      // Fetch user profile from student_profiles
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from("student_profiles")
-          .select(
-            "id, level, points_earned, current_goal_total, current_xp, petals_progress, flowers_collected, petal_colors"
-          )
-          .eq("id", user.id)
-          .single();
-
-        if (profileError && profileError.code !== "PGRST116") {
-          console.error("Feil ved henting av student profil:", profileError);
-        } else if (profileData) {
-          setProfile(profileData);
-        }
-      }
-
       setLoading(false);
     };
 
@@ -205,16 +185,8 @@ export default function SubjectDetailPage() {
 
         if (profileError) throw profileError;
 
-        // 4. Update local state
-        setProfile((prevProfile) =>
-          prevProfile
-            ? {
-                ...prevProfile,
-                points_earned: newPointsEarned,
-                current_xp: newCurrentXp,
-              }
-            : null
-        );
+        // 4. Refresh profile from context to get latest data
+        await refreshProfile();
       }
 
       // 5. Move task from completed to active list
@@ -257,10 +229,6 @@ export default function SubjectDetailPage() {
       const newLevel = shouldLevelUp ? currentLevel + 1 : currentLevel;
       const finalCurrentXp = shouldLevelUp ? 0 : newCurrentXp; // Reset current_xp on level-up
 
-      console.log(
-        `Level up check: currentLevel=${currentLevel}, newCurrentXp=${newCurrentXp}, goalTotal=${goalTotal}, shouldLevelUp=${shouldLevelUp}`
-      );
-
       // 3. Update user profile in student_profiles
       const profileUpdates: any = {
         points_earned: newPointsEarned,
@@ -275,27 +243,8 @@ export default function SubjectDetailPage() {
 
       if (profileError) throw profileError;
 
-      // CRITICAL: Fetch fresh profile from DB to ensure we have accurate data
-      const { data: freshProfile, error: freshError } = await supabase
-        .from("student_profiles")
-        .select(
-          "id, level, points_earned, current_goal_total, current_xp, petals_progress, flowers_collected, petal_colors"
-        )
-        .eq("id", profile.id)
-        .single();
-
-      if (freshError) {
-        console.warn(
-          "Could not fetch fresh profile, using optimistic values:",
-          freshError
-        );
-      } else if (freshProfile) {
-        console.log(
-          `Fresh profile from DB: level=${freshProfile.level}, points_earned=${freshProfile.points_earned}, highest_level_reached=${freshProfile.highest_level_reached}`
-        );
-        // Use the fresh data from database - this is authoritative
-        setProfile(freshProfile);
-      }
+      // Refresh profile from context to get latest data including show_flower_garden
+      await refreshProfile();
 
       // 4. Optimistic update: move task from active to completed list
       const completedTask = tasks.find((t) => t.id === selectedTaskId);
@@ -314,43 +263,13 @@ export default function SubjectDetailPage() {
       setIsModalOpen(false);
       setSelectedTaskId(null);
 
-      // Refresh student profile to update footer/navigation
-      console.log("Attempting to refresh student profile...");
-      if (
-        typeof window !== "undefined" &&
-        (window as any).__refreshStudentProfile
-      ) {
-        try {
-          await (window as any).__refreshStudentProfile();
-          console.log("Student profile refreshed successfully");
-        } catch (err) {
-          console.error("Failed to refresh profile:", err);
-        }
-      } else {
-        console.warn("Refresh function not available on window");
-      }
-
       // 5. Show level up modal - Check if level increased
-      const finalProfile = freshProfile || profile;
-      const freshLevel = finalProfile.level ?? 1;
       const previousLevel = profile.level ?? 1;
 
-      console.log(
-        `Modal check: Previous level=${previousLevel}, Fresh level=${freshLevel}`
-      );
-
-      // The authoritative check: did the level in the database increase?
-      const levelIncreased = freshLevel > previousLevel;
-
-      // Only show the modal if this is a TRUE level increase from the fresh DB data
-      if (levelIncreased) {
-        console.log(`Showing level up modal for level ${freshLevel}`);
-        setNewLevel(freshLevel);
+      // Show the modal if this is a TRUE level increase
+      if (shouldLevelUp) {
+        setNewLevel(newLevel);
         setShowLevelUpModal(true);
-      } else {
-        console.log(
-          `No level increase. Previous: ${previousLevel}, Fresh: ${freshLevel}`
-        );
       }
     } catch (error) {
       console.error("Feil ved fullføring av oppgave:", error);
@@ -360,9 +279,10 @@ export default function SubjectDetailPage() {
 
   // Handle reward selection from Level Up modal
   const handleRewardSelection = async (
-    rewardType: "petal" | "uno" | "break",
+    rewardType: "petal" | "database",
     payload?: string,
-    petalIndex?: number
+    petalIndex?: number,
+    rewardId?: string
   ) => {
     if (!profile) return;
 
@@ -409,27 +329,15 @@ export default function SubjectDetailPage() {
 
         if (error) throw error;
 
-        // Update local state
-        setProfile((prevProfile) =>
-          prevProfile
-            ? {
-                ...prevProfile,
-                petals_progress: profileUpdates.petals_progress,
-                petal_colors: profileUpdates.petal_colors,
-                flowers_collected: isFlowerComplete
-                  ? prevProfile.flowers_collected + 1
-                  : prevProfile.flowers_collected,
-              }
-            : null
-        );
-
-        // Play success sound (optional)
-        try {
-          const audio = new Audio("/sounds/pling.mp3");
-          audio.play().catch(() => {});
-        } catch (e) {
-          // Ignore audio errors
-        }
+        // Refresh profile from context to get latest data
+        await refreshProfile();
+      } else if (rewardType === "database" && rewardId) {
+        // Handle database reward selection
+        // TODO: Implement reward claim logic - e.g., save to student_rewards table
+        // You can add logic here to:
+        // 1. Create a record in student_rewards table
+        // 2. Mark the reward as claimed
+        // 3. Update any relevant student data
       }
 
       // Close level up modal
@@ -731,6 +639,8 @@ export default function SubjectDetailPage() {
         onSelectReward={handleRewardSelection}
         existingPetals={profile?.petals_progress || 0}
         existingColors={profile?.petal_colors || []}
+        showFlowerGarden={profile?.show_flower_garden || false}
+        studentId={profile?.id}
       />
     </main>
   );

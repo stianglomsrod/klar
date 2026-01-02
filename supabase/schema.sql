@@ -1,13 +1,12 @@
 -- --------------------------------------------------------
 -- KLAR LÆRING - DATABASE SCHEMA
--- This file represents the current structure of the database.
+-- Oppdatert: Inkluderer personlige belønninger, grå blomster og tidsstempler.
 -- --------------------------------------------------------
 
 -- 1. EXTENSIONS
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- 2. ENUM TYPES (Definisjoner av faste valg)
--- Basert på standardverdier og tidligere kontekst
 CREATE TYPE public.user_role AS ENUM ('teacher', 'student');
 CREATE TYPE public.task_type AS ENUM ('standard', 'quiz');
 CREATE TYPE public.reward_cost_type AS ENUM ('flowers', 'petals', 'points', 'level');
@@ -31,7 +30,6 @@ CREATE TABLE public.classes (
 );
 
 -- Profiles (Hovedtabell for brukere: Lærere og Elever)
--- Koblet direkte til auth.users
 CREATE TABLE public.profiles (
   id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   full_name text,
@@ -41,26 +39,19 @@ CREATE TABLE public.profiles (
 );
 
 -- Student Profiles (Utvidelse: Kun data for elever)
--- Inneholder gamification, fremgang og klasse-tilhørighet
 CREATE TABLE public.student_profiles (
-  id uuid NOT NULL,
-  class_id uuid,
+  id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  class_id uuid REFERENCES public.classes(id),
   level integer DEFAULT 1,
   points_earned integer DEFAULT 0,
-  current_goal_total integer DEFAULT 100, -- Poeng sum man må nå for neste level
-  current_xp integer DEFAULT 0,          -- Nåværende poeng mot neste level
-  
-  -- Blomsterhage-logikk
-  flowers_collected integer DEFAULT 0,   -- Antall hele blomster ferdigstilt
-  petals_progress integer DEFAULT 0,     -- Hvor mange blader på NÅVÆRENDE blomst (0-5)
-  petal_colors text[] DEFAULT ARRAY['#FFC0CB', '#FFC0CB', '#FFC0CB', '#FFC0CB', '#FFC0CB'], -- Fargene valgt for de 5 bladene
-  show_flower_garden boolean DEFAULT true, -- Om læreren tillater dette spillet
-  
-  custom_welcome_message text,
-  
-  CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
-  CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
-  CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+  current_goal_total integer DEFAULT 1000,
+  current_xp integer DEFAULT 0,
+  flowers_collected integer DEFAULT 0,
+  petals_progress integer DEFAULT 0,
+  -- Standard: Grå blader (#E0E0E0)
+  petal_colors text[] DEFAULT ARRAY['#E0E0E0', '#E0E0E0', '#E0E0E0', '#E0E0E0', '#E0E0E0'],
+  show_flower_garden boolean DEFAULT true,
+  custom_welcome_message text
 );
 
 -- Subjects (Fag)
@@ -88,8 +79,8 @@ CREATE TABLE public.tasks (
   estimated_duration integer,
   points_value integer DEFAULT 10,
   audio_support_url text,
-  quiz_content jsonb, -- Innholdet i quizen (spørsmål)
-  quiz_data jsonb     -- Metadata eller instillinger
+  quiz_content jsonb,
+  quiz_data jsonb
 );
 
 -- Feedback (Tilbakemeldinger på oppgaver)
@@ -100,20 +91,22 @@ CREATE TABLE public.feedback (
   created_at timestamp with time zone DEFAULT now(),
   student_comment text,
   student_audio_url text,
-  quiz_responses jsonb -- Svarene eleven ga
+  quiz_responses jsonb
 );
 
 -- Rewards (Belønninger læreren oppretter)
 CREATE TABLE public.rewards (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at timestamp with time zone DEFAULT now(),
   title text NOT NULL,
   description text,
   created_by uuid REFERENCES public.profiles(id),
   cost_value integer DEFAULT 1,
-  cost_type public.reward_cost_type DEFAULT 'flowers'::public.reward_cost_type
+  cost_type public.reward_cost_type DEFAULT 'flowers'::public.reward_cost_type,
+  specific_student_id uuid REFERENCES public.profiles(id) -- NULL = for alle, UUID = kun for denne eleven
 );
 
--- Student Rewards (Koblingstabell: Belønninger eleven har kjøpt/fått)
+-- Student Rewards (Transaksjoner: Belønninger eleven har "kjøpt")
 CREATE TABLE public.student_rewards (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   student_id uuid REFERENCES public.profiles(id),
@@ -129,7 +122,7 @@ CREATE TABLE public.schedule (
   start_time time without time zone NOT NULL,
   end_time time without time zone NOT NULL,
   type public.schedule_type DEFAULT 'lesson'::public.schedule_type,
-  days text[] NOT NULL, -- Array av dager, f.eks. ['Monday', 'Wednesday']
+  days text[] NOT NULL,
   target_group text DEFAULT 'all'
 );
 

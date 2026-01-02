@@ -159,9 +159,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refresh = async () => {
-    console.log("Context refresh called");
     const result = await fetchProfileData();
-    console.log("Context refresh completed, new profile:", result);
     return result;
   };
 
