@@ -10,6 +10,8 @@ import {
   GraduationCap,
   MoreVertical,
 } from "lucide-react";
+import ClassMonitorToggle from "./ClassMonitorToggle";
+import HelpRequestQueue from "./HelpRequestQueue";
 
 type Student = {
   id: string;
@@ -35,6 +37,7 @@ type Trinn = {
 
 type ClassesAccordionProps = {
   onStudentClick?: (student: Student) => void;
+  teacherId?: string;
 };
 
 type DropdownPosition = {
@@ -44,6 +47,7 @@ type DropdownPosition = {
 
 export default function ClassesAccordion({
   onStudentClick,
+  teacherId = "",
 }: ClassesAccordionProps) {
   const router = useRouter();
   const [trinnGroups, setTrinnGroups] = useState<Trinn[]>([]);
@@ -366,6 +370,20 @@ export default function ClassesAccordion({
                           {/* Students in this Class */}
                           {isClassExpanded && (
                             <div className="bg-white">
+                              {/* Class Toolbar - Monitor Toggle */}
+                              <div className="w-full px-4 py-3 pl-20 flex items-center gap-4 bg-gray-50 border-b border-slate-200 mb-2">
+                                <ClassMonitorToggle
+                                  classId={cls.id}
+                                  teacherId={teacherId}
+                                />
+                                <span className="text-sm text-gray-600">
+                                  Administrer tilgjengelighet for {cls.name}
+                                </span>
+                              </div>
+
+                              {/* Help Request Queue */}
+                              <HelpRequestQueue classId={cls.id} />
+
                               {cls.students.length === 0 ? (
                                 <div className="px-4 py-3 pl-20 text-sm text-slate-500">
                                   Ingen elever i denne klassen

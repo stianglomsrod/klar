@@ -69,7 +69,7 @@ export function useTimeTracker(
         const { data: subjectsData } = await supabase
           .from("subjects")
           .select("id, title, emoji");
-        
+
         if (subjectsData) {
           setSubjects(subjectsData);
         }
@@ -125,8 +125,7 @@ export function useTimeTracker(
 
     const updateActivity = () => {
       const now = new Date();
-      const currentTime =
-        now.getHours() * 60 + now.getMinutes(); // Minutes since midnight
+      const currentTime = now.getHours() * 60 + now.getMinutes(); // Minutes since midnight
 
       // Convert time strings (HH:MM:SS or HH:MM) to minutes
       const parseTime = (timeStr: string): number => {

@@ -27,8 +27,22 @@ export default function ClassesPage() {
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "hierarchy">("hierarchy");
+  const [teacherId, setTeacherId] = useState<string>("");
 
   const supabase = createClient();
+
+  // Get current teacher ID
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        setTeacherId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, [supabase.auth]);
 
   // Fetch students
   const fetchStudents = async () => {
@@ -196,6 +210,7 @@ export default function ClassesPage() {
       {viewMode === "hierarchy" ? (
         /* Hierarchy View */
         <ClassesAccordion
+          teacherId={teacherId}
           onStudentClick={(student) => {
             // Find the full student object from our list
             const fullStudent = students.find((s) => s.id === student.id);

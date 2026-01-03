@@ -41,6 +41,18 @@ CREATE TABLE public.grades (
   CONSTRAINT grades_pkey PRIMARY KEY (id)
 );
 
+CREATE TABLE public.help_requests (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  student_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'resolved'::text, 'cancelled'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  resolved_at timestamp with time zone,
+  CONSTRAINT help_requests_pkey PRIMARY KEY (id),
+  CONSTRAINT help_requests_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
+  CONSTRAINT help_requests_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+);
+
 CREATE TABLE public.profiles (
   id uuid NOT NULL,
   full_name text,
@@ -159,6 +171,16 @@ CREATE TABLE public.tasks (
   CONSTRAINT tasks_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT tasks_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id)
+);
+
+CREATE TABLE public.teacher_active_sessions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  teacher_id uuid NOT NULL,
+  class_id uuid NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT teacher_active_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT teacher_active_sessions_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.profiles(id),
+  CONSTRAINT teacher_active_sessions_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
 );
 
 CREATE TABLE public.weekly_updates (

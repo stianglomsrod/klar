@@ -17,7 +17,7 @@ export default function StudentFooterWrapper() {
   // Get time tracking data
   const { currentActivity, timeRemaining, progress, loading } = useTimeTracker(
     profile?.id,
-    profile?.class_id
+    profile?.class_id || undefined
   );
 
   return (
@@ -29,6 +29,8 @@ export default function StudentFooterWrapper() {
       currentActivity={currentActivity}
       timeRemaining={timeRemaining}
       activityProgress={progress}
+      studentId={profile?.id}
+      classId={profile?.class_id || undefined}
     />
   );
 }

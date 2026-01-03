@@ -21,11 +21,7 @@ export default function CircularProgress({
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      <svg
-        width={size}
-        height={size}
-        className="transform -rotate-90"
-      >
+      <svg width={size} height={size} className="transform -rotate-90">
         {/* Background Circle */}
         <circle
           cx={size / 2}
@@ -60,15 +56,21 @@ export default function CircularProgress({
               const [, number, unit] = match;
               return (
                 <div className="flex flex-col items-center justify-center leading-none">
-                  <span className="text-3xl font-black text-gray-900">{number}</span>
+                  <span className="text-3xl font-black text-gray-900">
+                    {number}
+                  </span>
                   {unit && (
-                    <span className="text-xs font-medium text-gray-500 mt-0.5">{unit}</span>
+                    <span className="text-xs font-medium text-gray-500 mt-0.5">
+                      {unit}
+                    </span>
                   )}
                 </div>
               );
             }
             // Fallback: render as single text
-            return <span className="text-xl font-bold text-gray-900">{text}</span>;
+            return (
+              <span className="text-xl font-bold text-gray-900">{text}</span>
+            );
           })()}
         </div>
       )}

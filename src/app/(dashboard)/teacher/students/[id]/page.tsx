@@ -27,6 +27,7 @@ type StudentProfile = {
   avatar_url: string | null;
   level: number;
   class_name: string | null;
+  class_id: string | null;
 };
 
 type Task = {
@@ -318,7 +319,9 @@ export default function StudentDashboardPage() {
       setAvailableStudents(processedStudents);
     } catch (error: any) {
       console.error("Error fetching recipients data:", error);
-      setRecipientsError(error?.message || "Kunne ikke laste elever og klasser");
+      setRecipientsError(
+        error?.message || "Kunne ikke laste elever og klasser"
+      );
     } finally {
       setIsLoadingRecipients(false);
     }
@@ -353,13 +356,17 @@ export default function StudentDashboardPage() {
         avatar_url: data.profiles.avatar_url,
         level: data.level,
         class_name: data.classes?.name || null,
+        class_id: data.class_id || null,
       };
 
       setStudent(studentData);
       setSelectedClass(studentData.class_name || "");
       setWelcomeMessage(data.custom_welcome_message || "");
     } catch (error) {
-      console.error("Error fetching student:", error?.message || error);
+      console.error(
+        "Error fetching student:",
+        error instanceof Error ? error.message : error
+      );
     } finally {
       setLoading(false);
     }
@@ -607,7 +614,11 @@ export default function StudentDashboardPage() {
         newSet.add(classId);
         // Also select all students in this class
         const studentsInClass = availableStudents
-          .filter((student) => student.class_name === availableClasses.find((c) => c.id === classId)?.name)
+          .filter(
+            (student) =>
+              student.class_name ===
+              availableClasses.find((c) => c.id === classId)?.name
+          )
           .map((student) => student.id);
         setSelectedStudents((prevStudents) => {
           const newStudents = new Set(prevStudents);
@@ -618,7 +629,11 @@ export default function StudentDashboardPage() {
         newSet.delete(classId);
         // Also deselect all students in this class
         const studentsInClass = availableStudents
-          .filter((student) => student.class_name === availableClasses.find((c) => c.id === classId)?.name)
+          .filter(
+            (student) =>
+              student.class_name ===
+              availableClasses.find((c) => c.id === classId)?.name
+          )
           .map((student) => student.id);
         setSelectedStudents((prevStudents) => {
           const newStudents = new Set(prevStudents);
@@ -2046,10 +2061,12 @@ export default function StudentDashboardPage() {
                       Prøv igjen
                     </button>
                   </div>
-                ) : availableClasses.length === 0 && availableStudents.length === 0 ? (
+                ) : availableClasses.length === 0 &&
+                  availableStudents.length === 0 ? (
                   <div className="flex items-center justify-center py-8 text-sm text-slate-500">
                     <p className="text-center">
-                      Ingen klasser eller elever funnet. Sjekk at elevene er opprettet.
+                      Ingen klasser eller elever funnet. Sjekk at elevene er
+                      opprettet.
                     </p>
                   </div>
                 ) : (
@@ -2109,7 +2126,10 @@ export default function StudentDashboardPage() {
                         ) : (
                           (() => {
                             // Group students by class for better visual hierarchy
-                            const groupedByClass = new Map<string, StudentOption[]>();
+                            const groupedByClass = new Map<
+                              string,
+                              StudentOption[]
+                            >();
                             getFilteredStudents().forEach((stu) => {
                               if (!groupedByClass.has(stu.class_name)) {
                                 groupedByClass.set(stu.class_name, []);
@@ -2119,19 +2139,24 @@ export default function StudentDashboardPage() {
 
                             return Array.from(groupedByClass.entries()).map(
                               ([className, students]) => {
-                                const classStudentCount = availableStudents.filter(
-                                  (s) => s.class_name === className
-                                ).length;
+                                const classStudentCount =
+                                  availableStudents.filter(
+                                    (s) => s.class_name === className
+                                  ).length;
                                 const selectedCount = students.filter((s) =>
                                   selectedStudents.has(s.id)
                                 ).length;
 
                                 return (
-                                  <div key={className} className="border-b border-slate-200 last:border-b-0">
+                                  <div
+                                    key={className}
+                                    className="border-b border-slate-200 last:border-b-0"
+                                  >
                                     {/* Class Group Header */}
                                     <div className="sticky top-0 bg-slate-50 px-3 py-2 border-b border-slate-200">
                                       <span className="text-xs font-semibold text-slate-700">
-                                        {className} ({selectedCount}/{classStudentCount})
+                                        {className} ({selectedCount}/
+                                        {classStudentCount})
                                       </span>
                                     </div>
 
@@ -2148,8 +2173,12 @@ export default function StudentDashboardPage() {
                                         >
                                           <input
                                             type="checkbox"
-                                            checked={selectedStudents.has(stu.id)}
-                                            onChange={() => toggleStudent(stu.id)}
+                                            checked={selectedStudents.has(
+                                              stu.id
+                                            )}
+                                            onChange={() =>
+                                              toggleStudent(stu.id)
+                                            }
                                             className="mr-3"
                                           />
                                           <span className="text-sm font-medium text-slate-900">

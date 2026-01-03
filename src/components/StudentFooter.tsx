@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timer } from "lucide-react";
 import CircularProgress from "./ui/CircularProgress";
+import StudentHelpButton from "./student/StudentHelpButton";
 
 type StudentFooterProps = {
   level?: number;
@@ -19,6 +20,9 @@ type StudentFooterProps = {
   };
   timeRemaining?: string;
   activityProgress?: number;
+  // Help button props
+  studentId?: string;
+  classId?: string;
 };
 
 export default function StudentFooter({
@@ -29,10 +33,15 @@ export default function StudentFooter({
   currentActivity,
   timeRemaining = "--",
   activityProgress = 0,
+  studentId,
+  classId,
 }: StudentFooterProps) {
   const [toolEnabled, setToolEnabled] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [widgetPosition, setWidgetPosition] = useState({ bottom: 96, right: 32 });
+  const [widgetPosition, setWidgetPosition] = useState({
+    bottom: 96,
+    right: 32,
+  });
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -51,11 +60,12 @@ export default function StudentFooter({
         const buttonRect = buttonRef.current.getBoundingClientRect();
         const windowHeight = window.innerHeight;
         const windowWidth = window.innerWidth;
-        
+
         // Position widget above button: distance from bottom to button top + spacing
         const distanceFromBottom = windowHeight - buttonRect.top + 16;
-        const distanceFromRight = windowWidth - (buttonRect.left + buttonRect.width / 2);
-        
+        const distanceFromRight =
+          windowWidth - (buttonRect.left + buttonRect.width / 2);
+
         setWidgetPosition({
           bottom: distanceFromBottom,
           right: distanceFromRight,
@@ -68,13 +78,13 @@ export default function StudentFooter({
       // Small delay to ensure button is rendered
       setTimeout(updatePosition, 10);
     }
-    
+
     updatePosition();
 
     // Update on resize
-    window.addEventListener('resize', updatePosition);
-    
-    return () => window.removeEventListener('resize', updatePosition);
+    window.addEventListener("resize", updatePosition);
+
+    return () => window.removeEventListener("resize", updatePosition);
   }, [toolEnabled]);
 
   const safeProgress = Math.max(0, Math.min(100, progressPercent));
@@ -187,77 +197,65 @@ export default function StudentFooter({
               </span>
             </div>
             <div className="relative h-3 w-full">
-            {/* Background Track */}
-            <div className="absolute inset-0 bg-gray-200 rounded-full overflow-hidden">
-              {/* Green Progress Fill */}
-              <div
-                className="h-full bg-green-500 transition-all duration-500 ease-out"
-                style={{ width: `${safeProgress}%` }}
-              />
-            </div>
-
-            {/* Avatar marker - Positioned absolute relative to the bar container */}
-            <motion.div
-              className="absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center select-none"
-              style={{ left: avatarOffset }}
-              initial={false}
-              animate={{ left: avatarOffset }}
-              transition={{ type: "spring", stiffness: 100, damping: 15 }}
-            >
-              <div className="relative">
-                {avatar && avatar.startsWith("http") ? (
-                  // Avatar is a URL (image)
-                  <img
-                    src={avatar}
-                    alt="User avatar"
-                    className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover"
-                  />
-                ) : (
-                  // Avatar is an emoji
-                  <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block">
-                    {avatar}
-                  </span>
-                )}
+              {/* Background Track */}
+              <div className="absolute inset-0 bg-gray-200 rounded-full overflow-hidden">
+                {/* Green Progress Fill */}
+                <div
+                  className="h-full bg-green-500 transition-all duration-500 ease-out"
+                  style={{ width: `${safeProgress}%` }}
+                />
               </div>
-            </motion.div>
+
+              {/* Avatar marker - Positioned absolute relative to the bar container */}
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 z-10 flex items-center justify-center select-none"
+                style={{ left: avatarOffset }}
+                initial={false}
+                animate={{ left: avatarOffset }}
+                transition={{ type: "spring", stiffness: 100, damping: 15 }}
+              >
+                <div className="relative">
+                  {avatar && avatar.startsWith("http") ? (
+                    // Avatar is a URL (image)
+                    <img
+                      src={avatar}
+                      alt="User avatar"
+                      className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover"
+                    />
+                  ) : (
+                    // Avatar is an emoji
+                    <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block">
+                      {avatar}
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+            </div>
           </div>
-        </div>
 
-        {/* Time Tool Toggle Button */}
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={() => setToolEnabled((v) => !v)}
-          title={toolEnabled ? "Skru av tidtaker" : "Skru på tidtaker"}
-          className={`relative group flex items-center justify-center h-12 w-12 rounded-full border transition-all duration-300 ease-in-out ${
-            toolEnabled || timeTrackerEnabled
-              ? "bg-indigo-50 border-indigo-400 text-indigo-600 shadow-[0_0_15px_rgba(99,102,241,0.5)] scale-105"
-              : "bg-white border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 hover:border-gray-300"
-          }`}
-        >
-          <Timer
-            className={`h-6 w-6 transition-transform duration-300 ${
-              toolEnabled || timeTrackerEnabled ? "scale-110" : "scale-100"
+          {/* Time Tool Toggle Button */}
+          <button
+            ref={buttonRef}
+            type="button"
+            onClick={() => setToolEnabled((v) => !v)}
+            title={toolEnabled ? "Skru av tidtaker" : "Skru på tidtaker"}
+            className={`relative group flex items-center justify-center h-14 w-14 rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 ${
+              toolEnabled
+                ? "ring-2 ring-indigo-400 text-indigo-600"
+                : "text-gray-400"
             }`}
-            strokeWidth={toolEnabled || timeTrackerEnabled ? 2.5 : 2}
-          />
-
-          {/* Activity indicator dot */}
-          {(toolEnabled || timeTrackerEnabled) && currentActivity && (
-            <span
-              className={`absolute top-0 right-0 h-3 w-3 ${
-                currentActivity.type === "lesson"
-                  ? "bg-indigo-500"
-                  : currentActivity.type === "break"
-                  ? "bg-green-500"
-                  : currentActivity.type === "upcoming"
-                  ? "bg-amber-500"
-                  : "bg-slate-500"
-              } border-2 border-white rounded-full shadow-sm animate-pulse`}
+          >
+            <Timer
+              className="h-6 w-6 transition-transform duration-300"
+              strokeWidth={2}
             />
+          </button>
+
+          {/* Help Button */}
+          {studentId && classId && (
+            <StudentHelpButton studentId={studentId} classId={classId} />
           )}
-        </button>
-      </div>
+        </div>
       </div>
     </motion.div>
   );
