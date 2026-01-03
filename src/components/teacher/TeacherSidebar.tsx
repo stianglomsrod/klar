@@ -26,7 +26,7 @@ const navigationItems = [
   },
   {
     name: "Fag & Oppgaver",
-    href: "/teacher/subjects",
+    href: "/teacher/tasks",
     icon: BookOpen,
   },
   {

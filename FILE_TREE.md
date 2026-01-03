@@ -56,6 +56,8 @@ klar/
 │   │   │       ├── students/
 │   │   │       │   └── [id]/
 │   │   │       │       └── page.tsx
+│   │   │       ├── tasks/
+│   │   │       │   └── page.tsx
 │   │   │       └── timeplan/
 │   │   │           └── page.tsx
 │   │   │
