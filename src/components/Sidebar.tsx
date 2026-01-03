@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Calendar, Home, Trophy, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, X, Calendar, Home, Trophy, Mail, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@/utils/supabase/client";
 
 type SidebarProps = {
   isOpen?: boolean;
@@ -23,11 +25,18 @@ export default function Sidebar({
   avatar = "🦄",
 }: SidebarProps = {}) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   // Use external state if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
   const handleClose = onClose || (() => setInternalIsOpen(false));
   const handleOpen = () => setInternalIsOpen(true);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
 
   const menuItems = [
     { name: "Dagen i dag", icon: Home, href: "/" },
@@ -105,6 +114,20 @@ export default function Sidebar({
                   </Link>
                 );
               })}
+
+              {/* Logout Button */}
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700 group w-full"
+                >
+                  <LogOut
+                    size={20}
+                    className="group-hover:scale-110 transition-transform"
+                  />
+                  <span className="font-medium">Logg ut</span>
+                </button>
+              </div>
             </div>
 
             {/* Bottom Progress Card (Nå synkronisert med footer!) */}
