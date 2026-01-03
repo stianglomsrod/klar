@@ -8,6 +8,7 @@ import {
   BookOpen,
   Gift,
   MessageSquare,
+  CalendarDays,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -27,6 +28,11 @@ const navigationItems = [
     name: "Fag & Oppgaver",
     href: "/teacher/subjects",
     icon: BookOpen,
+  },
+  {
+    name: "Timeplaner",
+    href: "/teacher/timeplan",
+    icon: CalendarDays,
   },
   {
     name: "Belønninger",

@@ -52,9 +52,11 @@ klar/
 │   │   │       │   └── page.tsx
 │   │   │       ├── rewards/
 │   │   │       │   └── page.tsx
-│   │   │       └── students/
-│   │   │           └── [id]/
-│   │   │               └── page.tsx
+│   │   │       ├── students/
+│   │   │       │   └── [id]/
+│   │   │       │       └── page.tsx
+│   │   │       └── timeplan/
+│   │   │           └── page.tsx
 │   │   │
 │   │   ├── belonninger/
 │   │   │   ├── layout.tsx
@@ -90,7 +92,8 @@ klar/
 │   │       ├── ClassesAccordion.tsx
 │   │       ├── EditStudentSheet.tsx
 │   │       ├── StudentTable.tsx
-│   │       └── TeacherSidebar.tsx
+│   │       ├── TeacherSidebar.tsx
+│   │       └── WeeklyScheduleEditor.tsx
 │   │
 │   ├── contexts/
 │   │   └── StudentProfileContext.tsx

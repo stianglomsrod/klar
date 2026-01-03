@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
 import {
   ArrowLeft,
   Star,
@@ -129,7 +130,9 @@ export default function StudentDashboardPage() {
 
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"todo" | "completed">("todo");
+  const [activeTab, setActiveTab] = useState<"todo" | "completed" | "timeplan">(
+    "todo"
+  );
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [flowerGameEnabled, setFlowerGameEnabled] = useState(true);
   const [welcomeMessage, setWelcomeMessage] = useState("");
@@ -1187,10 +1190,26 @@ export default function StudentDashboardPage() {
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-green-600" />
                 )}
               </button>
+              <button
+                onClick={() => setActiveTab("timeplan")}
+                className={`flex-1 px-6 py-3 text-sm font-semibold transition-colors relative ${
+                  activeTab === "timeplan"
+                    ? "text-purple-600 bg-white"
+                    : "text-slate-600 hover:text-slate-900 bg-slate-50"
+                }`}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span>Timeplan</span>
+                </div>
+                {activeTab === "timeplan" && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600" />
+                )}
+              </button>
             </div>
           </div>
 
-          {/* Task List */}
+          {/* Task List & Timeplan */}
           <div className="p-6">
             {activeTab === "todo" ? (
               todoTasks.length > 0 ? (
@@ -1320,6 +1339,12 @@ export default function StudentDashboardPage() {
                 <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500">Ingen fullførte oppgaver ennå</p>
               </div>
+            )}
+            {activeTab === "timeplan" && student && (
+              <WeeklyScheduleEditor
+                classId={student.class_id || ""}
+                studentId={student.id}
+              />
             )}
           </div>
         </div>
