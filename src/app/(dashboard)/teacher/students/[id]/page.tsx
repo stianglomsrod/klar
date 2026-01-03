@@ -329,6 +329,7 @@ export default function StudentDashboardPage() {
 
       setStudent(studentData);
       setSelectedClass(studentData.class_name || "");
+      setWelcomeMessage(data.custom_welcome_message || "");
     } catch (error) {
       console.error("Error fetching student:", error?.message || error);
     } finally {
@@ -376,6 +377,22 @@ export default function StudentDashboardPage() {
     } catch (error) {
       console.error("Error removing reward:", error);
       alert("Kunne ikke fjerne belønning. Prøv igjen.");
+    }
+  };
+
+  const handleSaveWelcomeMessage = async () => {
+    try {
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ custom_welcome_message: welcomeMessage })
+        .eq("id", studentId);
+
+      if (error) throw error;
+
+      alert("Velkomstmelding lagret!");
+    } catch (error) {
+      console.error("Error saving welcome message:", error);
+      alert("Kunne ikke lagre velkomstmelding. Prøv igjen.");
     }
   };
 
@@ -944,6 +961,12 @@ export default function StudentDashboardPage() {
                 rows={3}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-sm"
               />
+              <button
+                onClick={handleSaveWelcomeMessage}
+                className="mt-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+              >
+                Lagre melding
+              </button>
             </div>
           </div>
         </div>

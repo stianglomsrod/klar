@@ -22,13 +22,13 @@ type Subject = {
 export default function StudentPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(() => {
-    // Initialize from localStorage to avoid hydration mismatch
-    if (typeof window !== "undefined") {
-      return !localStorage.getItem("welcomeSeen");
-    }
-    return false;
-  });
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    // Check localStorage after hydration to avoid mismatch
+    const hasSeenWelcome = localStorage.getItem("welcomeSeen");
+    setShowWelcome(!hasSeenWelcome);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
