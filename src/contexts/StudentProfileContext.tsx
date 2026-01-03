@@ -22,6 +22,7 @@ export type StudentProfile = {
   petal_colors: string[];
   show_flower_garden: boolean;
   custom_welcome_message: string | null;
+  class_id: string | null;
 };
 
 type StudentProfileContextType = {
@@ -72,7 +73,8 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             flowers_collected,
             petal_colors,
             show_flower_garden,
-            custom_welcome_message
+            custom_welcome_message,
+            class_id
           `
         )
         .eq("id", user.id)
@@ -112,7 +114,8 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
                 flowers_collected,
                 petal_colors,
                 show_flower_garden,
-                custom_welcome_message
+                custom_welcome_message,
+                class_id
               `
             )
             .eq("id", user.id)
@@ -142,6 +145,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         ],
         show_flower_garden: studentData?.show_flower_garden ?? true,
         custom_welcome_message: studentData?.custom_welcome_message || null,
+        class_id: studentData?.class_id ?? null,
       };
 
       setProfile(mergedProfile);

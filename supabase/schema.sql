@@ -130,7 +130,7 @@ CREATE TABLE public.student_teacher_settings (
 
 CREATE TABLE public.subjects (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  title text NOT NULL,
+  title text NOT NULL UNIQUE,
   emoji text DEFAULT '📚'::text,
   color_theme text DEFAULT 'blue'::text,
   date date DEFAULT CURRENT_DATE,

@@ -184,6 +184,7 @@ export default function StudentDashboardPage() {
   ); // Pre-select current student
   const [studentSearchQuery, setStudentSearchQuery] = useState("");
   const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
+  const [recipientsError, setRecipientsError] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -261,39 +262,63 @@ export default function StudentDashboardPage() {
 
   const fetchRecipientsData = async () => {
     setIsLoadingRecipients(true);
+    setRecipientsError(null);
     try {
-      // Fetch all classes (get unique class names from profiles)
+      // Fetch all students with their class information
       const { data: allStudents, error: studentsError } = await supabase
-        .from("profiles")
-        .select("id, full_name, class_name")
-        .order("class_name", { ascending: true });
+        .from("student_profiles")
+        .select(
+          `
+          id,
+          profiles!inner (
+            full_name
+          ),
+          classes (
+            id,
+            name
+          )
+        `
+        )
+        .order("classes(name)", { ascending: true });
 
-      if (studentsError) throw studentsError;
+      if (studentsError) {
+        console.error("Supabase error fetching students:", studentsError);
+        throw studentsError;
+      }
+
+      console.log("Fetched students:", allStudents);
 
       // Extract unique classes
       const uniqueClasses = new Map<string, ClassOption>();
       const processedStudents: StudentOption[] = [];
 
-      allStudents?.forEach((student) => {
-        if (student.class_name && !uniqueClasses.has(student.class_name)) {
-          uniqueClasses.set(student.class_name, {
-            id: student.class_name,
-            name: student.class_name,
+      allStudents?.forEach((student: any) => {
+        const classInfo = student.classes;
+        const fullName = student.profiles?.full_name;
+
+        if (classInfo && !uniqueClasses.has(classInfo.id)) {
+          uniqueClasses.set(classInfo.id, {
+            id: classInfo.id,
+            name: classInfo.name,
           });
         }
-        if (student.class_name) {
+        if (classInfo && fullName) {
           processedStudents.push({
             id: student.id,
-            name: student.full_name,
-            class_name: student.class_name,
+            name: fullName,
+            class_name: classInfo.name,
           });
         }
       });
 
+      console.log("Processed classes:", Array.from(uniqueClasses.values()));
+      console.log("Processed students:", processedStudents);
+
       setAvailableClasses(Array.from(uniqueClasses.values()));
       setAvailableStudents(processedStudents);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching recipients data:", error);
+      setRecipientsError(error?.message || "Kunne ikke laste elever og klasser");
     } finally {
       setIsLoadingRecipients(false);
     }
@@ -576,11 +601,32 @@ export default function StudentDashboardPage() {
   const toggleClass = (classId: string) => {
     setSelectedClasses((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(classId)) {
-        newSet.delete(classId);
-      } else {
+      const isAdding = !newSet.has(classId);
+
+      if (isAdding) {
         newSet.add(classId);
+        // Also select all students in this class
+        const studentsInClass = availableStudents
+          .filter((student) => student.class_name === availableClasses.find((c) => c.id === classId)?.name)
+          .map((student) => student.id);
+        setSelectedStudents((prevStudents) => {
+          const newStudents = new Set(prevStudents);
+          studentsInClass.forEach((id) => newStudents.add(id));
+          return newStudents;
+        });
+      } else {
+        newSet.delete(classId);
+        // Also deselect all students in this class
+        const studentsInClass = availableStudents
+          .filter((student) => student.class_name === availableClasses.find((c) => c.id === classId)?.name)
+          .map((student) => student.id);
+        setSelectedStudents((prevStudents) => {
+          const newStudents = new Set(prevStudents);
+          studentsInClass.forEach((id) => newStudents.delete(id));
+          return newStudents;
+        });
       }
+
       return newSet;
     });
   };
@@ -680,11 +726,33 @@ export default function StudentDashboardPage() {
           .select()
           .single();
 
-        if (subjectError) throw subjectError;
-        finalSubjectId = newSubject.id;
+        // Handle unique constraint violation gracefully
+        if (subjectError) {
+          if (subjectError.code === "23505") {
+            // Subject already exists, fetch it instead
+            const { data: existingSubject, error: selectError } = await supabase
+              .from("subjects")
+              .select("*")
+              .ilike("title", customSubjectName.trim())
+              .single();
 
-        // Add to subjects list
-        setSubjects((prev) => [...prev, newSubject]);
+            if (selectError) throw selectError;
+            finalSubjectId = existingSubject.id;
+
+            // Add to subjects list if not already there
+            setSubjects((prev) => {
+              const exists = prev.some((s) => s.id === existingSubject.id);
+              return exists ? prev : [...prev, existingSubject];
+            });
+          } else {
+            throw subjectError;
+          }
+        } else {
+          finalSubjectId = newSubject.id;
+
+          // Add to subjects list
+          setSubjects((prev) => [...prev, newSubject]);
+        }
       }
 
       // Determine target student IDs using the recipient picker
@@ -1965,6 +2033,25 @@ export default function StudentDashboardPage() {
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600 mr-2"></div>
                     Laster elever og klasser...
                   </div>
+                ) : recipientsError ? (
+                  <div className="flex flex-col items-center justify-center py-8 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-sm text-red-700 mb-3 text-center">
+                      {recipientsError}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => fetchRecipientsData()}
+                      className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200 rounded transition-colors"
+                    >
+                      Prøv igjen
+                    </button>
+                  </div>
+                ) : availableClasses.length === 0 && availableStudents.length === 0 ? (
+                  <div className="flex items-center justify-center py-8 text-sm text-slate-500">
+                    <p className="text-center">
+                      Ingen klasser eller elever funnet. Sjekk at elevene er opprettet.
+                    </p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {/* Class Selector */}
@@ -2002,7 +2089,7 @@ export default function StudentDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Student Selector with Search */}
+                    {/* Student Selector with Search - Grouped by Class */}
                     <div>
                       <h4 className="text-xs font-semibold text-slate-700 mb-2 uppercase tracking-wide">
                         Legg til enkeltelever
@@ -2014,39 +2101,68 @@ export default function StudentDashboardPage() {
                         placeholder="Søk etter navn eller klasse..."
                         className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2"
                       />
-                      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg">
+                      <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg bg-white">
                         {getFilteredStudents().length === 0 ? (
                           <p className="text-xs text-slate-400 text-center py-4">
                             Ingen elever funnet
                           </p>
                         ) : (
-                          getFilteredStudents().map((stu) => (
-                            <label
-                              key={stu.id}
-                              className={`flex items-center justify-between p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors ${
-                                selectedStudents.has(stu.id)
-                                  ? "bg-indigo-50"
-                                  : ""
-                              }`}
-                            >
-                              <div className="flex items-center flex-1">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedStudents.has(stu.id)}
-                                  onChange={() => toggleStudent(stu.id)}
-                                  className="mr-3"
-                                />
-                                <div>
-                                  <span className="text-sm font-medium text-slate-900 block">
-                                    {stu.name}
-                                  </span>
-                                  <span className="text-xs text-slate-500">
-                                    {stu.class_name}
-                                  </span>
-                                </div>
-                              </div>
-                            </label>
-                          ))
+                          (() => {
+                            // Group students by class for better visual hierarchy
+                            const groupedByClass = new Map<string, StudentOption[]>();
+                            getFilteredStudents().forEach((stu) => {
+                              if (!groupedByClass.has(stu.class_name)) {
+                                groupedByClass.set(stu.class_name, []);
+                              }
+                              groupedByClass.get(stu.class_name)!.push(stu);
+                            });
+
+                            return Array.from(groupedByClass.entries()).map(
+                              ([className, students]) => {
+                                const classStudentCount = availableStudents.filter(
+                                  (s) => s.class_name === className
+                                ).length;
+                                const selectedCount = students.filter((s) =>
+                                  selectedStudents.has(s.id)
+                                ).length;
+
+                                return (
+                                  <div key={className} className="border-b border-slate-200 last:border-b-0">
+                                    {/* Class Group Header */}
+                                    <div className="sticky top-0 bg-slate-50 px-3 py-2 border-b border-slate-200">
+                                      <span className="text-xs font-semibold text-slate-700">
+                                        {className} ({selectedCount}/{classStudentCount})
+                                      </span>
+                                    </div>
+
+                                    {/* Students in this class */}
+                                    <div className="bg-white">
+                                      {students.map((stu) => (
+                                        <label
+                                          key={stu.id}
+                                          className={`flex items-center p-3 border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors last:border-b-0 ${
+                                            selectedStudents.has(stu.id)
+                                              ? "bg-indigo-50"
+                                              : ""
+                                          }`}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedStudents.has(stu.id)}
+                                            onChange={() => toggleStudent(stu.id)}
+                                            className="mr-3"
+                                          />
+                                          <span className="text-sm font-medium text-slate-900">
+                                            {stu.name}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                            );
+                          })()
                         )}
                       </div>
                     </div>

@@ -2,6 +2,7 @@
 
 import StudentFooter from "./StudentFooter";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { useTimeTracker } from "@/hooks/useTimeTracker";
 
 export default function StudentFooterWrapper() {
   const { profile } = useStudentProfile();
@@ -13,11 +14,21 @@ export default function StudentFooterWrapper() {
   const progressPercent = (currentXp / currentGoal) * 100;
   const userAvatar = profile?.avatar_url || "🦄";
 
+  // Get time tracking data
+  const { currentActivity, timeRemaining, progress, loading } = useTimeTracker(
+    profile?.id,
+    profile?.class_id
+  );
+
   return (
     <StudentFooter
       level={userLevel}
       progressPercent={progressPercent}
       avatar={userAvatar}
+      timeTrackerEnabled={!loading}
+      currentActivity={currentActivity}
+      timeRemaining={timeRemaining}
+      activityProgress={progress}
     />
   );
 }
