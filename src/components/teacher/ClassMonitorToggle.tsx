@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { Switch } from "@/components/ui/switch";
 
 type ClassMonitorToggleProps = {
   classId: string;
@@ -87,36 +88,28 @@ export default function ClassMonitorToggle({
   };
 
   return (
-    <div className="relative">
-      <button
-        onClick={handleToggle}
-        disabled={isLoading}
-        title={isActive ? "Skru av hjelp varsler" : "Skru på hjelp varsler"}
-        className={`flex items-center gap-2 px-4 py-2.5 font-semibold rounded-lg transition-all duration-200 ${
-          isActive
-            ? "bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-500/30"
-            : "bg-slate-200 hover:bg-slate-300 text-slate-700"
-        } ${isLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+    <div className="flex items-center gap-3">
+      {/* Label */}
+      <label
+        htmlFor={`monitor-toggle-${classId}`}
+        className="text-sm font-medium text-gray-700"
       >
-        {isLoading ? (
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-        ) : (
-          <Bell
-            size={20}
-            className={isActive ? "fill-current" : ""}
-            strokeWidth={isActive ? 0 : 2}
-          />
-        )}
-        <span className="text-sm font-semibold">
-          {isActive ? "Varsler PÅ" : "Varsler AV"}
-        </span>
-      </button>
+        Hjelpekø
+      </label>
 
-      {error && (
-        <div className="absolute top-full mt-2 right-0 bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg whitespace-nowrap shadow-lg z-50">
-          {error}
-        </div>
+      {/* Switch */}
+      {isLoading ? (
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      ) : (
+        <Switch
+          checked={isActive}
+          onCheckedChange={handleToggle}
+          disabled={isLoading}
+        />
       )}
+
+      {/* Error message */}
+      {error && <span className="ml-2 text-xs text-red-600">{error}</span>}
     </div>
   );
 }

@@ -376,9 +376,6 @@ export default function ClassesAccordion({
                                   classId={cls.id}
                                   teacherId={teacherId}
                                 />
-                                <span className="text-sm text-gray-600">
-                                  Administrer tilgjengelighet for {cls.name}
-                                </span>
                               </div>
 
                               {/* Help Request Queue */}

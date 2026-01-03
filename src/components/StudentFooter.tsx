@@ -43,6 +43,28 @@ export default function StudentFooter({
     right: 32,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setToolEnabled(false);
+      }
+    }
+
+    if (toolEnabled) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+      };
+    }
+  }, [toolEnabled]);
 
   useEffect(() => {
     // Wait 1.2 seconds (overlay fadeout is 0.8s + 0.4s buffer)
@@ -139,6 +161,7 @@ export default function StudentFooter({
       <AnimatePresence>
         {toolEnabled && currentActivity && (
           <motion.div
+            ref={popoverRef}
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
