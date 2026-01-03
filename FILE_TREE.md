@@ -7,6 +7,7 @@ klar/
 ├── .gitignore
 ├── .next/
 ├── eslint.config.mjs
+├── FILE_TREE.md
 ├── next-env.d.ts
 ├── next.config.ts
 ├── node_modules/
@@ -88,18 +89,28 @@ klar/
 │   │   ├── shared/
 │   │   │   └── CouponCard.tsx
 │   │   │
-│   │   └── teacher/
-│   │       ├── ClassesAccordion.tsx
-│   │       ├── EditStudentSheet.tsx
-│   │       ├── StudentTable.tsx
-│   │       ├── TeacherSidebar.tsx
-│   │       └── WeeklyScheduleEditor.tsx
+│   │   ├── student/
+│   │   │   └── StudentHelpButton.tsx
+│   │   │
+│   │   ├── teacher/
+│   │   │   ├── ClassesAccordion.tsx
+│   │   │   ├── ClassMonitorToggle.tsx
+│   │   │   ├── EditStudentSheet.tsx
+│   │   │   ├── HelpRequestQueue.tsx
+│   │   │   ├── StudentTable.tsx
+│   │   │   ├── TeacherSidebar.tsx
+│   │   │   └── WeeklyScheduleEditor.tsx
+│   │   │
+│   │   └── ui/
+│   │       ├── CircularProgress.tsx
+│   │       └── switch.tsx
 │   │
 │   ├── contexts/
 │   │   └── StudentProfileContext.tsx
 │   │
 │   ├── hooks/
-│   │   └── useStudentProfile.ts
+│   │   ├── useStudentProfile.ts
+│   │   └── useTimeTracker.ts
 │   │
 │   └── utils/
 │       └── supabase/
