@@ -220,11 +220,11 @@ export default function StudentFooter({
               </span>
             </div>
             <div className="relative h-3 w-full">
-              {/* Background Track */}
-              <div className="absolute inset-0 bg-gray-200 rounded-full overflow-hidden">
-                {/* Green Progress Fill */}
+              {/* Dark Background Track for High Contrast */}
+              <div className="absolute inset-0 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                {/* Bright Green Progress Fill with Glow Effect */}
                 <div
-                  className="h-full bg-green-500 transition-all duration-500 ease-out"
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500 ease-out shadow-[0_0_8px_rgba(34,197,94,0.6)]"
                   style={{ width: `${safeProgress}%` }}
                 />
               </div>
