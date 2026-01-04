@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle } from "lucide-react";
+import { getSubjectTheme } from "@/utils/subject-colors";
 
 type Task = {
   id: string;
@@ -14,10 +15,16 @@ type Task = {
 type TaskCardProps = {
   task: Task;
   onComplete: () => void;
+  colorTheme?: string; // Optional: color theme for the subject this task belongs to
 };
 
-export default function TaskCard({ task, onComplete }: TaskCardProps) {
+export default function TaskCard({
+  task,
+  onComplete,
+  colorTheme = "blue",
+}: TaskCardProps) {
   const isDone = task.is_completed;
+  const theme = getSubjectTheme(colorTheme);
 
   return (
     <div className="h-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 p-5 flex flex-col gap-4">
@@ -49,7 +56,11 @@ export default function TaskCard({ task, onComplete }: TaskCardProps) {
       ) : (
         <button
           onClick={onComplete}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-wide py-4 px-6 rounded-xl shadow-md border-b-4 border-indigo-800 active:translate-y-[1px] active:border-b-2 transition-all duration-150 flex items-center justify-center gap-2"
+          className={`w-full ${theme.base} hover:${theme.hover} text-white font-black tracking-wide py-4 px-6 rounded-xl shadow-md border-b-4 active:translate-y-[1px] active:border-b-2 transition-all duration-150 flex items-center justify-center gap-2`}
+          style={{
+            borderBottomColor: `currentColor`,
+            opacity: 0.9,
+          }}
         >
           <CheckCircle className="h-5 w-5" />
           Fullfør

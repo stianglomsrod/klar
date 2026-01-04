@@ -4,6 +4,7 @@ import WelcomeOverlay from "@/components/WelcomeOverlay";
 import SubjectCard from "@/components/SubjectCard";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { AnimatePresence } from "framer-motion";
 
 // Definer typene vi får fra databasen
 type Task = {
@@ -81,30 +82,84 @@ export default function StudentPage() {
               Laster fagene dine...
             </div>
           ) : (
-            // ENDRING 4: Responsiv grid og mer mellomrom
-            // 'sm:grid-cols-2' betyr 2 kort i bredden på små skjermer/nettbrett
-            // 'lg:grid-cols-3' betyr 3 kort i bredden på større skjermer
-            // 'gap-8' gir mye mer luft mellom kortene enn 'gap-5'
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
-              {subjects.map((subject, index) => {
-                const totalTasks = subject.tasks?.length || 0;
+            (() => {
+              // Filter subjects into active and trophy
+              const activeSubjects = subjects.filter((subject) => {
+                const activeTasks =
+                  subject.tasks?.filter((t) => !t.is_completed).length || 0;
+                return activeTasks > 0;
+              });
+
+              const trophySubjects = subjects.filter((subject) => {
+                const activeTasks =
+                  subject.tasks?.filter((t) => !t.is_completed).length || 0;
                 const completedTasks =
                   subject.tasks?.filter((t) => t.is_completed).length || 0;
+                return activeTasks === 0 && completedTasks > 0;
+              });
 
-                return (
-                  <SubjectCard
-                    key={subject.id}
-                    id={subject.id}
-                    index={index}
-                    title={subject.title}
-                    emoji={subject.emoji}
-                    colorTheme={subject.color_theme}
-                    taskCount={totalTasks}
-                    completedCount={completedTasks}
-                  />
-                );
-              })}
-            </div>
+              return (
+                <div className="space-y-12">
+                  {/* Main Grid - Active Subjects */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
+                    <AnimatePresence mode="wait">
+                      {activeSubjects.map((subject, index) => {
+                        const totalTasks = subject.tasks?.length || 0;
+                        const completedTasks =
+                          subject.tasks?.filter((t) => t.is_completed).length ||
+                          0;
+
+                        return (
+                          <SubjectCard
+                            key={subject.id}
+                            id={subject.id}
+                            index={index}
+                            title={subject.title}
+                            emoji={subject.emoji}
+                            colorTheme={subject.color_theme}
+                            taskCount={totalTasks}
+                            completedCount={completedTasks}
+                          />
+                        );
+                      })}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Trophy Shelf - Completed Subjects */}
+                  {trophySubjects.length > 0 && (
+                    <div className="space-y-6 mt-16 pt-12 border-t-2 border-yellow-200">
+                      <h2 className="text-slate-500 font-bold text-2xl px-2">
+                        🏆 Troféhylla
+                      </h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
+                        <AnimatePresence mode="wait">
+                          {trophySubjects.map((subject, index) => {
+                            const totalTasks = subject.tasks?.length || 0;
+                            const completedTasks =
+                              subject.tasks?.filter((t) => t.is_completed)
+                                .length || 0;
+
+                            return (
+                              <SubjectCard
+                                key={subject.id}
+                                id={subject.id}
+                                index={index}
+                                title={subject.title}
+                                emoji={subject.emoji}
+                                colorTheme={subject.color_theme}
+                                taskCount={totalTasks}
+                                completedCount={completedTasks}
+                                variant="trophy"
+                              />
+                            );
+                          })}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
           )}
         </section>
       </div>

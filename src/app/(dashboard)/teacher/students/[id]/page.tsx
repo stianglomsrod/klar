@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
+import { getSubjectTheme } from "@/utils/subject-colors";
 import {
   ArrowLeft,
   Star,
@@ -49,81 +50,12 @@ type QuizQuestion = {
   options: string[];
 };
 
-// Mock data for UI development
-const mockGameData = {
-  current_xp: 750,
-  next_level_xp: 1000,
-  total_points: 3250,
-  flowers_collected: 12,
-};
-
-const mockTasks: Task[] = [
-  {
-    id: "1",
-    title: "Matematikk: Multiplikasjon 1-10",
-    description: "Løs 20 oppgaver om gangetabellen",
-    points_value: 50,
-    due_date: "2026-01-05",
-    is_completed: false,
-    subject: "Matematikk",
-  },
-  {
-    id: "2",
-    title: "Norsk: Leseforståelse",
-    description: "Les kapittel 3 og svar på spørsmålene",
-    points_value: 75,
-    due_date: "2026-01-03",
-    is_completed: false,
-    subject: "Norsk",
-  },
-  {
-    id: "3",
-    title: "Naturfag: Solsystemet",
-    description: "Se videoen om planetene og ta quizen",
-    points_value: 100,
-    due_date: "2026-01-08",
-    is_completed: false,
-    subject: "Naturfag",
-  },
-  {
-    id: "4",
-    title: "Matematikk: Addisjon",
-    description: "Øvingsoppgaver side 24-26",
-    points_value: 50,
-    due_date: "2025-12-28",
-    is_completed: true,
-    subject: "Matematikk",
-  },
-  {
-    id: "5",
-    title: "Engelsk: Vocabulary",
-    description: "Lær 15 nye ord om dyr",
-    points_value: 40,
-    due_date: "2025-12-30",
-    is_completed: true,
-    subject: "Engelsk",
-  },
-];
-
 type Reward = {
   id: string;
   name: string;
   emoji: string;
   cost: number;
 };
-
-const mockRewards: Reward[] = [
-  { id: "1", name: "Viskelær", emoji: "✏️", cost: 50 },
-  { id: "2", name: "Pizza-fredag", emoji: "🍕", cost: 500 },
-  { id: "3", name: "Ekstra pause", emoji: "⏰", cost: 200 },
-];
-
-const mockRewardLibrary: Reward[] = [
-  { id: "lib1", name: "Klistremerke", emoji: "🌟", cost: 25 },
-  { id: "lib2", name: "iPad-tid (15 min)", emoji: "📱", cost: 150 },
-  { id: "lib3", name: "Velg sang", emoji: "🎵", cost: 100 },
-  { id: "lib4", name: "Tegnetid", emoji: "🎨", cost: 75 },
-];
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -151,7 +83,18 @@ export default function StudentDashboardPage() {
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [studentProfileData, setStudentProfileData] = useState<{
+    current_xp: number;
+    current_goal_total: number;
+    points_earned: number;
+    flowers_collected: number;
+  }>({
+    current_xp: 0,
+    current_goal_total: 1000,
+    points_earned: 0,
+    flowers_collected: 0,
+  });
   const [taskForm, setTaskForm] = useState({
     title: "",
     description: "",
@@ -167,6 +110,8 @@ export default function StudentDashboardPage() {
   useEffect(() => {
     fetchStudent();
     fetchStudentRewards();
+    fetchTasks();
+    fetchStudentProfileData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentId]);
 
@@ -258,6 +203,70 @@ export default function StudentDashboardPage() {
     }
   };
 
+  const fetchTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select(
+          `
+          id,
+          title,
+          description,
+          points_value,
+          due_date,
+          is_completed,
+          type,
+          subject:subjects(title)
+        `
+        )
+        .eq("student_id", studentId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mappedTasks: Task[] =
+        data?.map((task: any) => ({
+          id: task.id,
+          title: task.title,
+          description: task.description,
+          points_value: task.points_value,
+          due_date: task.due_date,
+          is_completed: task.is_completed,
+          type: task.type,
+          subject: task.subject?.title || "Ukjent",
+        })) || [];
+
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+    }
+  };
+
+  const fetchStudentProfileData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("student_profiles")
+        .select(
+          "current_xp, current_goal_total, points_earned, flowers_collected"
+        )
+        .eq("id", studentId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setStudentProfileData({
+          current_xp: data.current_xp || 0,
+          current_goal_total: data.current_goal_total || 1000,
+          points_earned: data.points_earned || 0,
+          flowers_collected: data.flowers_collected || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching student profile data:", error);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -274,13 +283,8 @@ export default function StudentDashboardPage() {
   };
 
   const getSubjectColor = (subject: string) => {
-    const colors: Record<string, string> = {
-      Matematikk: "bg-blue-100 text-blue-700",
-      Norsk: "bg-green-100 text-green-700",
-      Engelsk: "bg-purple-100 text-purple-700",
-      Naturfag: "bg-orange-100 text-orange-700",
-    };
-    return colors[subject] || "bg-slate-100 text-slate-700";
+    const theme = getSubjectTheme(subject);
+    return `${theme.light} ${theme.text}`;
   };
 
   const handleRemoveReward = async (rewardId: string) => {
@@ -546,7 +550,8 @@ export default function StudentDashboardPage() {
   const completedTasks = tasks.filter((task) => task.is_completed);
 
   const xpPercentage =
-    (mockGameData.current_xp / mockGameData.next_level_xp) * 100;
+    (studentProfileData.current_xp / studentProfileData.current_goal_total) *
+    100;
 
   if (loading) {
     return (
@@ -744,7 +749,8 @@ export default function StudentDashboardPage() {
               <div className="flex items-center justify-between text-xs text-slate-600 mb-2">
                 <span>Erfaring</span>
                 <span className="font-semibold">
-                  {mockGameData.current_xp}/{mockGameData.next_level_xp} XP
+                  {studentProfileData.current_xp}/
+                  {studentProfileData.current_goal_total} XP
                 </span>
               </div>
               <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
@@ -764,7 +770,7 @@ export default function StudentDashboardPage() {
                 </span>
               </div>
               <span className="text-lg font-bold text-yellow-700">
-                {mockGameData.total_points}
+                {studentProfileData.points_earned}
               </span>
             </div>
 
@@ -777,7 +783,7 @@ export default function StudentDashboardPage() {
                 </span>
               </div>
               <span className="text-lg font-bold text-pink-700">
-                {mockGameData.flowers_collected}
+                {studentProfileData.flowers_collected}
               </span>
             </div>
 

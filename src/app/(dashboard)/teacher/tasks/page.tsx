@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Plus, MoreVertical, Users, ArrowRight } from "lucide-react";
+import { getSubjectTheme } from "@/utils/subject-colors";
 
 interface Subject {
   id: string;
@@ -139,40 +140,6 @@ export default function TaskLibraryPage() {
     return matchesSubject && matchesSearch;
   });
 
-  const getColorClasses = (color: string) => {
-    const colorMap: Record<
-      string,
-      { border: string; bg: string; text: string }
-    > = {
-      blue: {
-        border: "border-t-blue-500",
-        bg: "bg-blue-50",
-        text: "text-blue-700",
-      },
-      green: {
-        border: "border-t-green-500",
-        bg: "bg-green-50",
-        text: "text-green-700",
-      },
-      purple: {
-        border: "border-t-purple-500",
-        bg: "bg-purple-50",
-        text: "text-purple-700",
-      },
-      amber: {
-        border: "border-t-amber-500",
-        bg: "bg-amber-50",
-        text: "text-amber-700",
-      },
-      red: {
-        border: "border-t-red-500",
-        bg: "bg-red-50",
-        text: "text-red-700",
-      },
-    };
-    return colorMap[color] || colorMap.blue;
-  };
-
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar - Subject Filter */}
@@ -291,11 +258,17 @@ export default function TaskLibraryPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTasks.map((task) => {
-                const colors = getColorClasses(task.subjectColor);
+                const theme = getSubjectTheme(task.subjectColor);
+                // Build a border class from the theme's base color
+                // Extract color name from bg class (e.g., "bg-red-600" -> "red")
+                const colorMatch = theme.base.match(/bg-(\w+)-/);
+                const colorName = colorMatch ? colorMatch[1] : "blue";
+                const borderClass = `border-t-${colorName}-500`;
+
                 return (
                   <div
                     key={task.id}
-                    className={`h-full flex flex-col bg-white rounded-lg border border-gray-200 ${colors.border} border-t-4 shadow-sm hover:shadow-md transition-shadow`}
+                    className={`h-full flex flex-col bg-white rounded-lg border border-gray-200 ${borderClass} border-t-4 shadow-sm hover:shadow-md transition-shadow`}
                   >
                     <div className="p-5 flex-1 flex flex-col">
                       {/* Menu Button - Top Right */}
@@ -305,7 +278,7 @@ export default function TaskLibraryPage() {
                           <div className="flex flex-wrap items-center gap-2 mb-3">
                             {/* Badge 1: Subject */}
                             <span
-                              className={`text-xs px-2 py-0.5 rounded border font-medium ${colors.bg} ${colors.text} border-transparent`}
+                              className={`text-xs px-2 py-0.5 rounded border font-medium ${theme.light} ${theme.text} border-transparent`}
                             >
                               {task.subject}
                             </span>

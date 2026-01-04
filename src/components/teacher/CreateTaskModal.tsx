@@ -110,20 +110,20 @@ export default function TaskCreatorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialStudentId]);
 
-  // Auto-scroll to pre-selected student
+  // Auto-scroll to pre-selected student(s)
   useEffect(() => {
-    if (isOpen && initialStudentId && !isLoadingRecipients) {
+    if (isOpen && selectedStudents.size > 0 && availableStudents.length > 0) {
       setTimeout(() => {
-        const row = document.getElementById(`student-row-${initialStudentId}`);
-        if (row && studentListRef.current) {
-          // Calculate position relative to the container
-          const topPos = row.offsetTop;
-          // Scroll the container directly
-          studentListRef.current.scrollTop = topPos - 100; // -100 to center it slightly
+        // Get the first selected student ID
+        const firstSelectedId = Array.from(selectedStudents)[0];
+        const row = document.getElementById(`student-row-${firstSelectedId}`);
+        if (row) {
+          // Use scrollIntoView for better nested scroll support
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
         }
-      }, 100);
+      }, 200); // Longer delay to ensure all nested elements are rendered
     }
-  }, [isOpen, initialStudentId, isLoadingRecipients]);
+  }, [isOpen, selectedStudents, availableStudents]);
 
   // Auto-scroll to quiz builder when quiz mode is selected
   useEffect(() => {

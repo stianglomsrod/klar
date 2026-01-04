@@ -9,6 +9,7 @@ import LevelUpModal from "@/components/LevelUpModal";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { getSubjectTheme } from "@/utils/subject-colors";
 
 type Task = {
   id: string;
@@ -351,54 +352,49 @@ export default function SubjectDetailPage() {
   // Map color theme to Tailwind classes
   // Map color theme to text colors for hero section
   const getColorClass = (theme: string) => {
-    const colorMap: Record<string, string> = {
-      blue: "text-blue-700",
-      green: "text-green-700",
-      purple: "text-purple-700",
-      orange: "text-orange-700",
-      pink: "text-pink-700",
-      indigo: "text-indigo-700",
-    };
-    return colorMap[theme] || colorMap.blue;
+    const subjectTheme = getSubjectTheme(theme);
+    return subjectTheme.text;
   };
 
   // Map color theme to badge border colors
   const getBorderColorClass = (theme: string) => {
-    const colorMap: Record<string, string> = {
-      blue: "border-blue-300",
-      green: "border-green-300",
-      purple: "border-purple-300",
-      orange: "border-orange-300",
-      pink: "border-pink-300",
-      indigo: "border-indigo-300",
-    };
-    return colorMap[theme] || colorMap.blue;
+    const subjectTheme = getSubjectTheme(theme);
+    return subjectTheme.border;
   };
 
   // Map color theme to gradient background for hero section
   const getGradientClass = (theme: string) => {
+    const subjectTheme = getSubjectTheme(theme);
+    // Create a gradient background using the theme's light color
     const colorMap: Record<string, string> = {
+      red: "bg-gradient-to-b from-red-200 via-red-100 to-white",
       blue: "bg-gradient-to-b from-blue-200 via-blue-100 to-white",
+      orange: "bg-gradient-to-b from-orange-200 via-orange-100 to-white",
+      amber: "bg-gradient-to-b from-amber-200 via-amber-100 to-white",
       green: "bg-gradient-to-b from-green-200 via-green-100 to-white",
       purple: "bg-gradient-to-b from-purple-200 via-purple-100 to-white",
-      orange: "bg-gradient-to-b from-orange-200 via-orange-100 to-white",
-      pink: "bg-gradient-to-b from-pink-200 via-pink-100 to-white",
-      indigo: "bg-gradient-to-b from-indigo-200 via-indigo-100 to-white",
+      violet: "bg-gradient-to-b from-violet-200 via-violet-100 to-white",
+      rose: "bg-gradient-to-b from-rose-200 via-rose-100 to-white",
+      emerald: "bg-gradient-to-b from-emerald-200 via-emerald-100 to-white",
+      gray: "bg-gradient-to-b from-gray-200 via-gray-100 to-white",
     };
-    return colorMap[theme] || colorMap.blue;
+
+    // Try to find matching gradient, otherwise use theme's light background
+    for (const [key, gradient] of Object.entries(colorMap)) {
+      if (theme.toLowerCase().includes(key)) {
+        return gradient;
+      }
+    }
+    return (
+      colorMap[theme as keyof typeof colorMap] ||
+      "bg-gradient-to-b from-blue-200 via-blue-100 to-white"
+    );
   };
 
   // Map color theme to fill/background colors for progress pill
   const getFillColorClass = (theme: string) => {
-    const colorMap: Record<string, string> = {
-      blue: "bg-blue-500",
-      green: "bg-green-500",
-      purple: "bg-purple-500",
-      orange: "bg-orange-500",
-      pink: "bg-pink-500",
-      indigo: "bg-indigo-500",
-    };
-    return colorMap[theme] || colorMap.blue;
+    const subjectTheme = getSubjectTheme(theme);
+    return subjectTheme.progress;
   };
 
   if (loading) {
@@ -582,15 +578,25 @@ export default function SubjectDetailPage() {
                 <h2 className="text-2xl font-bold text-gray-900 mb-1">
                   Gratulerer!
                 </h2>
-                <p className="text-gray-600 mb-3">
+                <p className="text-gray-600 mb-6">
                   Du har fullført alle oppgavene i dette faget.
                 </p>
-                <button
-                  onClick={() => router.push("/")}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-                >
-                  Tilbake til hjemme
-                </button>
+                <div className="w-full flex flex-col gap-3">
+                  <button
+                    onClick={() => router.push("/")}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+                  >
+                    Tilbake til hjemme
+                  </button>
+                  {completedTasks.length > 0 && (
+                    <button
+                      onClick={() => setIsArchiveOpen(true)}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold py-3 px-6 rounded-xl transition-colors border border-amber-200"
+                    >
+                      📂 Se utførte oppgaver
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -611,6 +617,7 @@ export default function SubjectDetailPage() {
                       <TaskCard
                         task={task}
                         onComplete={() => handleTaskComplete(task)}
+                        colorTheme={subject?.color_theme}
                       />
                     </motion.div>
                   ))}
