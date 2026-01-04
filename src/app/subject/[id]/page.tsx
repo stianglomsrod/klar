@@ -349,52 +349,54 @@ export default function SubjectDetailPage() {
     }
   };
 
-  // Map color theme to Tailwind classes
-  // Map color theme to text colors for hero section
-  const getColorClass = (theme: string) => {
-    const subjectTheme = getSubjectTheme(theme);
-    return subjectTheme.text;
-  };
-
-  // Map color theme to badge border colors
-  const getBorderColorClass = (theme: string) => {
-    const subjectTheme = getSubjectTheme(theme);
-    return subjectTheme.border;
-  };
-
-  // Map color theme to gradient background for hero section
-  const getGradientClass = (theme: string) => {
-    const subjectTheme = getSubjectTheme(theme);
-    // Create a gradient background using the theme's light color
-    const colorMap: Record<string, string> = {
-      red: "bg-gradient-to-b from-red-200 via-red-100 to-white",
-      blue: "bg-gradient-to-b from-blue-200 via-blue-100 to-white",
-      orange: "bg-gradient-to-b from-orange-200 via-orange-100 to-white",
-      amber: "bg-gradient-to-b from-amber-200 via-amber-100 to-white",
-      green: "bg-gradient-to-b from-green-200 via-green-100 to-white",
-      purple: "bg-gradient-to-b from-purple-200 via-purple-100 to-white",
-      violet: "bg-gradient-to-b from-violet-200 via-violet-100 to-white",
-      rose: "bg-gradient-to-b from-rose-200 via-rose-100 to-white",
-      emerald: "bg-gradient-to-b from-emerald-200 via-emerald-100 to-white",
-      gray: "bg-gradient-to-b from-gray-200 via-gray-100 to-white",
+  // Get hero section gradient - builds inline CSS gradient from theme
+  const getHeroGradient = (theme: string) => {
+    // Map to CSS gradient colors
+    const colorGradients: Record<string, string> = {
+      // Theme names
+      red: "linear-gradient(to bottom, rgb(254, 226, 226), rgb(254, 240, 240), white)",
+      blue: "linear-gradient(to bottom, rgb(219, 234, 254), rgb(239, 246, 255), white)",
+      orange:
+        "linear-gradient(to bottom, rgb(254, 231, 207), rgb(254, 245, 230), white)",
+      amber:
+        "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)",
+      yellow:
+        "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)", // Same as amber
+      green:
+        "linear-gradient(to bottom, rgb(220, 251, 219), rgb(240, 253, 244), white)",
+      purple:
+        "linear-gradient(to bottom, rgb(243, 232, 255), rgb(250, 245, 255), white)",
+      violet:
+        "linear-gradient(to bottom, rgb(237, 235, 254), rgb(245, 243, 255), white)",
+      rose: "linear-gradient(to bottom, rgb(255, 228, 230), rgb(255, 245, 247), white)",
+      emerald:
+        "linear-gradient(to bottom, rgb(209, 250, 229), rgb(240, 253, 250), white)",
+      gray: "linear-gradient(to bottom, rgb(229, 231, 235), rgb(249, 250, 251), white)",
+      // Subject names
+      Norsk:
+        "linear-gradient(to bottom, rgb(254, 226, 226), rgb(254, 240, 240), white)",
+      Matte:
+        "linear-gradient(to bottom, rgb(219, 234, 254), rgb(239, 246, 255), white)",
+      Engelsk:
+        "linear-gradient(to bottom, rgb(254, 231, 207), rgb(254, 245, 230), white)",
+      Samfunnsfag:
+        "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)",
+      Naturfag:
+        "linear-gradient(to bottom, rgb(220, 251, 219), rgb(240, 253, 244), white)",
+      KRLE: "linear-gradient(to bottom, rgb(243, 232, 255), rgb(250, 245, 255), white)",
+      "K&H":
+        "linear-gradient(to bottom, rgb(237, 235, 254), rgb(245, 243, 255), white)",
+      Gym: "linear-gradient(to bottom, rgb(255, 228, 230), rgb(255, 245, 247), white)",
+      "M&H":
+        "linear-gradient(to bottom, rgb(209, 250, 229), rgb(240, 253, 250), white)",
+      Uteskole:
+        "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)",
     };
 
-    // Try to find matching gradient, otherwise use theme's light background
-    for (const [key, gradient] of Object.entries(colorMap)) {
-      if (theme.toLowerCase().includes(key)) {
-        return gradient;
-      }
-    }
     return (
-      colorMap[theme as keyof typeof colorMap] ||
-      "bg-gradient-to-b from-blue-200 via-blue-100 to-white"
+      colorGradients[theme] ||
+      "linear-gradient(to bottom, rgb(219, 234, 254), rgb(239, 246, 255), white)"
     );
-  };
-
-  // Map color theme to fill/background colors for progress pill
-  const getFillColorClass = (theme: string) => {
-    const subjectTheme = getSubjectTheme(theme);
-    return subjectTheme.progress;
   };
 
   if (loading) {
@@ -436,9 +438,8 @@ export default function SubjectDetailPage() {
         {/* Hero Section */}
         <section className="pb-2 pt-3">
           <div
-            className={`w-full text-center rounded-3xl shadow-sm ${getGradientClass(
-              subject.color_theme
-            )} px-4 py-5 md:py-6 flex flex-col items-center relative`}
+            className="w-full text-center rounded-3xl shadow-sm px-4 py-5 md:py-6 flex flex-col items-center relative"
+            style={{ background: getHeroGradient(subject.color_theme) }}
           >
             {/* Archive Button - Top Right */}
             {completedCount > 0 && (
@@ -470,9 +471,9 @@ export default function SubjectDetailPage() {
 
             {/* Subject Title */}
             <h1
-              className={`text-3xl font-extrabold tracking-tight md:text-4xl mb-2 ${getColorClass(
-                subject.color_theme
-              )}`}
+              className={`text-3xl font-extrabold tracking-tight md:text-4xl mb-2 ${
+                getSubjectTheme(subject.color_theme).text
+              }`}
             >
               {subject.title}
             </h1>
@@ -480,9 +481,9 @@ export default function SubjectDetailPage() {
             {/* Progress Pill */}
             <div className="mt-2 w-32 h-6 bg-gray-200 rounded-full relative overflow-hidden shadow-inner">
               <div
-                className={`absolute top-0 left-0 h-full ${getFillColorClass(
-                  subject.color_theme
-                )} transition-all duration-500 ease-out`}
+                className={`absolute top-0 left-0 h-full ${
+                  getSubjectTheme(subject.color_theme).progress
+                } transition-all duration-500 ease-out`}
                 style={{ width: `${progressPercent}%` }}
               ></div>
               <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 z-10">

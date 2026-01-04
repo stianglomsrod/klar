@@ -3,13 +3,15 @@
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Plus, X, Trash2 } from "lucide-react";
+import { SubjectTheme } from "@/utils/subject-colors";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker";
+import { ColorPickerGrid } from "@/components/ui/color-picker-grid";
 
 // Types
 type TaskFormData = {
   title: string;
   description: string;
   subject_id: string;
-  grade_level: string;
   points_value: number;
   due_date: string;
   type: "standard" | "quiz";
@@ -59,12 +61,13 @@ export default function TaskCreatorModal({
     title: "",
     description: "",
     subject_id: "",
-    grade_level: "5. Trinn",
     points_value: 50,
     due_date: "",
     type: "standard",
   });
   const [customSubjectName, setCustomSubjectName] = useState("");
+  const [newSubjectEmoji, setNewSubjectEmoji] = useState("📚");
+  const [newSubjectColor, setNewSubjectColor] = useState<SubjectTheme>("red");
 
   // Quiz State
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
@@ -345,12 +348,13 @@ export default function TaskCreatorModal({
       title: "",
       description: "",
       subject_id: "",
-      grade_level: "5. Trinn",
       points_value: 50,
       due_date: "",
       type: "standard",
     });
     setCustomSubjectName("");
+    setNewSubjectEmoji("📚");
+    setNewSubjectColor("red");
     setQuizQuestions([]);
     setNewQuestionText("");
     setNewQuestionType("text");
@@ -411,8 +415,8 @@ export default function TaskCreatorModal({
           .insert([
             {
               title: customSubjectName.trim(),
-              emoji: "📚",
-              color_theme: "gray",
+              emoji: newSubjectEmoji,
+              color_theme: newSubjectColor,
             },
           ])
           .select()
@@ -579,68 +583,75 @@ export default function TaskCreatorModal({
               />
             </div>
 
-            {/* Subject and Grade Row */}
-            <div className="grid grid-cols-2 gap-4">
-              {/* Subject Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Fag
-                </label>
-                <select
-                  value={taskForm.subject_id}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, subject_id: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">-- Velg fag --</option>
-                  {subjects.map((subj) => (
-                    <option key={subj.id} value={subj.id}>
-                      {subj.emoji} {subj.title}
-                    </option>
-                  ))}
-                  <option value="custom">➡️ Lag nytt fag...</option>
-                </select>
-              </div>
-
-              {/* Grade Level Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Trinn
-                </label>
-                <select
-                  value={taskForm.grade_level}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, grade_level: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="">-- Velg trinn --</option>
-                  <option value="1. Trinn">1. Trinn</option>
-                  <option value="2. Trinn">2. Trinn</option>
-                  <option value="3. Trinn">3. Trinn</option>
-                  <option value="4. Trinn">4. Trinn</option>
-                  <option value="5. Trinn">5. Trinn</option>
-                  <option value="6. Trinn">6. Trinn</option>
-                  <option value="7. Trinn">7. Trinn</option>
-                  <option value="8. Trinn">8. Trinn</option>
-                  <option value="9. Trinn">9. Trinn</option>
-                  <option value="10. Trinn">10. Trinn</option>
-                </select>
-              </div>
+            {/* Subject Field */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Fag
+              </label>
+              <select
+                value={taskForm.subject_id}
+                onChange={(e) =>
+                  setTaskForm({ ...taskForm, subject_id: e.target.value })
+                }
+                className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">-- Velg fag --</option>
+                {subjects.map((subj) => (
+                  <option key={subj.id} value={subj.id}>
+                    {subj.emoji} {subj.title}
+                  </option>
+                ))}
+                <option value="custom">➡️ Lag nytt fag...</option>
+              </select>
             </div>
 
-            {/* Custom Subject Input */}
+            {/* Custom Subject Creation */}
             {taskForm.subject_id === "custom" && (
-              <div>
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 space-y-4">
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Opprett nytt fag
+                </h3>
+
+                {/* Row 1: Subject Title */}
                 <input
                   type="text"
                   value={customSubjectName}
                   onChange={(e) => setCustomSubjectName(e.target.value)}
-                  placeholder="Skriv inn fagnavn..."
+                  placeholder="Fagnavn..."
                   autoFocus
-                  className="w-full px-4 py-2.5 text-sm border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-indigo-50"
+                  className="w-full px-4 py-2.5 text-sm border border-indigo-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
                 />
+
+                {/* Row 2: Emoji + Color Picker */}
+                <div className="flex gap-3 items-start">
+                  {/* Emoji Picker */}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 mb-2">
+                      Emoji
+                    </p>
+                    <EmojiPickerButton
+                      value={newSubjectEmoji}
+                      onChange={setNewSubjectEmoji}
+                      placeholder="📚"
+                    />
+                  </div>
+
+                  {/* Color Picker */}
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-slate-600 mb-2">
+                      Farge
+                    </p>
+                    <ColorPickerGrid
+                      value={newSubjectColor}
+                      onChange={setNewSubjectColor}
+                      usedColors={
+                        new Set(
+                          subjects.map((s) => s.color_theme as SubjectTheme)
+                        )
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

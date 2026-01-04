@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Search, Plus, MoreVertical, Users, ArrowRight } from "lucide-react";
+import { Search, MoreVertical, Users, ArrowRight } from "lucide-react";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import CreateTaskButton from "@/components/teacher/CreateTaskButton";
 
 interface Subject {
   id: string;
@@ -236,13 +237,7 @@ export default function TaskLibraryPage() {
               </div>
 
               {/* New Task Button */}
-              <button
-                onClick={() => alert("Ny oppgave funksjon kommer snart!")}
-                className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-                Ny Oppgave
-              </button>
+              <CreateTaskButton />
             </div>
           </div>
 
@@ -259,17 +254,15 @@ export default function TaskLibraryPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredTasks.map((task) => {
                 const theme = getSubjectTheme(task.subjectColor);
-                // Build a border class from the theme's base color
-                // Extract color name from bg class (e.g., "bg-red-600" -> "red")
-                const colorMatch = theme.base.match(/bg-(\w+)-/);
-                const colorName = colorMatch ? colorMatch[1] : "blue";
-                const borderClass = `border-t-${colorName}-500`;
 
                 return (
                   <div
                     key={task.id}
-                    className={`h-full flex flex-col bg-white rounded-lg border border-gray-200 ${borderClass} border-t-4 shadow-sm hover:shadow-md transition-shadow`}
+                    className="h-full flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
                   >
+                    {/* Top color strip */}
+                    <div className={`h-1.5 w-full ${theme.base}`} />
+
                     <div className="p-5 flex-1 flex flex-col">
                       {/* Menu Button - Top Right */}
                       <div className="flex items-start justify-between mb-4">
