@@ -59,9 +59,9 @@ export default function StudentPage() {
 
   return (
     // Professional high-contrast background
-    <main className="min-h-screen bg-slate-50 font-sans text-gray-900 pb-20 relative overflow-hidden">
+    <main className="min-h-screen bg-[#F1F5F9] font-sans text-gray-900 pb-20 relative overflow-hidden">
       {/* Subtle gradient overlay for depth */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/50 via-transparent to-blue-50/30 -z-10 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-100/60 via-transparent to-blue-50/40 -z-10 pointer-events-none" />
 
       {showWelcome && (
         <WelcomeOverlay

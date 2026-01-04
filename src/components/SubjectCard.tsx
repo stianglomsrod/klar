@@ -42,7 +42,7 @@ export default function SubjectCard({
   // Modern high-contrast styling for active cards
   const cardBackground = isArchive
     ? archiveClasses
-    : `bg-white border-2 shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-[50ms] ease-linear`;
+    : `bg-white border-2 border-opacity-60 shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-[50ms] ease-linear`;
 
   // Get vibrant border color for active cards (use pre-defined border class)
   const borderColor = isArchive ? "border-slate-200" : theme.border;
@@ -66,6 +66,10 @@ export default function SubjectCard({
         style={{ rotate: index % 2 === 0 ? 1 : -1 }}
         className={`relative p-6 rounded-2xl cursor-pointer aspect-square w-full flex flex-col justify-between overflow-hidden ${cardBackground} ${borderColor}`}
       >
+        {/* Subtle subject-tinted wash behind content */}
+        <div
+          className={`absolute inset-0 pointer-events-none opacity-60 ${theme.light} z-0`}
+        />
         {/* Header */}
         <div className="flex justify-between items-start z-10">
           <div className="text-4xl filter drop-shadow-sm">{emoji}</div>
@@ -106,7 +110,7 @@ export default function SubjectCard({
         )}
 
         {/* Dekorativ sirkel i bakgrunnen */}
-        <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-white/20 rounded-full blur-2xl pointer-events-none z-0" />
 
         {/* Handlings-ikon */}
         <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">

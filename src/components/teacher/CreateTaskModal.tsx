@@ -2,10 +2,15 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, Check, Clock } from "lucide-react";
 import { SubjectTheme } from "@/utils/subject-colors";
 import { EmojiPickerButton } from "@/components/ui/emoji-picker";
 import { ColorPickerGrid } from "@/components/ui/color-picker-grid";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 
 // Types
 type TaskFormData = {
@@ -32,6 +37,7 @@ type ClassOption = {
 type StudentOption = {
   id: string;
   name: string;
+  class_id: string;
   class_name: string;
 };
 
@@ -41,6 +47,29 @@ type Subject = {
   emoji: string;
   color_theme: string;
 };
+
+type ScheduleEntry = {
+  id: string;
+  class_id: string | null;
+  student_id: string | null;
+  subject_id: string | null;
+  subject_title?: string | null;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  custom_title: string | null;
+  type?: string; // 'lesson', 'break', 'lunch', etc.
+  week_number?: number | null;
+  isOverride?: boolean;
+};
+
+const DAYS = [
+  { number: 1, label: "Mandag" },
+  { number: 2, label: "Tirsdag" },
+  { number: 3, label: "Onsdag" },
+  { number: 4, label: "Torsdag" },
+  { number: 5, label: "Fredag" },
+];
 
 // Props Interface
 interface TaskCreatorModalProps {
@@ -94,7 +123,30 @@ export default function TaskCreatorModal({
   // Subjects State
   const [subjects, setSubjects] = useState<Subject[]>([]);
 
+  // Schedule selection
+  const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
+  const [selectedScheduleEntryIds, setSelectedScheduleEntryIds] = useState<
+    Set<string>
+  >(new Set());
+  const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(() =>
+    getISOWeekNumber(new Date())
+  );
+
   const supabase = createClient();
+
+  const getISOWeekNumber = (date: Date): number => {
+    const d = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    );
+    // Thursday in current week decides the year.
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  };
 
   // Refs for scroll control
   const leftColumnRef = useRef<HTMLDivElement>(null);
@@ -109,9 +161,20 @@ export default function TaskCreatorModal({
       if (initialStudentId) {
         setSelectedStudents(new Set([initialStudentId]));
       }
+      // Default week based on current date when modal opens
+      setSelectedWeekNumber(getISOWeekNumber(new Date()));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialStudentId]);
+
+  useEffect(() => {
+    if (taskForm.due_date) {
+      const due = new Date(taskForm.due_date);
+      if (!Number.isNaN(due.getTime())) {
+        setSelectedWeekNumber(getISOWeekNumber(due));
+      }
+    }
+  }, [taskForm.due_date]);
 
   // Auto-scroll to pre-selected student(s)
   useEffect(() => {
@@ -127,6 +190,13 @@ export default function TaskCreatorModal({
       }, 200); // Longer delay to ensure all nested elements are rendered
     }
   }, [isOpen, selectedStudents, availableStudents]);
+
+  useEffect(() => {
+    if (showSchedulePicker) {
+      fetchScheduleForContext();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWeekNumber]);
 
   // Auto-scroll to quiz builder when quiz mode is selected
   useEffect(() => {
@@ -202,6 +272,7 @@ export default function TaskCreatorModal({
           processedStudents.push({
             id: student.id,
             name: fullName,
+            class_id: classInfo.id,
             class_name: classInfo.name,
           });
         }
@@ -275,11 +346,7 @@ export default function TaskCreatorModal({
         newSet.add(classId);
         // Also select all students in this class
         const studentsInClass = availableStudents
-          .filter(
-            (student) =>
-              student.class_name ===
-              availableClasses.find((c) => c.id === classId)?.name
-          )
+          .filter((student) => student.class_id === classId)
           .map((student) => student.id);
         setSelectedStudents((prevStudents) => {
           const newStudents = new Set(prevStudents);
@@ -290,11 +357,7 @@ export default function TaskCreatorModal({
         newSet.delete(classId);
         // Also deselect all students in this class
         const studentsInClass = availableStudents
-          .filter(
-            (student) =>
-              student.class_name ===
-              availableClasses.find((c) => c.id === classId)?.name
-          )
+          .filter((student) => student.class_id === classId)
           .map((student) => student.id);
         setSelectedStudents((prevStudents) => {
           const newStudents = new Set(prevStudents);
@@ -325,7 +388,7 @@ export default function TaskCreatorModal({
     // Add students from selected classes
     selectedClasses.forEach((classId) => {
       availableStudents
-        .filter((student) => student.class_name === classId)
+        .filter((student) => student.class_id === classId)
         .forEach((student) => uniqueIds.add(student.id));
     });
 
@@ -342,6 +405,162 @@ export default function TaskCreatorModal({
         student.class_name.toLowerCase().includes(query)
     );
   };
+
+  const getClassIdForStudent = (studentId: string) =>
+    availableStudents.find((s) => s.id === studentId)?.class_id || null;
+
+  const scheduleEligibility = (() => {
+    const classIds = new Set<string>();
+    selectedClasses.forEach((cid) => classIds.add(cid));
+    selectedStudents.forEach((sid) => {
+      const cid = getClassIdForStudent(sid);
+      if (cid) classIds.add(cid);
+    });
+
+    if (classIds.size !== 1) {
+      return {
+        classId: null,
+        studentId: null,
+        reason:
+          "Tidsstyring er kun tilgjengelig når mottakere tilhører samme klasse",
+      } as const;
+    }
+
+    const [onlyClassId] = Array.from(classIds);
+    const studentId =
+      selectedStudents.size === 1 ? Array.from(selectedStudents)[0] : null;
+    const reason = taskForm.subject_id
+      ? null
+      : "Velg fag for å knytte til time";
+
+    return { classId: onlyClassId, studentId, reason } as const;
+  })();
+
+  useEffect(() => {
+    // Reset schedule selection when subject or recipients change
+    setSelectedScheduleEntryIds(new Set());
+    setScheduleEntries([]);
+    setShowSchedulePicker(false);
+    setScheduleError(null);
+  }, [taskForm.subject_id, selectedClasses, selectedStudents]);
+
+  const mapScheduleRow = (row: any): ScheduleEntry => ({
+    id: row.id,
+    class_id: row.class_id,
+    student_id: row.student_id,
+    subject_id: row.subject_id,
+    subject_title: row.subjects?.title ?? null,
+    day_of_week: row.day_of_week,
+    start_time: row.start_time,
+    end_time: row.end_time,
+    custom_title: row.custom_title,
+    type: row.type,
+    week_number: row.week_number ?? 0,
+  });
+
+  const fetchScheduleForContext = async () => {
+    if (!scheduleEligibility.classId) return; // Subject no longer required for flexible assignment
+    setIsScheduleLoading(true);
+    setScheduleError(null);
+
+    const fetchWithFallback = async (
+      filters: { classId: string; studentId?: string | null },
+      week: number
+    ) => {
+      const baseSelect = () =>
+        supabase
+          .from("schedule_entries")
+          .select(
+            "id, class_id, student_id, subject_id, day_of_week, start_time, end_time, type, custom_title, week_number, subjects (title)"
+          )
+          .eq("class_id", filters.classId)
+          .eq("type", "lesson")
+          .order("day_of_week")
+          .order("start_time");
+
+      const primaryQuery = baseSelect().eq("week_number", week);
+      const finalPrimary = filters.studentId
+        ? primaryQuery.eq("student_id", filters.studentId)
+        : primaryQuery.is("student_id", null);
+
+      const { data: primaryData, error: primaryError } = await finalPrimary;
+      if (primaryError) throw primaryError;
+
+      if (primaryData && primaryData.length > 0) return primaryData;
+
+      if (week !== 0) {
+        const fallbackQuery = baseSelect().eq("week_number", 0);
+        const finalFallback = filters.studentId
+          ? fallbackQuery.eq("student_id", filters.studentId)
+          : fallbackQuery.is("student_id", null);
+        const { data: fallbackData, error: fallbackError } =
+          await finalFallback;
+        if (fallbackError) throw fallbackError;
+        return fallbackData || [];
+      }
+
+      return [];
+    };
+
+    try {
+      const classEntries = await fetchWithFallback(
+        { classId: scheduleEligibility.classId },
+        selectedWeekNumber
+      );
+
+      let mergedMap = new Map<string, ScheduleEntry>();
+      (classEntries || []).forEach((row: any) => {
+        const entry = mapScheduleRow(row);
+        const key = `${entry.day_of_week}-${entry.start_time}-${entry.end_time}`;
+        mergedMap.set(key, entry);
+      });
+
+      if (scheduleEligibility.studentId) {
+        const studentEntries = await fetchWithFallback(
+          {
+            classId: scheduleEligibility.classId,
+            studentId: scheduleEligibility.studentId,
+          },
+          selectedWeekNumber
+        );
+
+        (studentEntries || []).forEach((row: any) => {
+          const entry = mapScheduleRow(row);
+          const key = `${entry.day_of_week}-${entry.start_time}-${entry.end_time}`;
+          mergedMap.set(key, { ...entry, isOverride: true });
+        });
+      }
+
+      setScheduleEntries(Array.from(mergedMap.values()));
+      setShowSchedulePicker(true);
+    } catch (error) {
+      console.error("Error fetching schedule entries:", error);
+      setScheduleError("Kunne ikke laste timeplanen");
+    } finally {
+      setIsScheduleLoading(false);
+    }
+  };
+
+  const toggleScheduleEntrySelection = (entryId: string, disabled: boolean) => {
+    if (disabled) return;
+    setSelectedScheduleEntryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
+  };
+
+  const selectedBadges = scheduleEntries
+    .filter((e) => selectedScheduleEntryIds.has(e.id))
+    .map((e) => {
+      const day = DAYS.find((d) => d.number === e.day_of_week)?.label || "";
+      const label = e.custom_title || `${e.start_time}`;
+      return `${day} ${label} (uke ${e.week_number ?? 0})`.trim();
+    });
 
   const resetForm = () => {
     setTaskForm({
@@ -361,6 +580,10 @@ export default function TaskCreatorModal({
     setSelectedClasses(new Set());
     setSelectedStudents(new Set(initialStudentId ? [initialStudentId] : []));
     setStudentSearchQuery("");
+    setSelectedScheduleEntryIds(new Set());
+    setScheduleEntries([]);
+    setShowSchedulePicker(false);
+    setScheduleError(null);
   };
 
   const handleCreateTask = async () => {
@@ -486,11 +709,29 @@ export default function TaskCreatorModal({
           quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
         }));
 
-        const { error: assignError } = await supabase
+        const { data: insertedTasks, error: assignError } = await supabase
           .from("tasks")
-          .insert(tasksToInsert);
+          .insert(tasksToInsert)
+          .select();
 
         if (assignError) throw assignError;
+
+        if (insertedTasks && selectedScheduleEntryIds.size > 0) {
+          const junctionRows = insertedTasks.flatMap((task) =>
+            Array.from(selectedScheduleEntryIds).map((entryId) => ({
+              task_id: task.id,
+              schedule_entry_id: entryId,
+            }))
+          );
+
+          if (junctionRows.length > 0) {
+            const { error: junctionError } = await supabase
+              .from("task_schedule_entries")
+              .insert(junctionRows);
+
+            if (junctionError) throw junctionError;
+          }
+        }
       }
 
       // Success! Reset form and close modal
@@ -519,6 +760,12 @@ export default function TaskCreatorModal({
   const selectedCount = getSelectedStudentIds().length;
   const buttonText =
     selectedCount === 0 ? "Lagre i bibliotek" : "Lagre og tildel";
+
+  const scheduleButtonDisabled =
+    !!scheduleEligibility.reason || !taskForm.subject_id || isScheduleLoading;
+  const scheduleHint =
+    scheduleEligibility.reason ||
+    (!taskForm.subject_id ? "Velg fag for å knytte til time" : null);
 
   return (
     <div
@@ -1033,6 +1280,190 @@ export default function TaskCreatorModal({
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
                   />
                 </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">
+                      Tidsstyring
+                    </p>
+                    {scheduleHint && (
+                      <p className="text-xs text-slate-500 mt-1 max-w-xs">
+                        {scheduleHint}
+                      </p>
+                    )}
+                  </div>
+                  <Popover
+                    open={showSchedulePicker}
+                    onOpenChange={setShowSchedulePicker}
+                  >
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={scheduleButtonDisabled}
+                        onClick={fetchScheduleForContext}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                          scheduleButtonDisabled
+                            ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                        }`}
+                      >
+                        Knytt til time(r)
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-96 p-4" align="start">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <h3 className="text-sm font-semibold text-slate-900">
+                              Velg timer
+                            </h3>
+                            <p className="text-xs text-slate-500">
+                              {selectedScheduleEntryIds.size} valgt
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="h-7 w-7 flex items-center justify-center rounded border border-slate-200 text-slate-700 hover:bg-slate-100"
+                              onClick={() =>
+                                setSelectedWeekNumber((prev) =>
+                                  Math.max(0, prev - 1)
+                                )
+                              }
+                              aria-label="Forrige uke"
+                            >
+                              –
+                            </button>
+                            <div className="px-2 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800">
+                              Uke {selectedWeekNumber}
+                            </div>
+                            <button
+                              type="button"
+                              className="h-7 w-7 flex items-center justify-center rounded border border-slate-200 text-slate-700 hover:bg-slate-100"
+                              onClick={() =>
+                                setSelectedWeekNumber((prev) =>
+                                  Math.min(53, prev + 1)
+                                )
+                              }
+                              aria-label="Neste uke"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        {scheduleError && (
+                          <p className="text-sm text-red-600 bg-red-50 p-2 rounded">
+                            {scheduleError}
+                          </p>
+                        )}
+
+                        {isScheduleLoading && !scheduleError && (
+                          <div className="flex items-center justify-center py-8">
+                            <p className="text-sm text-slate-500">
+                              Laster timeplan...
+                            </p>
+                          </div>
+                        )}
+
+                        {!isScheduleLoading &&
+                          !scheduleError &&
+                          scheduleEntries.length === 0 && (
+                            <p className="text-sm text-slate-500 py-4">
+                              Ingen timer funnet for denne klassen.
+                            </p>
+                          )}
+
+                        {!isScheduleLoading &&
+                          !scheduleError &&
+                          scheduleEntries.length > 0 && (
+                            <div className="space-y-4 max-h-96 overflow-y-auto">
+                              {DAYS.map((day) => {
+                                const entriesForDay = scheduleEntries
+                                  .filter((e) => e.day_of_week === day.number)
+                                  .sort((a, b) =>
+                                    a.start_time.localeCompare(b.start_time)
+                                  );
+
+                                if (entriesForDay.length === 0) return null;
+
+                                return (
+                                  <div key={day.number} className="space-y-2">
+                                    <p className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                                      {day.label}
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      {entriesForDay.map((entry) => {
+                                        const isSelected =
+                                          selectedScheduleEntryIds.has(
+                                            entry.id
+                                          );
+                                        const subjectMatches =
+                                          entry.subject_id ===
+                                            taskForm.subject_id &&
+                                          taskForm.subject_id;
+                                        return (
+                                          <button
+                                            key={entry.id}
+                                            type="button"
+                                            onClick={() =>
+                                              toggleScheduleEntrySelection(
+                                                entry.id,
+                                                false
+                                              )
+                                            }
+                                            className={`relative text-left rounded-md px-2.5 py-2 text-xs font-medium transition-all ${
+                                              isSelected
+                                                ? "bg-indigo-600 text-white border-2 border-indigo-700 shadow-md"
+                                                : subjectMatches
+                                                ? "bg-slate-50 text-slate-900 border-2 border-green-300 hover:bg-green-50"
+                                                : "bg-slate-50 text-slate-700 border-2 border-slate-200 hover:bg-slate-100"
+                                            }`}
+                                          >
+                                            <div className="flex items-center justify-between gap-2">
+                                              <div className="flex-1">
+                                                <p className="font-semibold leading-tight">
+                                                  {entry.start_time}
+                                                </p>
+                                                {entry.subject_title && (
+                                                  <p className="text-xs opacity-75">
+                                                    {entry.subject_title}
+                                                  </p>
+                                                )}
+                                              </div>
+                                              {isSelected && (
+                                                <Check className="h-4 w-4 flex-shrink-0" />
+                                              )}
+                                            </div>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                {selectedBadges.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedBadges.map((badge, idx) => (
+                      <span
+                        key={`${badge}-${idx}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200"
+                      >
+                        <Check className="h-3 w-3" />
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

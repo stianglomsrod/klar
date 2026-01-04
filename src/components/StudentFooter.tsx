@@ -205,7 +205,7 @@ export default function StudentFooter({
       </AnimatePresence>
 
       {/* Main Footer Bar */}
-      <div className="bg-white/95 backdrop-blur-sm border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <div className="bg-white/85 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
           {/* Gamified Progress Section */}
           <div className="flex-1 pb-1">
@@ -220,11 +220,11 @@ export default function StudentFooter({
               </span>
             </div>
             <div className="relative h-3 w-full">
-              {/* Dark Background Track for High Contrast */}
-              <div className="absolute inset-0 bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                {/* Bright Green Progress Fill with Glow Effect */}
+              {/* Light Background Track with gentle outline and inset highlight */}
+              <div className="absolute inset-0 bg-slate-200 rounded-full overflow-hidden ring-1 ring-slate-300/60 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+                {/* Bright Green Progress Fill with enhanced glow */}
                 <div
-                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500 ease-out shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(34,197,94,0.4),0_4px_10px_-6px_rgba(16,185,129,0.5)]"
                   style={{ width: `${safeProgress}%` }}
                 />
               </div>

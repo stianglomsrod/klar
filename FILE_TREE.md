@@ -15,8 +15,18 @@ klar/
 ├── package.json
 ├── postcss.config.mjs
 ├── README.md
+├── README_SCHEDULE_PICKER.md
 ├── REFACTORING_STEPS.md
+├── SCHEDULE_PICKER_IMPLEMENTATION_CHECKLIST.md
+├── SCHEDULE_PICKER_REFACTOR.md
+├── SCHEDULE_PICKER_SUMMARY.md
+├── SCHEDULE_PICKER_TESTING.md
+├── SCHEDULE_PICKER_VISUAL_GUIDE.md
 ├── SETUP_CHECKLIST.md
+├── TEACHERS_SCHEDULE_PICKER_GUIDE.md
+├── DOCUMENTATION_INDEX.md
+├── EXECUTIVE_SUMMARY.md
+├── FINAL_VERIFICATION_REPORT.md
 ├── tailwind.config.ts
 ├── tsconfig.json
 │
@@ -105,6 +115,7 @@ klar/
 │   │   │
 │   │   └── ui/
 │   │       ├── CircularProgress.tsx
+│   │       ├── popover.tsx
 │   │       └── switch.tsx
 │   │
 │   ├── contexts/

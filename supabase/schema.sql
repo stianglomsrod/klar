@@ -97,6 +97,7 @@ CREATE TABLE public.schedule_entries (
   end_time time without time zone NOT NULL,
   type USER-DEFINED DEFAULT 'lesson'::schedule_type,
   custom_title text,
+  week_number integer DEFAULT 0,
   CONSTRAINT schedule_entries_pkey PRIMARY KEY (id),
   CONSTRAINT schedule_entries_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
   CONSTRAINT schedule_entries_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
@@ -149,6 +150,32 @@ CREATE TABLE public.subjects (
   created_by uuid,
   CONSTRAINT subjects_pkey PRIMARY KEY (id),
   CONSTRAINT subjects_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+);
+
+CREATE TABLE public.task_library (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid,
+  title text NOT NULL,
+  description text,
+  subject_id uuid,
+  grade_level text,
+  type text DEFAULT 'standard'::text CHECK (type = ANY (ARRAY['standard'::text, 'quiz'::text])),
+  quiz_data jsonb,
+  audio_url text,
+  usage_count integer DEFAULT 0,
+  CONSTRAINT task_library_pkey PRIMARY KEY (id),
+  CONSTRAINT task_library_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT task_library_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id)
+);
+
+CREATE TABLE public.task_schedule_entries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid,
+  schedule_entry_id uuid,
+  CONSTRAINT task_schedule_entries_pkey PRIMARY KEY (id),
+  CONSTRAINT task_schedule_entries_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
+  CONSTRAINT task_schedule_entries_schedule_entry_id_fkey FOREIGN KEY (schedule_entry_id) REFERENCES public.schedule_entries(id)
 );
 
 CREATE TABLE public.tasks (
