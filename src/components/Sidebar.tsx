@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, X, Calendar, Home, Trophy, Mail, LogOut } from "lucide-react";
+import { Menu, X, Calendar, Home, Trophy, Mail, LogOut, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/utils/supabase/client";
 
@@ -40,6 +40,7 @@ export default function Sidebar({
 
   const menuItems = [
     { name: "Dagen i dag", icon: Home, href: "/" },
+    { name: "Fag & Oppgaver", icon: BookOpen, href: "/student/fag" },
     { name: "Timeplan", icon: Calendar, href: "/timeplan" },
     { name: "Ukebrev", icon: Mail, href: "/ukebrev" },
     { name: "Belønninger", icon: Trophy, href: "/belonninger" },
