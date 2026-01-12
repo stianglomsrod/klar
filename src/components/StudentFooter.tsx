@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timer } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 import CircularProgress from "./ui/CircularProgress";
 import StudentHelpButton from "./student/StudentHelpButton";
 
@@ -38,12 +39,14 @@ export default function StudentFooter({
 }: StudentFooterProps) {
   const [toolEnabled, setToolEnabled] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
   const [widgetPosition, setWidgetPosition] = useState({
     bottom: 96,
     right: 32,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const supabase = useMemo(() => createClient(), []);
 
   // Close popover when clicking outside
   useEffect(() => {
@@ -108,6 +111,52 @@ export default function StudentFooter({
 
     return () => window.removeEventListener("resize", updatePosition);
   }, [toolEnabled]);
+
+  useEffect(() => {
+    if (!classId) {
+      setIsQueueOpen(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchInitial = async () => {
+      const { data, error } = await supabase
+        .from("classes")
+        .select("is_queue_open")
+        .eq("id", classId)
+        .single();
+
+      if (!error && data && isMounted) {
+        setIsQueueOpen(Boolean(data.is_queue_open));
+      }
+    };
+
+    fetchInitial();
+
+    const channel = supabase
+      .channel(`classes-queue-${classId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "classes",
+          filter: `id=eq.${classId}`,
+        },
+        (payload) => {
+          const next = (payload.new as { is_queue_open?: boolean })
+            ?.is_queue_open;
+          setIsQueueOpen(Boolean(next));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [classId, supabase]);
 
   const safeProgress = Math.max(0, Math.min(100, progressPercent));
 
@@ -275,7 +324,7 @@ export default function StudentFooter({
           </button>
 
           {/* Help Button */}
-          {studentId && classId && (
+          {studentId && classId && isQueueOpen && (
             <StudentHelpButton studentId={studentId} classId={classId} />
           )}
         </div>

@@ -71,6 +71,17 @@ const DAYS = [
   { number: 5, label: "Fredag" },
 ];
 
+// Utility
+const getISOWeekNumber = (date: Date): number => {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+  const dayNum = d.getUTCDay() || 7; // Thursday determines year
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+};
+
 // Props Interface
 interface TaskCreatorModalProps {
   isOpen: boolean;
@@ -136,17 +147,6 @@ export default function TaskCreatorModal({
   );
 
   const supabase = createClient();
-
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-    );
-    // Thursday in current week decides the year.
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  };
 
   // Refs for scroll control
   const leftColumnRef = useRef<HTMLDivElement>(null);

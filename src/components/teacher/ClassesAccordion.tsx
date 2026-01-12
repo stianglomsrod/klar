@@ -372,10 +372,7 @@ export default function ClassesAccordion({
                             <div className="bg-white">
                               {/* Class Toolbar - Monitor Toggle */}
                               <div className="w-full px-4 py-3 pl-20 flex items-center gap-4 bg-gray-50 border-b border-slate-200 mb-2">
-                                <ClassMonitorToggle
-                                  classId={cls.id}
-                                  teacherId={teacherId}
-                                />
+                                <ClassMonitorToggle classId={cls.id} />
                               </div>
 
                               {/* Help Request Queue */}

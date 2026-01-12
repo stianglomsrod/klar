@@ -17,6 +17,7 @@ CREATE TABLE public.classes (
   name text NOT NULL,
   grade_id uuid,
   created_at timestamp with time zone DEFAULT now(),
+  is_queue_open boolean DEFAULT false,
   CONSTRAINT classes_pkey PRIMARY KEY (id),
   CONSTRAINT classes_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id)
 );

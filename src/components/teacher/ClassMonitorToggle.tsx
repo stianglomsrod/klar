@@ -1,95 +1,92 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { Switch } from "@/components/ui/switch";
 
 type ClassMonitorToggleProps = {
   classId: string;
-  teacherId: string;
 };
 
 export default function ClassMonitorToggle({
   classId,
-  teacherId,
 }: ClassMonitorToggleProps) {
   const [isActive, setIsActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
-  // Check initial state on mount
   useEffect(() => {
-    const checkActiveSession = async () => {
+    let isMounted = true;
+    const loadInitial = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const { data, error: fetchError } = await supabase
-          .from("teacher_active_sessions")
-          .select("*")
-          .eq("teacher_id", teacherId)
-          .eq("class_id", classId)
+          .from("classes")
+          .select("is_queue_open")
+          .eq("id", classId)
           .single();
 
-        if (fetchError && fetchError.code !== "PGRST116") {
-          // PGRST116 = "no rows found", which is expected when inactive
-          throw fetchError;
+        if (fetchError) throw fetchError;
+        if (isMounted) {
+          setIsActive(Boolean(data?.is_queue_open));
         }
-
-        setIsActive(!!data);
-      } catch (err: any) {
-        console.error("Error checking active session:", err);
-        setError("Kunne ikke sjekke status");
+      } catch (err) {
+        console.error("Error fetching queue status:", err);
+        if (isMounted) setError("Kunne ikke hente køstatus");
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
-    checkActiveSession();
-  }, [classId, teacherId, supabase]);
+    const channel = supabase
+      .channel(`classes-queue-${classId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "classes",
+          filter: `id=eq.${classId}`,
+        },
+        (payload) => {
+          const next = (payload.new as { is_queue_open?: boolean })
+            ?.is_queue_open;
+          setIsActive(Boolean(next));
+        }
+      )
+      .subscribe();
 
-  const handleToggle = async () => {
-    setIsLoading(true);
+    loadInitial();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [classId, supabase]);
+
+  const handleToggle = async (_nextChecked: boolean) => {
+    const previous = isActive;
+    const nextValue = !previous;
+    setIsActive(nextValue);
     setError(null);
 
-    try {
-      if (isActive) {
-        // DELETE session
-        const { error: deleteError } = await supabase
-          .from("teacher_active_sessions")
-          .delete()
-          .eq("teacher_id", teacherId)
-          .eq("class_id", classId);
+    const { error: updateError } = await supabase
+      .from("classes")
+      .update({ is_queue_open: nextValue })
+      .eq("id", classId);
 
-        if (deleteError) throw deleteError;
-        setIsActive(false);
-      } else {
-        // INSERT session
-        const { error: insertError } = await supabase
-          .from("teacher_active_sessions")
-          .insert([
-            {
-              teacher_id: teacherId,
-              class_id: classId,
-            },
-          ]);
-
-        if (insertError) throw insertError;
-        setIsActive(true);
-      }
-    } catch (err: any) {
-      console.error("Error toggling session:", err);
-      setError(err?.message || "Noe gikk galt");
-      // Show error toast if needed
-    } finally {
-      setIsLoading(false);
+    if (updateError) {
+      console.error("Error toggling queue:", updateError);
+      setIsActive(previous);
+      setError("Kunne ikke oppdatere status");
     }
   };
 
   return (
     <div className="flex items-center gap-3">
-      {/* Label */}
       <label
         htmlFor={`monitor-toggle-${classId}`}
         className="text-sm font-medium text-gray-700"
@@ -97,7 +94,6 @@ export default function ClassMonitorToggle({
         Hjelpekø
       </label>
 
-      {/* Switch */}
       {isLoading ? (
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
       ) : (
@@ -108,7 +104,6 @@ export default function ClassMonitorToggle({
         />
       )}
 
-      {/* Error message */}
       {error && <span className="ml-2 text-xs text-red-600">{error}</span>}
     </div>
   );

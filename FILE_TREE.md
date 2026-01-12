@@ -109,6 +109,7 @@ klar/
 │   │   │   ├── ClassMonitorToggle.tsx
 │   │   │   ├── EditStudentSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
+│   │   │   ├── TaskCreatorModal.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
