@@ -39,7 +39,9 @@ export default function StudentQuestLogPage() {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [canScrollUp, setCanScrollUp] = useState(false);
   const [canScrollDown, setCanScrollDown] = useState(true);
-  const [cardDistances, setCardDistances] = useState<Map<string, number>>(new Map());
+  const [cardDistances, setCardDistances] = useState<Map<string, number>>(
+    new Map()
+  );
 
   // Update current time every minute
   useEffect(() => {
@@ -146,17 +148,17 @@ export default function StudentQuestLogPage() {
 
     const containerRect = container.getBoundingClientRect();
     const centerY = containerRect.top + containerRect.height / 2;
-    const cards = container.querySelectorAll('[data-card]');
-    
+    const cards = container.querySelectorAll("[data-card]");
+
     const distances = new Map<string, number>();
     cards.forEach((card) => {
       const cardRect = card.getBoundingClientRect();
       const cardCenterY = cardRect.top + cardRect.height / 2;
       const distance = Math.abs(centerY - cardCenterY);
-      const cardId = card.getAttribute('data-id') || '';
+      const cardId = card.getAttribute("data-id") || "";
       distances.set(cardId, distance);
     });
-    
+
     setCardDistances(distances);
 
     // Smart arrow visibility logic
@@ -179,13 +181,15 @@ export default function StudentQuestLogPage() {
         } else {
           // If no active lesson, find first upcoming lesson
           const now = new Date();
-          const firstUpcoming = schedule.find(entry => {
+          const firstUpcoming = schedule.find((entry) => {
             const state = getLessonState(entry.start_time, entry.end_time);
             return state === "upcoming";
           });
 
           if (firstUpcoming) {
-            const element = document.querySelector(`[data-id="${firstUpcoming.id}"]`);
+            const element = document.querySelector(
+              `[data-id="${firstUpcoming.id}"]`
+            );
             element?.scrollIntoView({
               behavior: "smooth",
               block: "center",
@@ -209,11 +213,11 @@ export default function StudentQuestLogPage() {
       requestAnimationFrame(handleScroll);
     };
 
-    container.addEventListener('scroll', onScroll, { passive: true });
+    container.addEventListener("scroll", onScroll, { passive: true });
     // Initial calculation
     handleScroll();
 
-    return () => container.removeEventListener('scroll', onScroll);
+    return () => container.removeEventListener("scroll", onScroll);
   }, [schedule.length]);
 
   // Determine lesson state
@@ -239,7 +243,9 @@ export default function StudentQuestLogPage() {
 
     // Assuming school starts at first lesson and ends at last lesson
     const firstStart = schedule[0].start_time.split(":").map(Number);
-    const lastEnd = schedule[schedule.length - 1].end_time.split(":").map(Number);
+    const lastEnd = schedule[schedule.length - 1].end_time
+      .split(":")
+      .map(Number);
 
     const dayStart = new Date();
     dayStart.setHours(firstStart[0], firstStart[1], 0);
@@ -253,7 +259,12 @@ export default function StudentQuestLogPage() {
 
     const progress = Math.min(
       100,
-      Math.max(0, ((now.getTime() - dayStart.getTime()) / (dayEnd.getTime() - dayStart.getTime())) * 100)
+      Math.max(
+        0,
+        ((now.getTime() - dayStart.getTime()) /
+          (dayEnd.getTime() - dayStart.getTime())) *
+          100
+      )
     );
     return Math.round(progress);
   };
@@ -273,10 +284,7 @@ export default function StudentQuestLogPage() {
         message: "Ingen oppdrag i denne timen – slapp av! 😎",
         visible: true,
       });
-      setTimeout(
-        () => setToast({ message: "", visible: false }),
-        3000
-      );
+      setTimeout(() => setToast({ message: "", visible: false }), 3000);
     }
   };
 
@@ -284,40 +292,42 @@ export default function StudentQuestLogPage() {
   const scrollToNext = () => {
     const container = containerRef.current;
     if (!container) return;
-    
-    const cards = Array.from(container.querySelectorAll('[data-card]'));
+
+    const cards = Array.from(container.querySelectorAll("[data-card]"));
     const containerRect = container.getBoundingClientRect();
     const centerY = containerRect.top + containerRect.height / 2;
-    
+
     // Find the first card below center
     const nextCard = cards.find((card) => {
       const cardRect = card.getBoundingClientRect();
       const cardCenterY = cardRect.top + cardRect.height / 2;
       return cardCenterY > centerY + 20; // Small threshold
     });
-    
+
     if (nextCard) {
-      nextCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      nextCard.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
   const scrollToPrevious = () => {
     const container = containerRef.current;
     if (!container) return;
-    
-    const cards = Array.from(container.querySelectorAll('[data-card]')).reverse();
+
+    const cards = Array.from(
+      container.querySelectorAll("[data-card]")
+    ).reverse();
     const containerRect = container.getBoundingClientRect();
     const centerY = containerRect.top + containerRect.height / 2;
-    
+
     // Find the first card above center
     const prevCard = cards.find((card) => {
       const cardRect = card.getBoundingClientRect();
       const cardCenterY = cardRect.top + cardRect.height / 2;
       return cardCenterY < centerY - 20; // Small threshold
     });
-    
+
     if (prevCard) {
-      prevCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      prevCard.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -328,7 +338,9 @@ export default function StudentQuestLogPage() {
       <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-bounce">📜</div>
-          <p className="text-lg text-slate-600 animate-pulse">Laster dagens oppdrag...</p>
+          <p className="text-lg text-slate-600 animate-pulse">
+            Laster dagens oppdrag...
+          </p>
         </div>
       </main>
     );
@@ -396,16 +408,22 @@ export default function StudentQuestLogPage() {
             ref={containerRef}
             className="h-[60vh] w-full max-w-2xl overflow-y-auto snap-y snap-mandatory scrollbar-hide px-4"
             style={{
-              maskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)',
+              maskImage:
+                "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
+              WebkitMaskImage:
+                "linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%)",
             }}
           >
             {/* Massive padding to allow first/last items to center */}
             <div className="py-[calc(50vh-100px)] space-y-8">
               <AnimatePresence>
                 {schedule.map((entry, index) => {
-                  const state = getLessonState(entry.start_time, entry.end_time);
-                  const hasQuests = entry.entry_has_tasks || entry.subject_has_tasks;
+                  const state = getLessonState(
+                    entry.start_time,
+                    entry.end_time
+                  );
+                  const hasQuests =
+                    entry.entry_has_tasks || entry.subject_has_tasks;
                   const isLiveLesson = state === "active"; // Actual current lesson based on time
                   const isFinished = state === "finished";
                   const isUpcoming = state === "upcoming";
@@ -413,8 +431,12 @@ export default function StudentQuestLogPage() {
                   // Calculate distance-based styling (fisheye effect)
                   const distance = cardDistances.get(entry.id) || 999;
                   const isCentered = distance < 100; // Within 100px of center (UI focus)
-                  const scale = isCentered ? 1.1 : Math.max(0.85, 1 - (distance / 800));
-                  const opacity = isCentered ? 1 : Math.max(0.3, 1 - (distance / 600));
+                  const scale = isCentered
+                    ? 1.1
+                    : Math.max(0.85, 1 - distance / 800);
+                  const opacity = isCentered
+                    ? 1
+                    : Math.max(0.3, 1 - distance / 600);
                   const blur = isCentered ? 0 : Math.min(2, distance / 400);
 
                   // Get border color class based on subject_color
@@ -438,10 +460,10 @@ export default function StudentQuestLogPage() {
                         transform: `scale(${scale})`,
                         opacity: opacity,
                         filter: `blur(${blur}px)`,
-                        pointerEvents: isCentered ? 'auto' : 'none',
+                        pointerEvents: isCentered ? "auto" : "none",
                       }}
                       className={`group relative w-full text-left transition-all duration-300 ease-out snap-center ${
-                        isCentered ? 'z-10' : 'z-0'
+                        isCentered ? "z-10" : "z-0"
                       }`}
                     >
                       <div
@@ -452,7 +474,9 @@ export default function StudentQuestLogPage() {
                             ? "bg-gray-200/60 border-l-4 border-slate-300"
                             : "bg-white/70 border-l-4 border-slate-300"
                         } ${
-                          isLiveLesson ? 'ring-4 ring-blue-400 ring-offset-2 ring-offset-slate-100' : ''
+                          isLiveLesson
+                            ? "ring-4 ring-blue-400 ring-offset-2 ring-offset-slate-100"
+                            : ""
                         }`}
                       >
                         {/* LIVE Badge - Always visible on current lesson */}
@@ -474,9 +498,11 @@ export default function StudentQuestLogPage() {
                         )}
                         {/* Left: Large Emoji */}
                         <div className="flex-shrink-0">
-                          <span className={`transition-all duration-300 ${
-                            isCentered ? "text-6xl" : "text-3xl"
-                          }`}>
+                          <span
+                            className={`transition-all duration-300 ${
+                              isCentered ? "text-6xl" : "text-3xl"
+                            }`}
+                          >
                             {entry.emoji}
                           </span>
                         </div>
@@ -484,9 +510,13 @@ export default function StudentQuestLogPage() {
                         {/* Middle: Subject Title + Time */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className={`font-bold leading-tight truncate transition-all duration-300 ${
-                              isCentered ? "text-3xl text-slate-900" : "text-base text-slate-600"
-                            } ${isFinished ? "text-slate-500" : ""}`}>
+                            <h3
+                              className={`font-bold leading-tight truncate transition-all duration-300 ${
+                                isCentered
+                                  ? "text-3xl text-slate-900"
+                                  : "text-base text-slate-600"
+                              } ${isFinished ? "text-slate-500" : ""}`}
+                            >
                               {entry.custom_title || entry.subject_title}
                             </h3>
                           </div>
@@ -570,4 +600,3 @@ export default function StudentQuestLogPage() {
     </main>
   );
 }
-
