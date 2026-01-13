@@ -4,7 +4,13 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronUp,
+  ChevronDown,
+  Loader2,
+  ListTodo,
+} from "lucide-react";
 
 type ScheduleEntry = {
   id: string;
@@ -18,6 +24,8 @@ type ScheduleEntry = {
   entry_has_tasks: boolean;
   subject_has_tasks: boolean;
   custom_title: string | null;
+  tasks_total: number;
+  tasks_completed: number;
 };
 
 const colorVariants: Record<string, string> = {
@@ -38,6 +46,115 @@ const colorVariants: Record<string, string> = {
   default: "border-gray-300",
 };
 
+const shadowRgbValues: Record<string, string> = {
+  amber: "245, 158, 11",
+  blue: "59, 130, 246",
+  emerald: "16, 185, 129",
+  gray: "107, 114, 128",
+  green: "34, 197, 94",
+  indigo: "99, 102, 241",
+  orange: "249, 115, 22",
+  pink: "236, 72, 153",
+  purple: "168, 85, 247",
+  red: "239, 68, 68",
+  rose: "244, 63, 94",
+  teal: "20, 184, 166",
+  violet: "139, 92, 246",
+  yellow: "234, 179, 8",
+};
+
+const LessonProgress = ({
+  progress,
+  color,
+}: {
+  progress: number;
+  color: string;
+}) => {
+  const size = 44;
+  const strokeWidth = 6;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, progress));
+  const dashOffset = circumference - (clamped / 100) * circumference;
+
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <svg
+        width={size}
+        height={size}
+        className="-rotate-90 drop-shadow-sm"
+        role="presentation"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={dashOffset}
+          fill="none"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  );
+};
+
+const MissionChip = ({
+  completed,
+  total,
+  color,
+  isActive,
+}: {
+  completed: number;
+  total: number;
+  color: string;
+  isActive: boolean;
+}) => {
+  // Status-based color logic: Green if all tasks completed, Gray if incomplete
+  const isAllTasksCompleted = completed >= total;
+
+  // Determine colors based on completion status and active state
+  const bgClass = isAllTasksCompleted
+    ? isActive
+      ? "bg-emerald-500"
+      : "bg-emerald-100"
+    : isActive
+    ? "bg-gray-600"
+    : "bg-gray-100";
+
+  const textClass = isAllTasksCompleted
+    ? isActive
+      ? "text-white"
+      : "text-emerald-700"
+    : isActive
+    ? "text-white"
+    : "text-gray-600";
+
+  return (
+    <div
+      className={`ml-3 flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${bgClass} ${textClass} ${
+        isActive ? "shadow-sm" : ""
+      }`}
+    >
+      <ListTodo className="h-3.5 w-3.5" />
+      <span>
+        {completed}/{total}
+      </span>
+    </div>
+  );
+};
+
 export default function StudentQuestLogPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -55,17 +172,16 @@ export default function StudentQuestLogPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLessonRef = useRef<HTMLButtonElement>(null); // Current lesson based on time
   const [scrollPosition, setScrollPosition] = useState(0);
-  const [canScrollUp, setCanScrollUp] = useState(false);
-  const [canScrollDown, setCanScrollDown] = useState(true);
+  const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [cardDistances, setCardDistances] = useState<Map<string, number>>(
     new Map()
   );
 
-  // Update current time every minute
+  // Update current time every 30 seconds for smoother timers
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 60000);
+    }, 30000);
     return () => clearInterval(timer);
   }, []);
 
@@ -159,7 +275,7 @@ export default function StudentQuestLogPage() {
     fetchData();
   }, []);
 
-  // Calculate card distances from center on scroll + smart arrow visibility
+  // Calculate card distances from center on scroll + track active lesson index
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
@@ -169,21 +285,26 @@ export default function StudentQuestLogPage() {
     const cards = container.querySelectorAll("[data-card]");
 
     const distances = new Map<string, number>();
-    cards.forEach((card) => {
+    let closestIndex = 0;
+    let minDistance = Infinity;
+
+    cards.forEach((card, index) => {
       const cardRect = card.getBoundingClientRect();
       const cardCenterY = cardRect.top + cardRect.height / 2;
       const distance = Math.abs(centerY - cardCenterY);
       const cardId = card.getAttribute("data-id") || "";
       distances.set(cardId, distance);
+
+      // Track which card is closest to center
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
     });
 
     setCardDistances(distances);
-
-    // Smart arrow visibility logic
-    const { scrollTop, scrollHeight, clientHeight } = container;
-    setScrollPosition(scrollTop);
-    setCanScrollUp(scrollTop > 10);
-    setCanScrollDown(scrollTop + clientHeight < scrollHeight - 10);
+    setActiveLessonIndex(closestIndex);
+    setScrollPosition(container.scrollTop);
   };
 
   // Auto-scroll to current lesson when schedule loads
@@ -255,6 +376,27 @@ export default function StudentQuestLogPage() {
     return "finished";
   };
 
+  const getLessonProgressPercent = (
+    startTime: string,
+    endTime: string
+  ): number => {
+    const now = currentTime;
+    const [startHour, startMin] = startTime.split(":").map(Number);
+    const [endHour, endMin] = endTime.split(":").map(Number);
+
+    const startDate = new Date(now);
+    startDate.setHours(startHour, startMin, 0, 0);
+
+    const endDate = new Date(now);
+    endDate.setHours(endHour, endMin, 0, 0);
+
+    const total = endDate.getTime() - startDate.getTime();
+    if (total <= 0) return 0;
+
+    const elapsed = now.getTime() - startDate.getTime();
+    return Math.max(0, Math.min(100, (elapsed / total) * 100));
+  };
+
   // Calculate school day progress
   const getProgressPercent = () => {
     if (schedule.length === 0) return 0;
@@ -288,42 +430,20 @@ export default function StudentQuestLogPage() {
   };
 
   const handleLessonClick = (entry: ScheduleEntry, state: string) => {
-    if (state === "finished") return; // Don't allow clicks on finished lessons
-
-    if (entry.entry_has_tasks) {
-      // Scenario A: Navigate to task list for this specific lesson
-      router.push(`/student/oppgaver?scheduleEntryId=${entry.id}`);
-    } else if (entry.subject_has_tasks) {
-      // Scenario B: Navigate to subject tasks
-      router.push(`/student/fag/${entry.subject_id}`);
-    } else {
-      // Scenario C: Show toast
-      setToast({
-        message: "Ingen oppdrag i denne timen – slapp av! 😎",
-        visible: true,
-      });
-      setTimeout(() => setToast({ message: "", visible: false }), 3000);
-    }
+    // Navigate to lesson detail page to view tasks and lesson info
+    router.push(`/student/lesson/${entry.id}`);
   };
 
-  // Scroll navigation helpers - snap to next/previous card
+  // Scroll navigation helpers - index-based navigation
   const scrollToNext = () => {
     const container = containerRef.current;
     if (!container) return;
 
     const cards = Array.from(container.querySelectorAll("[data-card]"));
-    const containerRect = container.getBoundingClientRect();
-    const centerY = containerRect.top + containerRect.height / 2;
+    const nextIndex = activeLessonIndex + 1;
 
-    // Find the first card below center
-    const nextCard = cards.find((card) => {
-      const cardRect = card.getBoundingClientRect();
-      const cardCenterY = cardRect.top + cardRect.height / 2;
-      return cardCenterY > centerY + 20; // Small threshold
-    });
-
-    if (nextCard) {
-      nextCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (nextIndex < cards.length) {
+      cards[nextIndex].scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -331,21 +451,11 @@ export default function StudentQuestLogPage() {
     const container = containerRef.current;
     if (!container) return;
 
-    const cards = Array.from(
-      container.querySelectorAll("[data-card]")
-    ).reverse();
-    const containerRect = container.getBoundingClientRect();
-    const centerY = containerRect.top + containerRect.height / 2;
+    const cards = Array.from(container.querySelectorAll("[data-card]"));
+    const prevIndex = activeLessonIndex - 1;
 
-    // Find the first card above center
-    const prevCard = cards.find((card) => {
-      const cardRect = card.getBoundingClientRect();
-      const cardCenterY = cardRect.top + cardRect.height / 2;
-      return cardCenterY < centerY - 20; // Small threshold
-    });
-
-    if (prevCard) {
-      prevCard.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (prevIndex >= 0) {
+      cards[prevIndex].scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
@@ -361,6 +471,20 @@ export default function StudentQuestLogPage() {
 
   return (
     <main className="relative min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 overflow-hidden">
+      <style jsx>{`
+        @keyframes subtle-float {
+          0%,
+          100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-6px);
+          }
+        }
+        .animate-float {
+          animation: subtle-float 3s ease-in-out infinite;
+        }
+      `}</style>
       {/* Subtle Header */}
       <div className="absolute top-6 left-0 right-0 z-10 text-center">
         <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
@@ -370,36 +494,30 @@ export default function StudentQuestLogPage() {
 
       {/* Wheel Container */}
       <div className="relative h-screen flex items-center justify-center pt-16 pb-24">
-        {/* Navigation Arrows - Smart Visibility */}
-        <AnimatePresence>
-          {canScrollUp && (
-            <motion.button
-              key="arrow-up"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              onClick={scrollToPrevious}
-              className="absolute top-24 left-1/2 -translate-x-1/2 z-20 p-3 bg-white/90 hover:bg-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 active:scale-95"
-              aria-label="Previous lesson"
-            >
-              <ChevronUp className="w-6 h-6 text-slate-700" />
-            </motion.button>
-          )}
+        {/* Navigation Arrows - Index-Based Visibility, Positioned Over Faded Cards */}
+        <button
+          onClick={scrollToPrevious}
+          className={`absolute top-[12vh] left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${
+            activeLessonIndex > 0
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none"
+          }`}
+          aria-label="Previous lesson"
+        >
+          <ChevronUp className="w-8 h-8 text-gray-400 hover:text-gray-600 hover:scale-110 transition-all" />
+        </button>
 
-          {canScrollDown && (
-            <motion.button
-              key="arrow-down"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              onClick={scrollToNext}
-              className="absolute bottom-32 left-1/2 -translate-x-1/2 z-20 p-3 bg-white/90 hover:bg-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110 active:scale-95"
-              aria-label="Next lesson"
-            >
-              <ChevronDown className="w-6 h-6 text-slate-700" />
-            </motion.button>
-          )}
-        </AnimatePresence>
+        <button
+          onClick={scrollToNext}
+          className={`absolute bottom-[20vh] left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ${
+            activeLessonIndex < schedule.length - 1
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none"
+          }`}
+          aria-label="Next lesson"
+        >
+          <ChevronDown className="w-8 h-8 text-gray-400 hover:text-gray-600 hover:scale-110 transition-all" />
+        </button>
 
         {/* Scrollable Wheel */}
         {schedule.length === 0 ? (
@@ -450,10 +568,24 @@ export default function StudentQuestLogPage() {
 
                   const borderColor =
                     colorVariants[entry.subject_color] || colorVariants.default;
+                  const subjectColorKey = entry.subject_color || "gray";
+                  const shadowRgb =
+                    shadowRgbValues[subjectColorKey] || shadowRgbValues.gray;
+                  const accentColor = `rgb(${shadowRgb})`;
                   const subjectTitle = entry.subject_title || "Time";
                   const secondaryLabel = entry.custom_title
                     ? entry.custom_title
                     : `${index + 1}. time`;
+                  const lessonProgress = getLessonProgressPercent(
+                    entry.start_time,
+                    entry.end_time
+                  );
+
+                  const glowStyle = isLiveLesson
+                    ? {
+                        boxShadow: `0 20px 25px -5px rgba(${shadowRgb}, 0.4), 0 8px 10px -6px rgba(${shadowRgb}, 0.2)`,
+                      }
+                    : undefined;
 
                   return (
                     <motion.button
@@ -465,47 +597,27 @@ export default function StudentQuestLogPage() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05, duration: 0.3 }}
                       onClick={() => handleLessonClick(entry, state)}
-                      disabled={isFinished || !isCentered}
                       style={{
                         transform: `scale(${scale})`,
                         opacity: opacity,
                         filter: `blur(${blur}px)`,
-                        pointerEvents: isCentered ? "auto" : "none",
                       }}
-                      className={`group relative w-full text-left transition-all duration-300 ease-out snap-center ${
+                      className={`group relative w-full text-left transition-all duration-300 ease-out snap-center cursor-pointer ${
                         isCentered ? "z-10" : "z-0"
+                      } ${
+                        !isCentered ? "hover:opacity-100 hover:scale-95" : ""
                       }`}
                     >
                       <div
+                        style={glowStyle}
                         className={`relative flex items-center gap-4 p-6 rounded-3xl border-l-8 ${borderColor} transition-all duration-300 ${
                           isCentered
                             ? "bg-white shadow-2xl"
                             : isFinished
                             ? "bg-gray-200/60"
                             : "bg-white/70"
-                        } ${
-                          isLiveLesson
-                            ? "ring-4 ring-blue-400 ring-offset-2 ring-offset-slate-100"
-                            : ""
-                        }`}
+                        } ${isLiveLesson ? "animate-float" : ""}`}
                       >
-                        {/* LIVE Badge - Always visible on current lesson */}
-                        {isLiveLesson && (
-                          <motion.div
-                            initial={{ scale: 0, rotate: -90 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            className="absolute -top-3 -right-3 z-20"
-                          >
-                            <div className="px-3 py-1.5 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg flex items-center gap-1.5">
-                              <motion.span
-                                animate={{ scale: [1, 1.2, 1] }}
-                                transition={{ duration: 1.5, repeat: Infinity }}
-                                className="w-2 h-2 bg-white rounded-full"
-                              />
-                              NÅ LIVE
-                            </div>
-                          </motion.div>
-                        )}
                         {/* Left: Large Emoji */}
                         <div className="flex-shrink-0">
                           <span
@@ -519,7 +631,7 @@ export default function StudentQuestLogPage() {
 
                         {/* Middle: Subject Title + Time */}
                         <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-0">
                             <h3
                               className={`font-bold leading-tight truncate transition-all duration-300 ${
                                 isCentered
@@ -529,6 +641,14 @@ export default function StudentQuestLogPage() {
                             >
                               {subjectTitle}
                             </h3>
+                            {entry.tasks_total > 0 && (
+                              <MissionChip
+                                completed={entry.tasks_completed}
+                                total={entry.tasks_total}
+                                color={entry.subject_color}
+                                isActive={isCentered}
+                              />
+                            )}
                           </div>
 
                           <p className="text-sm text-slate-500 truncate">
@@ -540,28 +660,21 @@ export default function StudentQuestLogPage() {
                           </p>
                         </div>
 
-                        {/* Right: Quest Icon (only on centered card) */}
-                        {hasQuests && !isFinished && isCentered && (
-                          <motion.div
-                            initial={{ scale: 0, rotate: -180 }}
-                            animate={{ scale: 1, rotate: 0 }}
-                            className="flex-shrink-0"
-                          >
-                            <motion.div
-                              animate={{ scale: [1, 1.15, 1] }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                            >
-                              <div className="text-4xl">📜</div>
-                            </motion.div>
-                          </motion.div>
-                        )}
-
-                        {/* Finished checkmark icon */}
-                        {isFinished && isCentered && (
-                          <div className="flex-shrink-0">
-                            <CheckCircle2 className="w-10 h-10 text-slate-400" />
-                          </div>
-                        )}
+                        {/* Right: Status indicator */}
+                        <div className="flex-shrink-0 flex items-center justify-center">
+                          {isFinished ? (
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-sm bg-green-50">
+                              <CheckCircle2 className="w-7 h-7 text-green-500" />
+                            </div>
+                          ) : isLiveLesson ? (
+                            <LessonProgress
+                              progress={lessonProgress}
+                              color={accentColor}
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 flex items-center justify-center opacity-70" />
+                          )}
+                        </div>
                       </div>
                     </motion.button>
                   );
