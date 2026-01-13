@@ -20,6 +20,24 @@ type ScheduleEntry = {
   custom_title: string | null;
 };
 
+const colorVariants: Record<string, string> = {
+  amber: "border-amber-500",
+  blue: "border-blue-500",
+  emerald: "border-emerald-500",
+  gray: "border-gray-500",
+  green: "border-green-500",
+  indigo: "border-indigo-500",
+  orange: "border-orange-500",
+  pink: "border-pink-500",
+  purple: "border-purple-500",
+  red: "border-red-500",
+  rose: "border-rose-500",
+  teal: "border-teal-500",
+  violet: "border-violet-500",
+  yellow: "border-yellow-500",
+  default: "border-gray-300",
+};
+
 export default function StudentQuestLogPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -423,22 +441,19 @@ export default function StudentQuestLogPage() {
                   const isFinished = state === "finished";
                   const isUpcoming = state === "upcoming";
 
-                  // Calculate distance-based styling (fisheye effect)
+                  // Visual emphasis and color mapping
                   const distance = cardDistances.get(entry.id) || 999;
-                  const isCentered = distance < 100; // Within 100px of center (UI focus)
-                  const scale = isCentered
-                    ? 1.1
-                    : Math.max(0.85, 1 - distance / 800);
-                  const opacity = isCentered
-                    ? 1
-                    : Math.max(0.3, 1 - distance / 600);
-                  const blur = isCentered ? 0 : Math.min(2, distance / 400);
+                  const isCentered = distance < 100;
+                  const scale = isCentered ? 1.1 : 0.9;
+                  const opacity = isCentered ? 1 : 0.5;
+                  const blur = 0;
 
-                  // Get border color class based on subject_color
-                  const getBorderColor = () => {
-                    const color = entry.subject_color || "indigo";
-                    return `border-${color}-500`;
-                  };
+                  const borderColor =
+                    colorVariants[entry.subject_color] || colorVariants.default;
+                  const subjectTitle = entry.subject_title || "Time";
+                  const secondaryLabel = entry.custom_title
+                    ? entry.custom_title
+                    : `${index + 1}. time`;
 
                   return (
                     <motion.button
@@ -462,12 +477,12 @@ export default function StudentQuestLogPage() {
                       }`}
                     >
                       <div
-                        className={`relative flex items-center gap-4 p-6 rounded-3xl transition-all duration-300 ${
+                        className={`relative flex items-center gap-4 p-6 rounded-3xl border-l-8 ${borderColor} transition-all duration-300 ${
                           isCentered
-                            ? `bg-white shadow-2xl border-l-8 ${getBorderColor()}`
+                            ? "bg-white shadow-2xl"
                             : isFinished
-                            ? "bg-gray-200/60 border-l-4 border-slate-300"
-                            : "bg-white/70 border-l-4 border-slate-300"
+                            ? "bg-gray-200/60"
+                            : "bg-white/70"
                         } ${
                           isLiveLesson
                             ? "ring-4 ring-blue-400 ring-offset-2 ring-offset-slate-100"
@@ -503,48 +518,26 @@ export default function StudentQuestLogPage() {
                         </div>
 
                         {/* Middle: Subject Title + Time */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
                             <h3
                               className={`font-bold leading-tight truncate transition-all duration-300 ${
                                 isCentered
                                   ? "text-3xl text-slate-900"
-                                  : "text-base text-slate-600"
+                                  : "text-lg text-slate-700"
                               } ${isFinished ? "text-slate-500" : ""}`}
                             >
-                              {entry.custom_title || entry.subject_title}
+                              {subjectTitle}
                             </h3>
                           </div>
 
-                          {/* Time - Show only for centered card */}
-                          {isCentered && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="flex items-center gap-2"
-                            >
-                              {isFinished ? (
-                                <div className="flex items-center gap-1.5 text-slate-400">
-                                  <CheckCircle2 className="w-4 h-4" />
-                                  <span className="text-sm">
-                                    {entry.start_time} - {entry.end_time}
-                                  </span>
-                                </div>
-                              ) : (
-                                <p className="text-base text-slate-600 font-medium">
-                                  {entry.start_time} - {entry.end_time}
-                                </p>
-                              )}
-                            </motion.div>
-                          )}
+                          <p className="text-sm text-slate-500 truncate">
+                            {secondaryLabel}
+                          </p>
 
-                          {/* Minimal time for non-centered cards */}
-                          {!isCentered && (
-                            <p className="text-xs text-slate-400">
-                              {entry.start_time}
-                            </p>
-                          )}
+                          <p className="text-xs text-slate-500 font-medium">
+                            {entry.start_time} - {entry.end_time}
+                          </p>
                         </div>
 
                         {/* Right: Quest Icon (only on centered card) */}
