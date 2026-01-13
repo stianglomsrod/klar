@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle2, ChevronUp, ChevronDown } from "lucide-react";
+import { CheckCircle2, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 
 type ScheduleEntry = {
   id: string;
@@ -335,14 +335,9 @@ export default function StudentQuestLogPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4 animate-bounce">📜</div>
-          <p className="text-lg text-slate-600 animate-pulse">
-            Laster dagens oppdrag...
-          </p>
-        </div>
-      </main>
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-gray-400" />
+      </div>
     );
   }
 
