@@ -114,6 +114,7 @@ export default function StudentFooter({
 
   useEffect(() => {
     if (!classId) {
+      console.log("[StudentFooter] No classId provided, skipping queue fetch");
       setIsQueueOpen(false);
       return;
     }
@@ -121,13 +122,23 @@ export default function StudentFooter({
     let isMounted = true;
 
     const fetchInitial = async () => {
+      console.log(
+        "[StudentFooter] Fetching is_queue_open for classId:",
+        classId
+      );
       const { data, error } = await supabase
         .from("classes")
         .select("is_queue_open")
         .eq("id", classId)
         .single();
 
+      console.log("[StudentFooter] Query result:", { data, error });
+
       if (!error && data && isMounted) {
+        console.log(
+          "[StudentFooter] Setting isQueueOpen to:",
+          Boolean(data.is_queue_open)
+        );
         setIsQueueOpen(Boolean(data.is_queue_open));
       }
     };
@@ -324,6 +335,11 @@ export default function StudentFooter({
           </button>
 
           {/* Help Button */}
+          {console.log("[StudentFooter] Render check:", {
+            studentId,
+            classId,
+            isQueueOpen,
+          })}
           {studentId && classId && isQueueOpen && (
             <StudentHelpButton studentId={studentId} classId={classId} />
           )}

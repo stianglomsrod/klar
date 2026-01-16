@@ -152,6 +152,133 @@ CREATE TABLE public.subjects (
   CONSTRAINT subjects_pkey PRIMARY KEY (id),
   CONSTRAINT subjects_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
+-- Daily announcements for targeted messages
+CREATE TABLE IF NOT EXISTS public.daily_announcements (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid REFERENCES auth.users(id),
+  content text NOT NULL,
+  display_date date NOT NULL,
+  target_type text NOT NULL CHECK (target_type IN ('student', 'class', 'grade')),
+  target_id uuid NOT NULL,
+  CONSTRAINT daily_announcements_unique_target_date UNIQUE (display_date, target_type, target_id)
+);
+
+-- RLS for daily_announcements
+ALTER TABLE public.daily_announcements ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Teachers can manage announcements" ON public.daily_announcements
+  FOR ALL
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'teacher')
+  );
+
+CREATE POLICY "Students can read announcements" ON public.daily_announcements
+  FOR SELECT
+  USING (true);
+
+-- Function to fetch a student's announcement for the current date
+CREATE OR REPLACE FUNCTION public.get_student_daily_announcement(p_student_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_class_id uuid;
+  v_grade_id uuid;
+  v_message text;
+BEGIN
+  SELECT sp.class_id, c.grade_id
+    INTO v_class_id, v_grade_id
+    FROM public.student_profiles sp
+    LEFT JOIN public.classes c ON sp.class_id = c.id
+    WHERE sp.id = p_student_id;
+
+  SELECT content INTO v_message
+    FROM public.daily_announcements
+    WHERE display_date = CURRENT_DATE
+      AND target_type = 'student'
+      AND target_id = p_student_id
+    LIMIT 1;
+
+  IF v_message IS NOT NULL THEN RETURN v_message; END IF;
+
+  IF v_class_id IS NOT NULL THEN
+    SELECT content INTO v_message
+      FROM public.daily_announcements
+      WHERE display_date = CURRENT_DATE
+        AND target_type = 'class'
+        AND target_id = v_class_id
+      LIMIT 1;
+
+    IF v_message IS NOT NULL THEN RETURN v_message; END IF;
+  END IF;
+
+  IF v_grade_id IS NOT NULL THEN
+    SELECT content INTO v_message
+      FROM public.daily_announcements
+      WHERE display_date = CURRENT_DATE
+        AND target_type = 'grade'
+        AND target_id = v_grade_id
+      LIMIT 1;
+
+    IF v_message IS NOT NULL THEN RETURN v_message; END IF;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_student_daily_announcement(uuid) TO authenticated, service_role;
+
+-- Function to link a student to a class structure (creates grade/class if needed)
+CREATE OR REPLACE FUNCTION public.link_student_to_class_structure(
+  p_student_id uuid,
+  p_class_name text,
+  p_grade_name text
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_grade_id uuid;
+  v_class_id uuid;
+BEGIN
+  -- 1. Håndter TRINN (Grade)
+  -- Prøv å finne trinnet først
+  SELECT id INTO v_grade_id FROM public.grades WHERE name = p_grade_name LIMIT 1;
+  
+  -- Hvis trinnet ikke finnes, opprett det
+  IF v_grade_id IS NULL THEN
+    INSERT INTO public.grades (name) VALUES (p_grade_name)
+    RETURNING id INTO v_grade_id;
+  END IF;
+
+  -- 2. Håndter KLASSE (Class)
+  -- Prøv å finne klassen (koblet til riktig trinn)
+  SELECT id INTO v_class_id FROM public.classes 
+  WHERE name = p_class_name AND grade_id = v_grade_id LIMIT 1;
+
+  -- Hvis klassen ikke finnes, opprett den
+  IF v_class_id IS NULL THEN
+    INSERT INTO public.classes (name, grade_id, is_queue_open) 
+    VALUES (p_class_name, v_grade_id, false)
+    RETURNING id INTO v_class_id;
+  END IF;
+
+  -- 3. Oppdater ELEVEN (student_profiles)
+  -- Nå som vi garantert har en class_id, kobler vi eleven til den
+  UPDATE public.student_profiles
+  SET class_id = v_class_id,
+      level = CAST(SUBSTRING(p_grade_name FROM '^[0-9]+') AS INTEGER)
+  WHERE id = p_student_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.link_student_to_class_structure(uuid, text, text) TO authenticated, service_role;
 
 CREATE TABLE public.task_library (
   id uuid NOT NULL DEFAULT gen_random_uuid(),

@@ -11,6 +11,7 @@ import {
   Loader2,
   ListTodo,
 } from "lucide-react";
+import WelcomeOverlay from "@/components/WelcomeOverlay";
 
 type ScheduleEntry = {
   id: string;
@@ -176,6 +177,13 @@ export default function StudentQuestLogPage() {
   const [cardDistances, setCardDistances] = useState<Map<string, number>>(
     new Map()
   );
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  // Check localStorage for welcome overlay
+  useEffect(() => {
+    const hasSeenWelcome = localStorage.getItem("welcomeSeen");
+    setShowWelcome(!hasSeenWelcome);
+  }, []);
 
   // Update current time every 30 seconds for smoother timers
   useEffect(() => {
@@ -471,6 +479,15 @@ export default function StudentQuestLogPage() {
 
   return (
     <main className="relative min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 overflow-hidden">
+      {showWelcome && (
+        <WelcomeOverlay
+          initialVisible={true}
+          onDismiss={() => {
+            localStorage.setItem("welcomeSeen", "1");
+            setShowWelcome(false);
+          }}
+        />
+      )}
       <style jsx>{`
         @keyframes subtle-float {
           0%,

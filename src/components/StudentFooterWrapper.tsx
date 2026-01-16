@@ -7,6 +7,10 @@ import { useTimeTracker } from "@/hooks/useTimeTracker";
 export default function StudentFooterWrapper() {
   const { profile } = useStudentProfile();
 
+  // Debug logging
+  console.log("[StudentFooterWrapper] profile:", profile);
+  console.log("[StudentFooterWrapper] class_id:", profile?.class_id);
+
   // Use current_xp for progress bar (per-level accumulator)
   const userLevel = profile?.level ?? 1;
   const currentGoal = profile?.current_goal_total ?? 1000;

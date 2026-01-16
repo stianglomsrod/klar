@@ -1,8 +1,9 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { createClient } from "@/utils/supabase/client";
 
 type WelcomeOverlayProps = {
   initialVisible?: boolean;
@@ -14,7 +15,31 @@ export default function WelcomeOverlay({
   onDismiss,
 }: WelcomeOverlayProps) {
   const [isVisible, setIsVisible] = useState(initialVisible);
+  const [dailyAnnouncement, setDailyAnnouncement] = useState<string | null>(
+    null
+  );
   const { profile } = useStudentProfile();
+
+  // Fetch daily announcement for this student
+  useEffect(() => {
+    const fetchAnnouncement = async () => {
+      if (!profile?.id) return;
+
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc(
+        "get_student_daily_announcement",
+        {
+          p_student_id: profile.id,
+        }
+      );
+
+      if (!error && data) {
+        setDailyAnnouncement(data);
+      }
+    };
+
+    fetchAnnouncement();
+  }, [profile?.id]);
 
   // Når man klikker, fader vi ut skjermen
   const handleDismiss = () => {
@@ -22,8 +47,9 @@ export default function WelcomeOverlay({
     onDismiss?.();
   };
 
-  // Determine welcome message
+  // Priority: Daily announcement > Custom welcome message > Default greeting
   const welcomeMessage =
+    dailyAnnouncement ||
     profile?.custom_welcome_message ||
     (profile?.full_name ? `Hei, ${profile.full_name}!` : "Hei!");
 

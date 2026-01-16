@@ -238,10 +238,9 @@ export default function StudentHelpButton({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showCancelPopover]);
 
-  // Hide if teacher not available and no request
-  if (!isTeacherAvailable && !myRequest) {
-    return null;
-  }
+  // Note: The button is always shown when this component is rendered
+  // (parent already checks isQueueOpen). Teacher availability only affects
+  // whether the student can submit a new request.
 
   return (
     <>
@@ -250,13 +249,9 @@ export default function StudentHelpButton({
         <button
           ref={buttonRef}
           onClick={handleRequestHelp}
-          disabled={loading || !isTeacherAvailable}
+          disabled={loading}
           className="relative group flex items-center justify-center h-14 w-14 rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-          title={
-            isTeacherAvailable
-              ? "Be læreren om hjelp"
-              : "Læreren er ikke tilgjengelig"
-          }
+          title="Be læreren om hjelp"
         >
           <Hand
             className="h-6 w-6 transition-transform duration-300"
