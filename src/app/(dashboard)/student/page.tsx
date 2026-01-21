@@ -131,16 +131,16 @@ const MissionChip = ({
       ? "bg-emerald-500"
       : "bg-emerald-100"
     : isActive
-    ? "bg-gray-600"
-    : "bg-gray-100";
+      ? "bg-gray-600"
+      : "bg-gray-100";
 
   const textClass = isAllTasksCompleted
     ? isActive
       ? "text-white"
       : "text-emerald-700"
     : isActive
-    ? "text-white"
-    : "text-gray-600";
+      ? "text-white"
+      : "text-gray-600";
 
   return (
     <div
@@ -236,8 +236,8 @@ export default function StudentQuestLogPage() {
         const { data: scheduleData, error } = await supabase.rpc(
           "get_student_schedule",
           {
-            student_id: user.id,
-            current_week_number: weekNumber,
+            p_student_id: user.id,
+            p_current_week_number: weekNumber,
           }
         );
 
@@ -267,9 +267,15 @@ export default function StudentQuestLogPage() {
           const today = currentTime.getDay();
           const todayNum = today === 0 ? 7 : today; // Convert Sunday from 0 to 7
 
-          const todaysLessons = (scheduleData || []).filter(
-            (entry: any) => entry.day_of_week === todayNum
-          );
+          const todaysLessons = (scheduleData || [])
+            .filter((entry: any) => entry.day_of_week === todayNum)
+            .map((entry: any) => ({
+              ...entry,
+              // Ensure defaults for task counts (in case RPC returns null)
+              tasks_total: entry.tasks_total ?? 0,
+              tasks_completed: entry.tasks_completed ?? 0,
+              subject_color: entry.subject_color ?? "gray",
+            }));
 
           setSchedule(todaysLessons);
         }
@@ -631,8 +637,8 @@ export default function StudentQuestLogPage() {
                           isCentered
                             ? "bg-white shadow-2xl"
                             : isFinished
-                            ? "bg-gray-200/60"
-                            : "bg-white/70"
+                              ? "bg-gray-200/60"
+                              : "bg-white/70"
                         } ${isLiveLesson ? "animate-float" : ""}`}
                       >
                         {/* Left: Large Emoji */}

@@ -11,7 +11,20 @@ import {
   User,
   RotateCcw,
   Eraser,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import TimePicker from "@/components/ui/time-picker";
 
 type ScheduleEntry = {
   id: string;
@@ -419,6 +432,21 @@ export default function WeeklyScheduleEditor({
     }
   };
 
+  const handleDeleteEntry = async (entry: MergedEntry) => {
+    try {
+      const { error } = await supabase
+        .from("schedule_entries")
+        .delete()
+        .eq("id", entry.id);
+
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error("Error deleting schedule entry:", error);
+      alert("Kunne ikke slette denne timen. Prøv igjen.");
+    }
+  };
+
   const getDefaultTitle = (entry: ScheduleEntry) => {
     const start = entry.start_time?.slice(0, 5) || "";
     switch (start) {
@@ -728,6 +756,39 @@ export default function WeeklyScheduleEditor({
                                 >
                                   <Eraser size={14} />
                                 </button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <button
+                                      className="p-1 text-slate-600 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
+                                      title="Slett time"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Slett time?
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Er du sikker på at du vil fjerne denne
+                                        timen fra timeplanen? Dette kan ikke
+                                        angres.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Avbryt
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        variant="destructive"
+                                        onClick={() => handleDeleteEntry(entry)}
+                                      >
+                                        Slett
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </div>
                           );
@@ -860,26 +921,24 @@ export default function WeeklyScheduleEditor({
                 <label className="text-sm font-medium text-slate-900">
                   Start:
                 </label>
-                <input
-                  type="time"
+                <TimePicker
                   value={formData.start_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_time: e.target.value })
+                  onChange={(val) =>
+                    setFormData({ ...formData, start_time: val })
                   }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-900">
                   Slutt:
                 </label>
-                <input
-                  type="time"
+                <TimePicker
                   value={formData.end_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_time: e.target.value })
+                  onChange={(val) =>
+                    setFormData({ ...formData, end_time: val })
                   }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full"
                 />
               </div>
             </div>
@@ -901,8 +960,8 @@ export default function WeeklyScheduleEditor({
                     {type === "lesson"
                       ? "Time"
                       : type === "break"
-                      ? "Pause"
-                      : "Aktivitet"}
+                        ? "Pause"
+                        : "Aktivitet"}
                   </option>
                 ))}
               </select>

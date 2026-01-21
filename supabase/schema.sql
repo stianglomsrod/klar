@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS public.daily_announcements (
   display_date date NOT NULL,
   target_type text NOT NULL CHECK (target_type IN ('student', 'class', 'grade')),
   target_id uuid NOT NULL,
+  message_type text DEFAULT 'welcome'::text CHECK (message_type IN ('welcome', 'note')),
   CONSTRAINT daily_announcements_unique_target_date UNIQUE (display_date, target_type, target_id)
 );
 
@@ -348,3 +349,91 @@ CREATE TABLE public.weekly_updates (
   CONSTRAINT weekly_updates_pkey PRIMARY KEY (id),
   CONSTRAINT weekly_updates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
+
+-- 4. RPC FUNCTIONS
+
+-- Function to get student schedule with task counts
+CREATE OR REPLACE FUNCTION get_student_schedule(
+  p_student_id UUID,
+  p_current_week_number INTEGER
+)
+RETURNS TABLE (
+  id UUID,
+  day_of_week INTEGER,
+  start_time TEXT,
+  end_time TEXT,
+  subject_id UUID,
+  subject_title TEXT,
+  emoji TEXT,
+  subject_color TEXT,
+  entry_has_tasks BOOLEAN,
+  subject_has_tasks BOOLEAN,
+  custom_title TEXT,
+  week_number INTEGER,
+  tasks_total BIGINT,
+  tasks_completed BIGINT
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    se.id,
+    se.day_of_week,
+    se.start_time::TEXT,
+    se.end_time::TEXT,
+    se.subject_id,
+    COALESCE(s.title, se.custom_title, 'Time') AS subject_title,
+    COALESCE(s.emoji, '📚') AS emoji,
+    COALESCE(s.color_theme, 'gray') AS subject_color,
+    COALESCE(
+      EXISTS(
+        SELECT 1 FROM task_schedule_entries tse
+        JOIN tasks t ON tse.task_id = t.id
+        WHERE tse.schedule_entry_id = se.id
+        AND t.student_id = p_student_id
+      ),
+      FALSE
+    ) AS entry_has_tasks,
+    COALESCE(
+      EXISTS(
+        SELECT 1 FROM tasks t
+        WHERE t.subject_id = se.subject_id
+        AND t.student_id = p_student_id
+        AND t.is_completed = FALSE
+        AND NOT EXISTS (
+          SELECT 1 FROM task_schedule_entries tse2 WHERE tse2.task_id = t.id
+        )
+      ),
+      FALSE
+    ) AS subject_has_tasks,
+    se.custom_title,
+    COALESCE(se.week_number, 0) AS week_number,
+    (
+      SELECT COUNT(*)
+      FROM task_schedule_entries tse
+      JOIN tasks t ON tse.task_id = t.id
+      WHERE tse.schedule_entry_id = se.id
+      AND t.student_id = p_student_id
+    ) AS tasks_total,
+    (
+      SELECT COUNT(*)
+      FROM task_schedule_entries tse
+      JOIN tasks t ON tse.task_id = t.id
+      WHERE tse.schedule_entry_id = se.id
+      AND t.student_id = p_student_id
+      AND t.is_completed = TRUE
+    ) AS tasks_completed
+  FROM schedule_entries se
+  LEFT JOIN subjects s ON se.subject_id = s.id
+  WHERE se.type = 'lesson'
+  AND (
+    se.student_id = p_student_id
+    OR se.class_id IN (
+      SELECT class_id FROM student_profiles WHERE student_profiles.id = p_student_id
+    )
+  )
+  AND (se.week_number = p_current_week_number OR se.week_number = 0 OR se.week_number IS NULL)
+  ORDER BY se.day_of_week, se.start_time;
+END;
+$$ LANGUAGE plpgsql STABLE;
+
+GRANT EXECUTE ON FUNCTION get_student_schedule(UUID, INTEGER) TO authenticated;
