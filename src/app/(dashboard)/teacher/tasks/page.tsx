@@ -2,9 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Search, MoreVertical, Users, ArrowRight } from "lucide-react";
+import { Search, Users, ArrowRight, Edit2, Trash2 } from "lucide-react";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import CreateTaskButton from "@/components/teacher/CreateTaskButton";
+import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
+import type { EditTaskData } from "@/components/teacher/CreateTaskModal";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 interface Subject {
   id: string;
@@ -16,11 +28,14 @@ interface Subject {
 interface TaskTemplate {
   id: string;
   title: string;
+  description: string | null;
   subject: string;
+  subject_id: string;
   subjectColor: string;
   type: "standard" | "quiz";
   gradeLevel: string;
   assignCount: number;
+  quiz_data: any;
 }
 
 interface TaskLibraryItem {
@@ -42,6 +57,8 @@ export default function TaskLibraryPage() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -76,7 +93,7 @@ export default function TaskLibraryPage() {
             emoji,
             color_theme
           )
-        `
+        `,
         )
         .order("created_at", { ascending: false });
 
@@ -87,11 +104,14 @@ export default function TaskLibraryPage() {
         data?.map((task: any) => ({
           id: task.id,
           title: task.title,
+          description: task.description || null,
           subject: task.subject?.title || "Ukjent",
+          subject_id: task.subject_id,
           subjectColor: task.subject?.color_theme || "blue",
           type: task.type,
           gradeLevel: task.grade_level || "Alle trinn",
           assignCount: task.usage_count || 0,
+          quiz_data: task.quiz_data || null,
         })) || [];
 
       setTasks(mappedTasks);
@@ -121,15 +141,15 @@ export default function TaskLibraryPage() {
   // Split subjects into main (core) and other lists
   const mainSubjects = subjects.filter((subject) =>
     CORE_SUBJECTS.some((core) =>
-      subject.title.toLowerCase().includes(core.toLowerCase())
-    )
+      subject.title.toLowerCase().includes(core.toLowerCase()),
+    ),
   );
 
   const otherSubjects = subjects.filter(
     (subject) =>
       !CORE_SUBJECTS.some((core) =>
-        subject.title.toLowerCase().includes(core.toLowerCase())
-      )
+        subject.title.toLowerCase().includes(core.toLowerCase()),
+      ),
   );
 
   // Filter tasks based on selected subject and search query
@@ -140,6 +160,34 @@ export default function TaskLibraryPage() {
       task.title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSubject && matchesSearch;
   });
+
+  const handleEditTask = (task: TaskTemplate) => {
+    setEditingTask({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      subject_id: task.subject_id,
+      type: task.type,
+      grade_level: task.gradeLevel,
+      quiz_data: task.quiz_data,
+    });
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from("task_library")
+        .delete()
+        .eq("id", taskId);
+
+      if (error) throw error;
+      setDeletingTaskId(null);
+      fetchTasks();
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      alert("Kunne ikke slette oppgave. Prøv igjen.");
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -258,13 +306,22 @@ export default function TaskLibraryPage() {
                 return (
                   <div
                     key={task.id}
-                    className="h-full flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleEditTask(task)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleEditTask(task);
+                      }
+                    }}
+                    className="group relative h-full flex flex-col bg-white rounded-lg border border-gray-200 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all duration-150 hover:-translate-y-[2px] hover:shadow-md overflow-hidden"
                   >
                     {/* Top color strip */}
                     <div className={`h-1.5 w-full ${theme.base}`} />
 
                     <div className="p-5 flex-1 flex flex-col">
-                      {/* Menu Button - Top Right */}
+                      {/* Header row with badges & hover action icons */}
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           {/* Badges Row - Subject, Grade, Type */}
@@ -296,14 +353,32 @@ export default function TaskLibraryPage() {
                           </h3>
                         </div>
 
-                        <button
-                          onClick={() =>
-                            console.log("Menu clicked for task:", task.id)
-                          }
-                          className="p-1.5 hover:bg-gray-100 rounded-md transition-colors -mt-1 -mr-1"
+                        {/* Hover action icons – hidden by default, shown on card hover */}
+                        <div
+                          className="hidden group-hover:flex gap-1 flex-shrink-0 items-center -mt-1 -mr-1"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <MoreVertical className="h-4 w-4 text-gray-400" />
-                        </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTask(task);
+                            }}
+                            className="p-1.5 hover:bg-slate-200 rounded transition-colors"
+                            title="Rediger"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingTaskId(task.id);
+                            }}
+                            className="p-1.5 text-slate-600 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
+                            title="Slett"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Spacer to push footer down */}
@@ -319,9 +394,10 @@ export default function TaskLibraryPage() {
 
                         {/* Action Button - Right Side */}
                         <button
-                          onClick={() =>
-                            console.log("Assign task clicked:", task.id)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log("Assign task clicked:", task.id);
+                          }}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors"
                         >
                           Tildel
@@ -336,6 +412,46 @@ export default function TaskLibraryPage() {
           )}
         </div>
       </main>
+
+      {/* Edit Task Modal */}
+      <TaskCreatorModal
+        isOpen={!!editingTask}
+        onClose={() => setEditingTask(null)}
+        onSuccess={() => {
+          setEditingTask(null);
+          fetchTasks();
+        }}
+        editTask={editingTask}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deletingTaskId}
+        onOpenChange={(open) => {
+          if (!open) setDeletingTaskId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Er du sikker på at du vil slette denne oppgaven? Dette fjerner
+              oppgaven fra biblioteket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (deletingTaskId) handleDeleteTask(deletingTaskId);
+              }}
+            >
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
