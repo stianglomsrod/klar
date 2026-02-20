@@ -80,11 +80,10 @@ CREATE TABLE public.rewards (
   cost_value integer DEFAULT 1,
   cost_type USER-DEFINED DEFAULT 'flowers'::reward_cost_type,
   created_at timestamp with time zone DEFAULT now(),
-  specific_student_id uuid,
+  specific_student_ids uuid[] DEFAULT '{}',
   emoji text DEFAULT '🎁'::text,
   CONSTRAINT rewards_pkey PRIMARY KEY (id),
-  CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
-  CONSTRAINT rewards_specific_student_id_fkey FOREIGN KEY (specific_student_id) REFERENCES public.profiles(id)
+  CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
 
 CREATE TABLE public.schedule_entries (

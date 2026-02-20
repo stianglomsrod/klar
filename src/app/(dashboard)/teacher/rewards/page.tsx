@@ -4,24 +4,26 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Plus,
-  Edit,
+  Edit2,
   Trash2,
   Star,
   Flower,
   Sparkles,
   TrendingUp,
   X,
+  User,
 } from "lucide-react";
 
 type Reward = {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   emoji: string;
   cost: number;
   cost_type: "points" | "flowers" | "petals" | "level";
   created_by: string;
   created_at: string;
+  specific_student_ids: string[];
 };
 
 type RewardFormData = {
@@ -30,6 +32,12 @@ type RewardFormData = {
   emoji: string;
   cost: number;
   cost_type: "points" | "flowers" | "petals" | "level";
+  selectedStudentIds: string[];
+};
+
+type StudentOption = {
+  id: string;
+  full_name: string;
 };
 
 export default function RewardsLibraryPage() {
@@ -39,18 +47,41 @@ export default function RewardsLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
+  const [students, setStudents] = useState<StudentOption[]>([]);
   const [formData, setFormData] = useState<RewardFormData>({
     title: "",
     description: "",
     emoji: "🎁",
     cost: 50,
     cost_type: "points",
+    selectedStudentIds: [],
   });
 
   useEffect(() => {
     fetchRewards();
+    fetchStudents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "student")
+        .order("full_name", { ascending: true });
+
+      if (error) throw error;
+      setStudents(
+        (data || []).map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || "Ukjent elev",
+        })),
+      );
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
 
   const fetchRewards = async () => {
     try {
@@ -65,12 +96,17 @@ export default function RewardsLibraryPage() {
 
       const { data, error } = await supabase
         .from("rewards")
-        .select("*")
+        .select("id, title, description, emoji, cost_value, cost_type, created_by, created_at, specific_student_ids")
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setRewards(data || []);
+      setRewards(
+        (data || []).map((r: any) => ({
+          ...r,
+          cost: r.cost_value,
+        })),
+      );
     } catch (error) {
       console.error("Error fetching rewards:", error);
       alert("Kunne ikke laste belønninger");
@@ -83,11 +119,12 @@ export default function RewardsLibraryPage() {
     if (reward) {
       setEditingReward(reward);
       setFormData({
-        title: reward.title,
-        description: reward.description,
-        emoji: reward.emoji,
+        title: reward.title || "",
+        description: reward.description || "",
+        emoji: reward.emoji || "🎁",
         cost: reward.cost,
         cost_type: reward.cost_type,
+        selectedStudentIds: reward.specific_student_ids || [],
       });
     } else {
       setEditingReward(null);
@@ -97,6 +134,7 @@ export default function RewardsLibraryPage() {
         emoji: "🎁",
         cost: 50,
         cost_type: "points",
+        selectedStudentIds: [],
       });
     }
     setIsDialogOpen(true);
@@ -111,6 +149,7 @@ export default function RewardsLibraryPage() {
       emoji: "🎁",
       cost: 50,
       cost_type: "points",
+      selectedStudentIds: [],
     });
   };
 
@@ -138,10 +177,11 @@ export default function RewardsLibraryPage() {
           .from("rewards")
           .update({
             title: formData.title.trim(),
-            description: formData.description.trim(),
+            description: formData.description.trim() || null,
             emoji: formData.emoji.trim(),
-            cost: formData.cost,
+            cost_value: formData.cost,
             cost_type: formData.cost_type,
+            specific_student_ids: formData.selectedStudentIds,
           })
           .eq("id", editingReward.id);
 
@@ -153,16 +193,15 @@ export default function RewardsLibraryPage() {
               ? {
                   ...r,
                   title: formData.title.trim(),
-                  description: formData.description.trim(),
+                  description: formData.description.trim() || null,
                   emoji: formData.emoji.trim(),
                   cost: formData.cost,
                   cost_type: formData.cost_type,
+                  specific_student_ids: formData.selectedStudentIds,
                 }
               : r
           )
         );
-
-        alert("Belønning oppdatert!");
       } else {
         // Create new reward
         const { data, error } = await supabase
@@ -170,11 +209,12 @@ export default function RewardsLibraryPage() {
           .insert([
             {
               title: formData.title.trim(),
-              description: formData.description.trim(),
+              description: formData.description.trim() || null,
               emoji: formData.emoji.trim(),
-              cost: formData.cost,
+              cost_value: formData.cost,
               cost_type: formData.cost_type,
               created_by: user.id,
+              specific_student_ids: formData.selectedStudentIds,
             },
           ])
           .select()
@@ -182,8 +222,10 @@ export default function RewardsLibraryPage() {
 
         if (error) throw error;
 
-        setRewards((prev) => [data, ...prev]);
-        alert("Belønning opprettet!");
+        setRewards((prev) => [
+          { ...data, cost: data.cost_value },
+          ...prev,
+        ]);
       }
 
       handleCloseDialog();
@@ -314,8 +356,36 @@ export default function RewardsLibraryPage() {
             {rewards.map((reward) => (
               <div
                 key={reward.id}
-                className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden group"
+                onClick={() => handleOpenDialog(reward)}
+                className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group relative"
               >
+                {/* Hover action icons */}
+                <div
+                  className="absolute top-3 right-3 hidden group-hover:flex gap-1 z-10"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDialog(reward);
+                    }}
+                    className="p-1.5 hover:bg-slate-200 rounded transition-colors"
+                    title="Rediger"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(reward.id);
+                    }}
+                    className="p-1.5 text-slate-600 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
+                    title="Slett"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+
                 <div className="p-6">
                   {/* Emoji Icon */}
                   <div className="text-5xl mb-4">{reward.emoji}</div>
@@ -330,34 +400,38 @@ export default function RewardsLibraryPage() {
                     {reward.description || "Ingen beskrivelse"}
                   </p>
 
-                  {/* Cost Badge */}
-                  <div
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${getCostColor(
-                      reward.cost_type
-                    )}`}
-                  >
-                    {getCostIcon(reward.cost_type)}
-                    <span>
-                      {reward.cost} {getCostLabel(reward.cost_type)}
-                    </span>
-                  </div>
-                </div>
+                  {/* Bottom row: Cost Badge + Assignment */}
+                  <div className="flex items-center justify-between gap-2">
+                    {/* Cost Badge */}
+                    <div
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${getCostColor(
+                        reward.cost_type,
+                      )}`}
+                    >
+                      {getCostIcon(reward.cost_type)}
+                      <span>{getCostLabel(reward.cost_type)}</span>
+                    </div>
 
-                {/* Action Buttons */}
-                <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => handleOpenDialog(reward)}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Rediger
-                  </button>
-                  <button
-                    onClick={() => handleDelete(reward.id)}
-                    className="px-3 py-2 text-sm font-medium text-red-600 bg-white hover:bg-red-50 border border-red-300 rounded-lg transition-colors flex items-center justify-center"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    {/* Student assignment badge */}
+                    {reward.specific_student_ids.length > 0 && (() => {
+                      const names = reward.specific_student_ids
+                        .map((id) => students.find((s) => s.id === id)?.full_name || "Ukjent")
+                      const label =
+                        names.length <= 3
+                          ? names.join(", ")
+                          : `${names.length} elever`;
+                      const tooltip = names.join(", ");
+                      return (
+                        <div
+                          className="flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full"
+                          title={tooltip}
+                        >
+                          <User size={12} />
+                          <span className="truncate max-w-[120px]">{label}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             ))}
@@ -397,7 +471,7 @@ export default function RewardsLibraryPage() {
                 </label>
                 <input
                   type="text"
-                  value={formData.title}
+                  value={formData.title || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, title: e.target.value })
                   }
@@ -412,7 +486,7 @@ export default function RewardsLibraryPage() {
                   Beskrivelse
                 </label>
                 <textarea
-                  value={formData.description}
+                  value={formData.description || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
@@ -429,7 +503,7 @@ export default function RewardsLibraryPage() {
                 </label>
                 <input
                   type="text"
-                  value={formData.emoji}
+                  value={formData.emoji || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, emoji: e.target.value })
                   }
@@ -486,6 +560,64 @@ export default function RewardsLibraryPage() {
                   step="5"
                   className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
+              </div>
+
+              {/* Student Assignment Field - Multi-select */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Tildelt (valgfritt)
+                </label>
+                <div className="border border-slate-300 rounded-lg max-h-48 overflow-y-auto">
+                  {students.length === 0 ? (
+                    <p className="p-3 text-sm text-slate-500">Ingen elever funnet</p>
+                  ) : (
+                    students.map((student) => {
+                      const isChecked = formData.selectedStudentIds.includes(student.id);
+                      return (
+                        <label
+                          key={student.id}
+                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors ${
+                            isChecked ? "bg-indigo-50" : ""
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                selectedStudentIds: isChecked
+                                  ? prev.selectedStudentIds.filter((id) => id !== student.id)
+                                  : [...prev.selectedStudentIds, student.id],
+                              }));
+                            }}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-sm text-slate-700">{student.full_name}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                {formData.selectedStudentIds.length > 0 && (
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-xs text-indigo-600">
+                      {formData.selectedStudentIds.length} elev{formData.selectedStudentIds.length !== 1 ? "er" : ""} valgt
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, selectedStudentIds: [] }))}
+                      className="text-xs text-slate-500 hover:text-slate-700 underline"
+                    >
+                      Fjern alle
+                    </button>
+                  </div>
+                )}
+                {formData.selectedStudentIds.length === 0 && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Ingen valgt — belønningen er tilgjengelig for alle elever.
+                  </p>
+                )}
               </div>
             </div>
 

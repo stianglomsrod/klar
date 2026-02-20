@@ -86,13 +86,13 @@ export default function LevelUpModal({
           console.log("Fetching rewards for student:", studentId);
 
           // Fetch rewards that are either:
-          // 1. Available to all students (specific_student_id IS NULL)
-          // 2. Specifically assigned to this student (specific_student_id = studentId)
+          // 1. Available to all students (specific_student_ids is empty array)
+          // 2. Specifically assigned to this student (array contains studentId)
           const { data, error } = await supabase
             .from("rewards")
             .select("*")
             .or(
-              `specific_student_id.is.null,specific_student_id.eq.${studentId}`
+              `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`
             )
             .order("created_at", { ascending: true });
 

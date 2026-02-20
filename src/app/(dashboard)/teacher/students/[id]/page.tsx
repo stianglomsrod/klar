@@ -127,11 +127,11 @@ export default function StudentDashboardPage() {
 
   const fetchStudentRewards = async () => {
     try {
-      // Fetch rewards assigned to this specific student
+      // Fetch rewards assigned to this specific student (array contains studentId)
       const { data, error } = await supabase
         .from("rewards")
         .select("id, name:title, emoji, cost:cost_value")
-        .eq("specific_student_id", studentId);
+        .contains("specific_student_ids", [studentId]);
 
       if (error) throw error;
       setStudentRewards(data || []);
@@ -143,12 +143,12 @@ export default function StudentDashboardPage() {
   const fetchAvailableRewards = async () => {
     try {
       // Fetch rewards that are either:
-      // 1. Not assigned to anyone (specific_student_id IS NULL)
-      // 2. Already assigned to this student
+      // 1. Available to all students (specific_student_ids is empty array)
+      // 2. Already assigned to this student (array contains studentId)
       const { data, error } = await supabase
         .from("rewards")
         .select("id, name:title, emoji, cost:cost_value")
-        .or(`specific_student_id.is.null,specific_student_id.eq.${studentId}`)
+        .or(`specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`)
         .order("title");
 
       if (error) throw error;
@@ -289,10 +289,20 @@ export default function StudentDashboardPage() {
 
   const handleRemoveReward = async (rewardId: string) => {
     try {
-      // Update reward to remove specific_student_id (make it available to all again)
+      // Remove this student from the reward's specific_student_ids array
+      const { data: reward } = await supabase
+        .from("rewards")
+        .select("specific_student_ids")
+        .eq("id", rewardId)
+        .single();
+
+      const updatedIds = (reward?.specific_student_ids || []).filter(
+        (id: string) => id !== studentId
+      );
+
       const { error } = await supabase
         .from("rewards")
-        .update({ specific_student_id: null })
+        .update({ specific_student_ids: updatedIds })
         .eq("id", rewardId);
 
       if (error) throw error;
@@ -332,24 +342,40 @@ export default function StudentDashboardPage() {
         (id) => !selectedRewards.includes(id),
       );
 
-      // Add new rewards
-      if (rewardsToAdd.length > 0) {
-        const { error: addError } = await supabase
+      // Add student to each reward's specific_student_ids array
+      for (const rewardId of rewardsToAdd) {
+        const { data: reward } = await supabase
           .from("rewards")
-          .update({ specific_student_id: studentId })
-          .in("id", rewardsToAdd);
+          .select("specific_student_ids")
+          .eq("id", rewardId)
+          .single();
 
-        if (addError) throw addError;
+        const currentIds: string[] = reward?.specific_student_ids || [];
+        if (!currentIds.includes(studentId)) {
+          const { error } = await supabase
+            .from("rewards")
+            .update({ specific_student_ids: [...currentIds, studentId] })
+            .eq("id", rewardId);
+          if (error) throw error;
+        }
       }
 
-      // Remove unchecked rewards
-      if (rewardsToRemove.length > 0) {
-        const { error: removeError } = await supabase
+      // Remove student from each reward's specific_student_ids array
+      for (const rewardId of rewardsToRemove) {
+        const { data: reward } = await supabase
           .from("rewards")
-          .update({ specific_student_id: null })
-          .in("id", rewardsToRemove);
+          .select("specific_student_ids")
+          .eq("id", rewardId)
+          .single();
 
-        if (removeError) throw removeError;
+        const updatedIds = (reward?.specific_student_ids || []).filter(
+          (id: string) => id !== studentId
+        );
+        const { error } = await supabase
+          .from("rewards")
+          .update({ specific_student_ids: updatedIds })
+          .eq("id", rewardId);
+        if (error) throw error;
       }
 
       // Refresh the student rewards list
@@ -376,14 +402,14 @@ export default function StudentDashboardPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Insert new reward with specific_student_id set to current student
+      // Insert new reward with specific_student_ids containing current student
       const { data, error } = await supabase
         .from("rewards")
         .insert({
           title: newRewardForm.title.trim(),
           emoji: newRewardForm.emoji.trim() || "🎁", // Use default if no emoji selected
           created_by: user.id,
-          specific_student_id: studentId,
+          specific_student_ids: [studentId],
           cost_type: "level",
           cost_value: 0,
         })
