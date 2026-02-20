@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import {
@@ -139,7 +140,7 @@ export default function WeeklyScheduleEditor({
 
   const getISOWeekNumber = (date: Date): number => {
     const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
     );
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
@@ -148,7 +149,7 @@ export default function WeeklyScheduleEditor({
   };
 
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(
-    () => externalWeekNumber ?? getISOWeekNumber(new Date())
+    () => externalWeekNumber ?? getISOWeekNumber(new Date()),
   );
 
   const [formData, setFormData] = useState({
@@ -202,7 +203,7 @@ export default function WeeklyScheduleEditor({
 
       const fetchWithFallback = async (
         target: { classId: string; studentId?: string | null },
-        week: number
+        week: number,
       ) => {
         const base = () =>
           supabase
@@ -219,7 +220,7 @@ export default function WeeklyScheduleEditor({
 
         const scoped = (
           query: ReturnType<typeof base>,
-          studentId?: string | null
+          studentId?: string | null,
         ) =>
           studentId
             ? query.eq("student_id", studentId)
@@ -227,7 +228,7 @@ export default function WeeklyScheduleEditor({
 
         const { data: primaryData, error: primaryError } = await scoped(
           base().eq("week_number", week),
-          target.studentId
+          target.studentId,
         );
         if (primaryError) throw primaryError;
 
@@ -257,7 +258,7 @@ export default function WeeklyScheduleEditor({
 
       const classEntries = await fetchWithFallback(
         { classId },
-        selectedWeekNumber
+        selectedWeekNumber,
       );
       const studentEntries = studentId
         ? await fetchWithFallback({ classId, studentId }, selectedWeekNumber)
@@ -300,13 +301,19 @@ export default function WeeklyScheduleEditor({
   const handleOpenModal = (entry?: ScheduleEntry) => {
     if (entry) {
       setEditingEntry(entry);
+      // Only show custom_title in the form if it differs from the computed default label
+      const defaultLabel = getDefaultTitle(entry);
+      const actualCustomTitle =
+        entry.custom_title && entry.custom_title !== defaultLabel
+          ? entry.custom_title
+          : "";
       setFormData({
         subject_id: entry.subject_id || "",
         day_of_week: entry.day_of_week,
         start_time: entry.start_time,
         end_time: entry.end_time,
         type: entry.type,
-        custom_title: entry.custom_title || "",
+        custom_title: actualCustomTitle,
         target: entry.student_id ? "student" : studentId ? "student" : "class",
       });
     } else {
@@ -398,12 +405,11 @@ export default function WeeklyScheduleEditor({
 
   const handleClearSlot = async (entry: MergedEntry) => {
     try {
-      const fallbackTitle = getDefaultTitle(entry) || "Time";
       const { error } = await supabase
         .from("schedule_entries")
         .update({
           subject_id: null,
-          custom_title: entry.custom_title || fallbackTitle,
+          custom_title: null,
         })
         .eq("id", entry.id);
 
@@ -683,14 +689,21 @@ export default function WeeklyScheduleEditor({
                           const borderColor = subjectMeta
                             ? subjectMeta.theme.border
                             : "border-slate-300";
-                          const periodLabel =
-                            entry.custom_title ||
-                            getDefaultTitle(entry) ||
-                            "Uten tittel";
-                          const subjectName = subjectMeta?.name;
-                          const topLine = subjectName
-                            ? `${periodLabel} · ${subjectName}`
-                            : periodLabel;
+                          // Prefix: always computed from time slot
+                          const prefix =
+                            getDefaultTitle(entry) || "Uten tittel";
+                          // Suffix: subject name OR actual custom title (not matching default label)
+                          const defaultLabel = getDefaultTitle(entry);
+                          const actualCustom =
+                            entry.custom_title &&
+                            entry.custom_title !== defaultLabel
+                              ? entry.custom_title
+                              : null;
+                          const suffix =
+                            subjectMeta?.name || actualCustom || null;
+                          const topLine = suffix
+                            ? `${prefix} · ${suffix}`
+                            : prefix;
 
                           return (
                             <div
@@ -804,188 +817,200 @@ export default function WeeklyScheduleEditor({
       </div>
 
       {/* Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-slate-900">
-              {editingEntry ? "Rediger time" : "Legg til time"}
-              {selectedWeekNumber === 0
-                ? " (Fast Timeplan)"
-                : ` (Uke ${selectedWeekNumber})`}
-            </h3>
+      {isModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => setIsModalOpen(false)}
+          >
+            <div
+              className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-lg font-semibold text-slate-900">
+                {editingEntry ? "Rediger time" : "Legg til time"}
+                {selectedWeekNumber === 0
+                  ? " (Fast Timeplan)"
+                  : ` (Uke ${selectedWeekNumber})`}
+              </h3>
 
-            {/* Target Selector (if studentId is available) */}
-            {studentId && (
+              {/* Target Selector (if studentId is available) */}
+              {studentId && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900">
+                    For hvem:
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="class"
+                        checked={formData.target === "class"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            target: e.target.value,
+                          })
+                        }
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-slate-700">
+                        Hele klassen
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="student"
+                        checked={formData.target === "student"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            target: e.target.value,
+                          })
+                        }
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm text-slate-700">
+                        Kun {studentName || "denne eleven"}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Subject Selector */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-900">
-                  For hvem:
+                  Fag (valgfritt hvis tittel er satt):
                 </label>
+                <select
+                  value={formData.subject_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, subject_id: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Velg fag</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.emoji} {subject.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Custom Title */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Eller skriv tittel:
+                </label>
+                <input
+                  type="text"
+                  value={formData.custom_title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, custom_title: e.target.value })
+                  }
+                  placeholder="f.eks. Logoped"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Day Selection */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Dag:
+                </label>
+                <select
+                  value={formData.day_of_week}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      day_of_week: parseInt(e.target.value),
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {DAYS_OF_WEEK.map((day) => (
+                    <option key={day.number} value={day.number}>
+                      {day.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Time Selection */}
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="class"
-                      checked={formData.target === "class"}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          target: e.target.value,
-                        })
-                      }
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-700">Hele klassen</span>
+                  <label className="text-sm font-medium text-slate-900">
+                    Start:
                   </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio"
-                      value="student"
-                      checked={formData.target === "student"}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          target: e.target.value,
-                        })
-                      }
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-slate-700">
-                      Kun {studentName || "denne eleven"}
-                    </span>
+                  <TimePicker
+                    value={formData.start_time}
+                    onChange={(val) =>
+                      setFormData({ ...formData, start_time: val })
+                    }
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900">
+                    Slutt:
                   </label>
+                  <TimePicker
+                    value={formData.end_time}
+                    onChange={(val) =>
+                      setFormData({ ...formData, end_time: val })
+                    }
+                    className="w-full"
+                  />
                 </div>
               </div>
-            )}
 
-            {/* Subject Selector */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900">
-                Fag (valgfritt hvis tittel er satt):
-              </label>
-              <select
-                value={formData.subject_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, subject_id: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">Velg fag</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.emoji} {subject.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Custom Title */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900">
-                Eller skriv tittel:
-              </label>
-              <input
-                type="text"
-                value={formData.custom_title}
-                onChange={(e) =>
-                  setFormData({ ...formData, custom_title: e.target.value })
-                }
-                placeholder="f.eks. Logoped"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-
-            {/* Day Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900">Dag:</label>
-              <select
-                value={formData.day_of_week}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    day_of_week: parseInt(e.target.value),
-                  })
-                }
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {DAYS_OF_WEEK.map((day) => (
-                  <option key={day.number} value={day.number}>
-                    {day.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Time Selection */}
-            <div className="grid grid-cols-2 gap-3">
+              {/* Type Selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-900">
-                  Start:
+                  Type:
                 </label>
-                <TimePicker
-                  value={formData.start_time}
-                  onChange={(val) =>
-                    setFormData({ ...formData, start_time: val })
+                <select
+                  value={formData.type}
+                  onChange={(e) =>
+                    setFormData({ ...formData, type: e.target.value })
                   }
-                  className="w-full"
-                />
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {SCHEDULE_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type === "lesson"
+                        ? "Time"
+                        : type === "break"
+                          ? "Pause"
+                          : "Aktivitet"}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900">
-                  Slutt:
-                </label>
-                <TimePicker
-                  value={formData.end_time}
-                  onChange={(val) =>
-                    setFormData({ ...formData, end_time: val })
-                  }
-                  className="w-full"
-                />
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors font-medium"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="flex-1 px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <Check size={18} />
+                  Lagre
+                </button>
               </div>
             </div>
-
-            {/* Type Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-900">
-                Type:
-              </label>
-              <select
-                value={formData.type}
-                onChange={(e) =>
-                  setFormData({ ...formData, type: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {SCHEDULE_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {type === "lesson"
-                      ? "Time"
-                      : type === "break"
-                        ? "Pause"
-                        : "Aktivitet"}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors font-medium"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleSave}
-                className="flex-1 px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-              >
-                <Check size={18} />
-                Lagre
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
