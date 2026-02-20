@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Search, Users, ArrowRight, Edit2, Trash2 } from "lucide-react";
+import {
+  Search,
+  Users,
+  ArrowRight,
+  Edit2,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import CreateTaskButton from "@/components/teacher/CreateTaskButton";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
@@ -59,7 +66,19 @@ export default function TaskLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [withdrawTasks, setWithdrawTasks] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+    visible: boolean;
+  }>({ message: "", type: "success", visible: false });
   const supabase = createClient();
+
+  const showToast = (message: string, type: "success" | "error") => {
+    setToast({ message, type, visible: true });
+    setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
+  };
 
   useEffect(() => {
     fetchSubjects();
@@ -174,18 +193,68 @@ export default function TaskLibraryPage() {
   };
 
   const handleDeleteTask = async (taskId: string) => {
+    setIsDeleting(true);
     try {
-      const { error } = await supabase
+      // Step A (Conditional): Withdraw uncompleted student tasks first
+      // This must happen BEFORE deleting the library item because
+      // ON DELETE SET NULL would sever the link otherwise.
+      let withdrawnCount = 0;
+      if (withdrawTasks) {
+        const { error: withdrawError, count } = await supabase
+          .from("tasks")
+          .delete({ count: "exact" })
+          .eq("task_library_id", taskId)
+          .eq("is_completed", false);
+
+        if (withdrawError) {
+          console.error("Supabase withdraw error:", withdrawError);
+          throw withdrawError;
+        }
+        withdrawnCount = count ?? 0;
+      }
+
+      // Step B (Always): Delete the library item itself
+      const { error, count } = await supabase
         .from("task_library")
-        .delete()
+        .delete({ count: "exact" })
         .eq("id", taskId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase delete error:", error);
+        throw error;
+      }
+
+      if (count === 0) {
+        console.warn(
+          "Delete returned 0 affected rows — likely an RLS policy issue. taskId:",
+          taskId,
+        );
+        throw new Error(
+          "Ingen rader ble slettet. Sjekk at du har rettigheter til å slette denne oppgaven.",
+        );
+      }
+
+      // Success — remove from local state
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
       setDeletingTaskId(null);
-      fetchTasks();
-    } catch (error) {
+      setWithdrawTasks(false);
+
+      if (withdrawnCount > 0) {
+        showToast(
+          `Oppgaven ble slettet og ${withdrawnCount} ufullførte oppgaver ble trukket tilbake`,
+          "success",
+        );
+      } else {
+        showToast("Oppgaven ble slettet", "success");
+      }
+    } catch (error: any) {
       console.error("Error deleting task:", error);
-      alert("Kunne ikke slette oppgave. Prøv igjen.");
+      showToast(
+        error?.message || "Kunne ikke slette oppgave. Prøv igjen.",
+        "error",
+      );
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -428,7 +497,10 @@ export default function TaskLibraryPage() {
       <AlertDialog
         open={!!deletingTaskId}
         onOpenChange={(open) => {
-          if (!open) setDeletingTaskId(null);
+          if (!open) {
+            setDeletingTaskId(null);
+            setWithdrawTasks(false);
+          }
         }}
       >
         <AlertDialogContent>
@@ -439,19 +511,59 @@ export default function TaskLibraryPage() {
               oppgaven fra biblioteket.
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          {/* Withdraw uncompleted tasks option */}
+          <label className="flex items-start gap-3 py-3 px-1 rounded-md cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={withdrawTasks}
+              onChange={(e) => setWithdrawTasks(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-slate-800">
+                Trekk tilbake ufullførte oppgaver
+              </span>
+              <span className="text-xs text-slate-500 mt-0.5">
+                Sletter også denne oppgaven fra elevenes timeplaner, forutsatt
+                at de ikke har fullført den ennå.
+              </span>
+            </div>
+          </label>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Avbryt</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
+              disabled={isDeleting}
+              autoClose={false}
               onClick={() => {
                 if (deletingTaskId) handleDeleteTask(deletingTaskId);
               }}
             >
-              Slett
+              {isDeleting ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Sletter…
+                </span>
+              ) : (
+                "Slett"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Toast Notification */}
+      {toast.visible && (
+        <div
+          className={`fixed bottom-4 right-4 z-[10001] px-6 py-3 rounded-lg font-medium text-white shadow-lg transition-opacity ${
+            toast.type === "success" ? "bg-green-500" : "bg-red-500"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }

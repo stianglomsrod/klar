@@ -737,6 +737,7 @@ export default function TaskCreatorModal({
           is_completed: false,
           type: taskForm.type,
           quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
+          task_library_id: libraryTask.id,
         }));
 
         const { data: insertedTasks, error: assignError } = await supabase

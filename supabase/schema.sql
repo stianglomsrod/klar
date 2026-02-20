@@ -298,6 +298,35 @@ CREATE TABLE public.task_library (
   CONSTRAINT task_library_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id)
 );
 
+-- RLS for task_library
+ALTER TABLE public.task_library ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Teachers can view all task library items" ON public.task_library
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can insert task library items" ON public.task_library
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can update their task library items" ON public.task_library
+  FOR UPDATE TO authenticated
+  USING (
+    created_by = auth.uid()
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can delete their task library items" ON public.task_library
+  FOR DELETE TO authenticated
+  USING (
+    created_by = auth.uid()
+    AND EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
 CREATE TABLE public.task_schedule_entries (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   task_id uuid,
@@ -323,10 +352,12 @@ CREATE TABLE public.tasks (
   points_value integer DEFAULT 10,
   subject_id uuid,
   quiz_data jsonb,
+  task_library_id uuid,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
-  CONSTRAINT tasks_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id)
+  CONSTRAINT tasks_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id),
+  CONSTRAINT tasks_task_library_id_fkey FOREIGN KEY (task_library_id) REFERENCES public.task_library(id) ON DELETE SET NULL
 );
 
 CREATE TABLE public.teacher_active_sessions (

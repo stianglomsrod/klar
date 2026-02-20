@@ -65,7 +65,7 @@ export default function StudentDashboardPage() {
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"todo" | "completed" | "timeplan">(
-    "todo"
+    "todo",
   );
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [flowerGameEnabled, setFlowerGameEnabled] = useState(true);
@@ -73,7 +73,7 @@ export default function StudentDashboardPage() {
   const [selectedClass, setSelectedClass] = useState("");
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
   const [rewardModalView, setRewardModalView] = useState<"list" | "create">(
-    "list"
+    "list",
   );
   const [newRewardForm, setNewRewardForm] = useState({ title: "", emoji: "" });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -173,7 +173,7 @@ export default function StudentDashboardPage() {
           classes (
             name
           )
-        `
+        `,
         )
         .eq("id", studentId)
         .single();
@@ -196,7 +196,7 @@ export default function StudentDashboardPage() {
     } catch (error) {
       console.error(
         "Error fetching student:",
-        error instanceof Error ? error.message : error
+        error instanceof Error ? error.message : error,
       );
     } finally {
       setLoading(false);
@@ -217,7 +217,7 @@ export default function StudentDashboardPage() {
           is_completed,
           type,
           subject:subjects(title)
-        `
+        `,
         )
         .eq("student_id", studentId)
         .order("created_at", { ascending: false });
@@ -247,7 +247,7 @@ export default function StudentDashboardPage() {
       const { data, error } = await supabase
         .from("student_profiles")
         .select(
-          "current_xp, current_goal_total, points_earned, flowers_collected"
+          "current_xp, current_goal_total, points_earned, flowers_collected",
         )
         .eq("id", studentId)
         .single();
@@ -326,10 +326,10 @@ export default function StudentDashboardPage() {
       // Determine which rewards to add and which to remove
       const currentRewardIds = studentRewards.map((r) => r.id);
       const rewardsToAdd = selectedRewards.filter(
-        (id) => !currentRewardIds.includes(id)
+        (id) => !currentRewardIds.includes(id),
       );
       const rewardsToRemove = currentRewardIds.filter(
-        (id) => !selectedRewards.includes(id)
+        (id) => !selectedRewards.includes(id),
       );
 
       // Add new rewards
@@ -414,7 +414,7 @@ export default function StudentDashboardPage() {
   const handleDeleteReward = async (rewardId: string) => {
     if (
       !confirm(
-        "Er du sikker på at du vil slette denne belønningen permanent? Dette vil også fjerne den fra elever som har mottatt den."
+        "Er du sikker på at du vil slette denne belønningen permanent? Dette vil også fjerne den fra elever som har mottatt den.",
       )
     ) {
       return;
@@ -445,7 +445,7 @@ export default function StudentDashboardPage() {
     setSelectedRewards((prev) =>
       prev.includes(rewardId)
         ? prev.filter((id) => id !== rewardId)
-        : [...prev, rewardId]
+        : [...prev, rewardId],
     );
   };
 
@@ -506,8 +506,8 @@ export default function StudentDashboardPage() {
                 due_date: taskForm.due_date,
                 type: taskForm.type,
               }
-            : t
-        )
+            : t,
+        ),
       );
 
       // Reset and close modal
@@ -912,8 +912,8 @@ export default function StudentDashboardPage() {
 
           {/* Task List & Timeplan */}
           <div className="p-6">
-            {activeTab === "todo" ? (
-              todoTasks.length > 0 ? (
+            {activeTab === "todo" &&
+              (todoTasks.length > 0 ? (
                 <div className="space-y-3">
                   {todoTasks.map((task) => (
                     <div
@@ -925,7 +925,7 @@ export default function StudentDashboardPage() {
                           <div className="flex items-center gap-2 mb-2">
                             <span
                               className={`px-2 py-1 text-xs font-semibold rounded ${getSubjectColor(
-                                task.subject
+                                task.subject,
                               )}`}
                             >
                               {task.subject}
@@ -979,68 +979,73 @@ export default function StudentDashboardPage() {
                   <Clock className="h-12 w-12 text-slate-300 mx-auto mb-3" />
                   <p className="text-slate-500">Ingen aktive oppgaver</p>
                 </div>
-              )
-            ) : completedTasks.length > 0 ? (
-              <div className="space-y-3">
-                {completedTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="bg-slate-50 border border-slate-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CheckCircle className="h-5 w-5 text-green-600" />
-                          <span
-                            className={`px-2 py-1 text-xs font-semibold rounded ${getSubjectColor(
-                              task.subject
-                            )}`}
-                          >
-                            {task.subject}
-                          </span>
-                          {task.type === "quiz" && (
-                            <span className="px-2 py-1 text-xs font-semibold rounded bg-purple-100 text-purple-700 flex items-center gap-1">
-                              <FileQuestion className="h-3 w-3" />
-                              Quiz
+              ))}
+
+            {activeTab === "completed" &&
+              (completedTasks.length > 0 ? (
+                <div className="space-y-3">
+                  {completedTasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="bg-slate-50 border border-slate-200 rounded-lg p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <span
+                              className={`px-2 py-1 text-xs font-semibold rounded ${getSubjectColor(
+                                task.subject,
+                              )}`}
+                            >
+                              {task.subject}
                             </span>
-                          )}
-                          <div className="flex items-center gap-1 text-amber-600">
-                            <Star className="h-4 w-4 fill-amber-600" />
-                            <span className="text-sm font-semibold">
-                              +{task.points_value}
-                            </span>
+                            {task.type === "quiz" && (
+                              <span className="px-2 py-1 text-xs font-semibold rounded bg-purple-100 text-purple-700 flex items-center gap-1">
+                                <FileQuestion className="h-3 w-3" />
+                                Quiz
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <Star className="h-4 w-4 fill-amber-600" />
+                              <span className="text-sm font-semibold">
+                                +{task.points_value}
+                              </span>
+                            </div>
+                          </div>
+                          <h4 className="font-semibold text-slate-900 mb-1">
+                            {task.title}
+                          </h4>
+                          <p className="text-sm text-slate-600 mb-3">
+                            {task.description}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <Calendar className="h-3.5 w-3.5" />
+                            <span>Fullført: {formatDate(task.due_date)}</span>
                           </div>
                         </div>
-                        <h4 className="font-semibold text-slate-900 mb-1">
-                          {task.title}
-                        </h4>
-                        <p className="text-sm text-slate-600 mb-3">
-                          {task.description}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span>Fullført: {formatDate(task.due_date)}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditTask(task)}
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+                            title="Se detaljer"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleEditTask(task)}
-                          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
-                          title="Se detaljer"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">Ingen fullførte oppgaver ennå</p>
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <CheckCircle className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-slate-500">
+                    Ingen fullførte oppgaver ennå
+                  </p>
+                </div>
+              ))}
+
             {activeTab === "timeplan" && student && (
               <WeeklyScheduleEditor
                 classId={student.class_id || ""}
@@ -1410,7 +1415,7 @@ export default function StudentDashboardPage() {
                   Beskrivelse
                 </label>
                 <textarea
-                  value={taskForm.description}
+                  value={taskForm.description || ""}
                   onChange={(e) =>
                     setTaskForm({ ...taskForm, description: e.target.value })
                   }
@@ -1447,7 +1452,7 @@ export default function StudentDashboardPage() {
                 </label>
                 <input
                   type="date"
-                  value={taskForm.due_date}
+                  value={taskForm.due_date || ""}
                   onChange={(e) =>
                     setTaskForm({ ...taskForm, due_date: e.target.value })
                   }

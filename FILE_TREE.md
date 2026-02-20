@@ -3,14 +3,13 @@
 ```
 klar/
 ├── .env.local
-├── .git/
 ├── .gitignore
-├── .next/
+├── DOCUMENTATION_INDEX.md
 ├── eslint.config.mjs
 ├── FILE_TREE.md
+├── FINAL_VERIFICATION_REPORT.md
 ├── next-env.d.ts
 ├── next.config.ts
-├── node_modules/
 ├── package-lock.json
 ├── package.json
 ├── postcss.config.mjs
@@ -24,11 +23,10 @@ klar/
 ├── SCHEDULE_PICKER_VISUAL_GUIDE.md
 ├── SETUP_CHECKLIST.md
 ├── TEACHERS_SCHEDULE_PICKER_GUIDE.md
-├── DOCUMENTATION_INDEX.md
-├── EXECUTIVE_SUMMARY.md
-├── FINAL_VERIFICATION_REPORT.md
 ├── tailwind.config.ts
 ├── tsconfig.json
+│
+├── klar/                                  (empty)
 │
 ├── public/
 │   ├── file.svg
@@ -54,7 +52,12 @@ klar/
 │   │   ├── (dashboard)/
 │   │   │   ├── student/
 │   │   │   │   ├── layout.tsx
-│   │   │   │   └── page.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── fag/
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── lesson/
+│   │   │   │       └── [id]/
+│   │   │   │           └── page.tsx
 │   │   │   │
 │   │   │   └── teacher/
 │   │   │       ├── layout.tsx
@@ -63,6 +66,7 @@ klar/
 │   │   │       │   └── page.tsx
 │   │   │       ├── messages/
 │   │   │       │   ├── page.tsx
+│   │   │       │   ├── lib/               (empty)
 │   │   │       │   └── _components/
 │   │   │       │       └── RecipientSelector.tsx
 │   │   │       ├── rewards/
@@ -74,6 +78,10 @@ klar/
 │   │   │       │   └── page.tsx
 │   │   │       └── timeplan/
 │   │   │           └── page.tsx
+│   │   │
+│   │   ├── api/
+│   │   │   └── seed/
+│   │   │       └── route.ts
 │   │   │
 │   │   ├── belonninger/
 │   │   │   ├── layout.tsx
@@ -89,12 +97,14 @@ klar/
 │   │           └── page.tsx
 │   │
 │   ├── components/
+│   │   ├── ArchiveDrawer.tsx
 │   │   ├── CompletionModal.tsx
 │   │   ├── ConditionalLayout.tsx
 │   │   ├── FlowerPot.tsx
 │   │   ├── LevelUpModal.tsx
 │   │   ├── Navigation.tsx
 │   │   ├── PaintBrushCursor.tsx
+│   │   ├── ResponsiveArchive.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── StudentFooter.tsx
 │   │   ├── StudentFooterWrapper.tsx
@@ -111,27 +121,35 @@ klar/
 │   │   ├── teacher/
 │   │   │   ├── ClassesAccordion.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
+│   │   │   ├── CreateTaskButton.tsx
+│   │   │   ├── CreateTaskModal.tsx
 │   │   │   ├── EditStudentSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
-│   │   │   ├── TaskCreatorModal.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
 │   │   │
 │   │   └── ui/
+│   │       ├── alert-dialog.tsx
+│   │       ├── button.tsx
 │   │       ├── CircularProgress.tsx
+│   │       ├── color-picker-grid.tsx
 │   │       ├── dropdown-menu.tsx
+│   │       ├── emoji-picker.tsx
 │   │       ├── popover.tsx
-│   │       └── switch.tsx
+│   │       ├── switch.tsx
+│   │       └── time-picker.tsx
 │   │
 │   ├── contexts/
 │   │   └── StudentProfileContext.tsx
 │   │
 │   ├── hooks/
+│   │   ├── useMediaQuery.ts
 │   │   ├── useStudentProfile.ts
 │   │   └── useTimeTracker.ts
 │   │
 │   └── utils/
+│       ├── subject-colors.ts
 │       └── supabase/
 │           ├── client.ts
 │           └── server.ts
@@ -141,5 +159,8 @@ klar/
     └── migrations/
         ├── 20260102000000_add_emoji_to_rewards.sql
         ├── 20260102000001_add_rewards_rls_policies.sql
-        └── 20260102000002_add_delete_reward_rpc.sql
+        ├── 20260102000002_add_delete_reward_rpc.sql
+        ├── 20260112000000_add_get_student_schedule_rpc.sql
+        ├── 20260121000000_fix_get_student_schedule_task_counts.sql
+        └── 20260220000000_add_task_library_rls_policies.sql
 ```
