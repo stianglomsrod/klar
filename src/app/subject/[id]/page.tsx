@@ -302,11 +302,19 @@ export default function SubjectDetailPage() {
       }
 
       // 3. Update user profile in student_profiles
+      const maxLevelReached = profile.max_level_reached ?? 1;
+      const isNewHighLevel = newLevel > maxLevelReached;
+
       const profileUpdates: any = {
         points_earned: newPointsEarned,
         current_xp: finalCurrentXp,
         level: newLevel,
       };
+
+      // Only bump high-water mark when we truly surpass it
+      if (isNewHighLevel) {
+        profileUpdates.max_level_reached = newLevel;
+      }
 
       const { error: profileError } = await supabase
         .from("student_profiles")
@@ -335,11 +343,8 @@ export default function SubjectDetailPage() {
       setIsModalOpen(false);
       setSelectedTaskId(null);
 
-      // 5. Show level up modal - Check if level increased
-      const previousLevel = profile.level ?? 1;
-
-      // Show the modal if this is a TRUE level increase
-      if (shouldLevelUp) {
+      // 5. Show level up modal only for genuinely new levels (high-water mark)
+      if (shouldLevelUp && isNewHighLevel) {
         setNewLevel(newLevel);
         setShowLevelUpModal(true);
       }

@@ -23,6 +23,7 @@ export type StudentProfile = {
   show_flower_garden: boolean;
   custom_welcome_message: string | null;
   class_id: string | null;
+  max_level_reached: number;
 };
 
 type StudentProfileContextType = {
@@ -74,8 +75,9 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             petal_colors,
             show_flower_garden,
             custom_welcome_message,
-            class_id
-          `
+            class_id,
+            max_level_reached
+          `,
         )
         .eq("id", user.id)
         .single();
@@ -99,6 +101,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
               "#FFC0CB",
             ],
             show_flower_garden: true,
+            max_level_reached: 1,
           });
 
         if (!insertError) {
@@ -115,8 +118,9 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
                 petal_colors,
                 show_flower_garden,
                 custom_welcome_message,
-                class_id
-              `
+                class_id,
+                max_level_reached
+              `,
             )
             .eq("id", user.id)
             .single();
@@ -146,6 +150,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         show_flower_garden: studentData?.show_flower_garden ?? true,
         custom_welcome_message: studentData?.custom_welcome_message || null,
         class_id: studentData?.class_id ?? null,
+        max_level_reached: studentData?.max_level_reached ?? 1,
       };
 
       setProfile(mergedProfile);
@@ -180,7 +185,7 @@ export function useStudentProfile() {
   const context = useContext(StudentProfileContext);
   if (context === undefined) {
     throw new Error(
-      "useStudentProfile must be used within a StudentProfileProvider"
+      "useStudentProfile must be used within a StudentProfileProvider",
     );
   }
   return context;

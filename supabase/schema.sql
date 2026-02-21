@@ -119,6 +119,7 @@ CREATE TABLE public.student_profiles (
   petal_colors ARRAY DEFAULT ARRAY['#E0E0E0'::text, '#E0E0E0'::text, '#E0E0E0'::text, '#E0E0E0'::text, '#E0E0E0'::text],
   show_flower_garden boolean DEFAULT true,
   custom_welcome_message text,
+  max_level_reached integer NOT NULL DEFAULT 1,
   CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
   CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
