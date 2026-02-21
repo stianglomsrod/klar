@@ -6,6 +6,7 @@ klar/
 ├── .gitignore
 ├── DOCUMENTATION_INDEX.md
 ├── eslint.config.mjs
+├── EXECUTIVE_SUMMARY.md
 ├── FILE_TREE.md
 ├── FINAL_VERIFICATION_REPORT.md
 ├── next-env.d.ts
@@ -13,6 +14,7 @@ klar/
 ├── package-lock.json
 ├── package.json
 ├── postcss.config.mjs
+├── PROJECT_DNA.md
 ├── README.md
 ├── README_SCHEDULE_PICKER.md
 ├── REFACTORING_STEPS.md
@@ -133,14 +135,18 @@ klar/
 │   │   │
 │   │   └── ui/
 │   │       ├── alert-dialog.tsx
+│   │       ├── AudioRecorder.tsx
 │   │       ├── button.tsx
 │   │       ├── CircularProgress.tsx
 │   │       ├── color-picker-grid.tsx
 │   │       ├── dropdown-menu.tsx
 │   │       ├── emoji-picker.tsx
+│   │       ├── MediaUploadToolbar.tsx
 │   │       ├── popover.tsx
 │   │       ├── switch.tsx
-│   │       └── time-picker.tsx
+│   │       ├── time-picker.tsx
+│   │       ├── TTSButton.tsx
+│   │       └── WebcamCapture.tsx
 │   │
 │   ├── contexts/
 │   │   ├── StudentProfileContext.tsx
@@ -150,13 +156,15 @@ klar/
 │   │   ├── useMediaQuery.ts
 │   │   ├── useStudentProfile.ts
 │   │   ├── useTeacherProfile.ts
-│   │   └── useTimeTracker.ts
+│   │   ├── useTimeTracker.ts
+│   │   └── useTTS.ts
 │   │
 │   └── utils/
 │       ├── subject-colors.ts
 │       └── supabase/
 │           ├── client.ts
-│           └── server.ts
+│           ├── server.ts
+│           └── storage.ts
 │
 └── supabase/
     ├── schema.sql
@@ -172,5 +180,6 @@ klar/
         ├── 20260221000002_add_quiz_and_media_support.sql
         └── 20260221000003_add_feedback_task_unique_constraint.sql
         ├── 20260222000000_add_earned_at_level_to_student_rewards.sql
-        └── 20260222000001_add_max_level_reached.sql
+        ├── 20260222000001_add_max_level_reached.sql
+        └── 20260222000002_create_student_media_bucket.sql
 ```

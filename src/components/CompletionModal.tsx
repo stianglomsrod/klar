@@ -1,23 +1,46 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import { Send, Loader2 } from "lucide-react";
 
 type CompletionModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  /** Async callback run before onConfirm (e.g. to stop active recordings).
+   *  If provided, the modal shows a spinner while it resolves. */
+  onBeforeConfirm?: () => Promise<void>;
+  /** Student avatar URL from StudentProfileContext */
+  avatarUrl?: string | null;
+  /** Optional warning message (e.g. "Du har 2 ubesvarte spørsmål") shown in amber */
+  warningMessage?: string;
+  /** Optional slot rendered between the text and the submit button (for media toolbar) */
+  children?: ReactNode;
 };
 
 export default function CompletionModal({
   isOpen,
   onClose,
   onConfirm,
+  onBeforeConfirm,
+  avatarUrl,
+  warningMessage,
+  children,
 }: CompletionModalProps) {
-  const handleConfirm = () => {
-    // Play success sound (placeholder)
-    const audio = new Audio("/sounds/pling.mp3");
-    audio.play().catch(() => {});
+  const [isFinalizing, setIsFinalizing] = useState(false);
+
+  const handleConfirm = async () => {
+    if (onBeforeConfirm) {
+      setIsFinalizing(true);
+      try {
+        await onBeforeConfirm();
+      } finally {
+        setIsFinalizing(false);
+      }
+    }
+    // Sound is played by the parent (page.tsx) after the completion logic succeeds
     onConfirm();
   };
 
@@ -46,27 +69,70 @@ export default function CompletionModal({
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
           />
 
-          {/* Bottom Sheet Modal */}
+          {/* Centered Modal */}
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 inset-x-0 z-50 bg-white rounded-t-3xl shadow-2xl max-w-lg mx-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="p-8 text-center">
-              <div className="text-6xl mb-4 animate-bounce">🦄</div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full px-8 py-10 text-center pointer-events-auto">
+              <motion.div
+                animate={{ scale: [1, 1.06, 1] }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="mb-6"
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt="Din avatar"
+                    className="w-16 h-16 rounded-full object-cover mx-auto"
+                  />
+                ) : (
+                  <div className="text-6xl">🦄</div>
+                )}
+              </motion.div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
                 Er du sikker på at du er ferdig?
               </h2>
-              <p className="text-gray-600 mb-8">Dette kan ikke angres.</p>
 
-              <div className="flex flex-col gap-3">
+              {/* Dynamic warning for unanswered questions */}
+              {warningMessage && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5">
+                  <p className="text-sm text-amber-800 font-medium">
+                    ⚠️ {warningMessage}
+                  </p>
+                </div>
+              )}
+
+              {/* Optional media toolbar slot */}
+              {children && (
+                <div className="mb-6 flex justify-center">{children}</div>
+              )}
+
+              <div className="flex flex-col gap-3 mt-2">
                 <button
                   onClick={handleConfirm}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-black text-lg py-5 px-6 rounded-2xl shadow-lg shadow-emerald-500/40 hover:shadow-xl hover:shadow-emerald-500/50 transition-all duration-200 uppercase tracking-wide animate-pulse hover:animate-none active:scale-[0.98]"
+                  disabled={isFinalizing}
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 disabled:from-emerald-400 disabled:to-green-500 text-white font-black text-lg py-5 px-6 rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 uppercase tracking-wide active:scale-[0.98]"
                 >
-                  JA, SEND INN!
+                  {isFinalizing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Lagrer...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-5 w-5" />
+                      Fullfør
+                    </>
+                  )}
                 </button>
 
                 <button

@@ -1,18 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Check, X, Send } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+import CompletionModal from "@/components/CompletionModal";
+import TTSButton from "@/components/ui/TTSButton";
+import AudioRecorder from "@/components/ui/AudioRecorder";
 
 export type QuizQuestion = {
   id: string;
@@ -23,12 +16,15 @@ export type QuizQuestion = {
 
 export type QuizResponses = Record<string, string | string[]>;
 
+/** Per-question audio blobs keyed by question ID */
+export type QuizAudioBlobs = Record<string, Blob>;
+
 type StudentQuizViewProps = {
   isOpen: boolean;
   questions: QuizQuestion[];
   taskTitle: string;
   onClose: () => void;
-  onSubmit: (responses: QuizResponses) => void;
+  onSubmit: (responses: QuizResponses, audioBlobs: QuizAudioBlobs) => void;
 };
 
 const slideVariants = {
@@ -55,8 +51,10 @@ export default function StudentQuizView({
 }: StudentQuizViewProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [responses, setResponses] = useState<QuizResponses>({});
+  const [audioBlobs, setAudioBlobs] = useState<QuizAudioBlobs>({});
+  const [audioUrls, setAudioUrls] = useState<Record<string, string>>({});
   const [direction, setDirection] = useState(0);
-  const [showWarning, setShowWarning] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
@@ -68,8 +66,12 @@ export default function StudentQuizView({
       queueMicrotask(() => {
         setCurrentIndex(0);
         setResponses({});
+        // Revoke old audio object URLs
+        Object.values(audioUrls).forEach((url) => URL.revokeObjectURL(url));
+        setAudioBlobs({});
+        setAudioUrls({});
         setDirection(0);
-        setShowWarning(false);
+        setShowConfirmation(false);
       });
     }
   }, [isOpen]);
@@ -86,13 +88,9 @@ export default function StudentQuizView({
     };
   }, [isOpen]);
 
-  const playPling = useCallback(() => {
-    const audio = new Audio("/sounds/pling.mp3");
-    audio.volume = 0.3;
-    audio.play().catch(() => {});
-  }, []);
-
   const isAnswered = (questionId: string) => {
+    // Audio recording counts as a completed answer
+    if (audioBlobs[questionId]) return true;
     const r = responses[questionId];
     if (!r) return false;
     if (Array.isArray(r)) return r.length > 0;
@@ -107,12 +105,10 @@ export default function StudentQuizView({
   };
 
   const handleRadioSelect = (questionId: string, option: string) => {
-    playPling();
     setResponses((prev) => ({ ...prev, [questionId]: option }));
   };
 
   const handleCheckboxToggle = (questionId: string, option: string) => {
-    playPling();
     setResponses((prev) => {
       const current = (prev[questionId] as string[]) || [];
       const updated = current.includes(option)
@@ -142,16 +138,13 @@ export default function StudentQuizView({
   };
 
   const handleSubmitAttempt = () => {
-    if (unansweredCount > 0) {
-      setShowWarning(true);
-    } else {
-      onSubmit(responses);
-    }
+    // Always show confirmation modal directly — it includes a warning if unanswered
+    setShowConfirmation(true);
   };
 
-  const handleForceSubmit = () => {
-    setShowWarning(false);
-    onSubmit(responses);
+  const handleConfirmSubmit = () => {
+    setShowConfirmation(false);
+    onSubmit(responses, audioBlobs);
   };
 
   const isLastQuestion = currentIndex === totalQuestions - 1;
@@ -254,9 +247,18 @@ export default function StudentQuizView({
                       </div>
 
                       {/* Question text */}
-                      <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-6 leading-snug">
-                        {currentQuestion.text}
-                      </h2>
+                      <div className="flex items-start gap-2 mb-6">
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-snug flex-1">
+                          {currentQuestion.text}
+                        </h2>
+                        <TTSButton
+                          text={
+                            currentQuestion.options.length > 0
+                              ? `${currentQuestion.text}. Alternativer: ${currentQuestion.options.join(", ")}`
+                              : currentQuestion.text
+                          }
+                        />
+                      </div>
 
                       {/* Answer area */}
                       <div className="space-y-3">
@@ -354,13 +356,47 @@ export default function StudentQuizView({
                             );
                           })}
                       </div>
+
+                      {/* Per-question audio recorder */}
+                      <div className="mt-4 pt-3 border-t border-gray-100">
+                        <AudioRecorder
+                          compact
+                          onRecorded={(blob) => {
+                            const url = URL.createObjectURL(blob);
+                            setAudioBlobs((prev) => ({
+                              ...prev,
+                              [currentQuestion.id]: blob,
+                            }));
+                            setAudioUrls((prev) => ({
+                              ...prev,
+                              [currentQuestion.id]: url,
+                            }));
+                          }}
+                          onRemove={() => {
+                            const url = audioUrls[currentQuestion.id];
+                            if (url) URL.revokeObjectURL(url);
+                            setAudioBlobs((prev) => {
+                              const next = { ...prev };
+                              delete next[currentQuestion.id];
+                              return next;
+                            });
+                            setAudioUrls((prev) => {
+                              const next = { ...prev };
+                              delete next[currentQuestion.id];
+                              return next;
+                            });
+                          }}
+                          hasRecording={!!audioBlobs[currentQuestion.id]}
+                          audioUrl={audioUrls[currentQuestion.id]}
+                        />
+                      </div>
                     </div>
                   </motion.div>
                 </AnimatePresence>
               </div>
 
               {/* Navigation footer */}
-              <div className="flex items-center justify-between gap-3 pt-4">
+              <div className="flex items-center justify-between gap-3 pt-4 max-w-lg mx-auto w-full">
                 <button
                   onClick={goPrev}
                   disabled={currentIndex === 0}
@@ -380,10 +416,10 @@ export default function StudentQuizView({
                 {isLastQuestion ? (
                   <button
                     onClick={handleSubmitAttempt}
-                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98] text-lg uppercase tracking-wide"
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-black px-8 py-4 rounded-2xl shadow-md transition-all active:scale-[0.97] hover:scale-[1.02] text-lg uppercase tracking-wide"
                   >
                     <Send className="h-5 w-5" />
-                    Lever prøve
+                    Lever
                   </button>
                 ) : (
                   <button
@@ -397,29 +433,19 @@ export default function StudentQuizView({
               </div>
             </div>
 
-            {/* Warning dialog for unanswered questions */}
-            <AlertDialog
-              open={showWarning}
-              onOpenChange={(val) => setShowWarning(val)}
-            >
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Du har {unansweredCount} ubesvarte spørsmål
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Er du sikker på at du vil levere prøven uten å svare på alle
-                    spørsmålene?
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Gå tilbake</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleForceSubmit}>
-                    Lever likevel
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {/* Confirmation modal — overlays the quiz view */}
+            <div className="relative z-[60]">
+              <CompletionModal
+                isOpen={showConfirmation}
+                onClose={() => setShowConfirmation(false)}
+                onConfirm={handleConfirmSubmit}
+                warningMessage={
+                  unansweredCount > 0
+                    ? `Du har ${unansweredCount} ubesvart${unansweredCount > 1 ? "e" : ""} spørsmål.`
+                    : undefined
+                }
+              />
+            </div>
           </motion.div>
         </>
       )}

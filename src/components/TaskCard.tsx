@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle, PlayCircle } from "lucide-react";
+import TTSButton from "@/components/ui/TTSButton";
 
 type Task = {
   id: string;
@@ -28,19 +29,17 @@ export default function TaskCard({
     <div className="h-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-shadow border border-gray-100 p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3 flex-1">
         <div className="flex-1">
-          <h3 className="text-lg font-bold text-gray-900 leading-tight mb-1">
-            {task.title}
-          </h3>
-          <p className="text-sm text-gray-600 leading-relaxed">
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-lg font-bold text-gray-900 leading-tight flex-1">
+              {task.title}
+            </h3>
+            <TTSButton text={`${task.title}. ${task.description}`} />
+          </div>
+          <p className="text-sm text-gray-600 leading-relaxed mt-1">
             {task.description}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          {task.type === "quiz" && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800 border border-purple-200 whitespace-nowrap">
-              Quiz
-            </span>
-          )}
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">
             {task.points_value} poeng
           </span>

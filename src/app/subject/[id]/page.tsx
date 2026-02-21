@@ -9,11 +9,17 @@ import LevelUpModal from "@/components/LevelUpModal";
 import StudentQuizView, {
   type QuizQuestion,
   type QuizResponses,
+  type QuizAudioBlobs,
 } from "@/components/student/StudentQuizView";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import MediaUploadToolbar, {
+  type MediaUploadToolbarHandle,
+} from "@/components/ui/MediaUploadToolbar";
+import { uploadStudentMedia } from "@/utils/supabase/storage";
+import { useCallback } from "react";
 
 type Task = {
   id: string;
@@ -61,6 +67,32 @@ export default function SubjectDetailPage() {
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizTask, setQuizTask] = useState<Task | null>(null);
   const prevCompletedCount = useRef(completedTasks.length);
+  const mediaToolbarRef = useRef<MediaUploadToolbarHandle>(null);
+
+  // Media attachment state for standard task completion
+  const [mediaImage, setMediaImage] = useState<File | null>(null);
+  const [mediaAudioBlob, setMediaAudioBlob] = useState<Blob | null>(null);
+  const [mediaAudioUrl, setMediaAudioUrl] = useState<string | undefined>(
+    undefined,
+  );
+
+  const handleAudioRecorded = useCallback((blob: Blob) => {
+    setMediaAudioBlob(blob);
+    setMediaAudioUrl(URL.createObjectURL(blob));
+  }, []);
+
+  const handleAudioRemove = useCallback(() => {
+    if (mediaAudioUrl) URL.revokeObjectURL(mediaAudioUrl);
+    setMediaAudioBlob(null);
+    setMediaAudioUrl(undefined);
+  }, [mediaAudioUrl]);
+
+  const clearMedia = useCallback(() => {
+    setMediaImage(null);
+    if (mediaAudioUrl) URL.revokeObjectURL(mediaAudioUrl);
+    setMediaAudioBlob(null);
+    setMediaAudioUrl(undefined);
+  }, [mediaAudioUrl]);
 
   // Ensure we start at the top when opening a subject (avoids mid-scroll render)
   useEffect(() => {
@@ -145,19 +177,59 @@ export default function SubjectDetailPage() {
     }
   };
 
-  // Handle quiz submission — save responses, then trigger standard completion flow
-  const handleQuizSubmit = async (responses: QuizResponses) => {
+  // Handle quiz submission — save responses AND complete the task in one go
+  const handleQuizSubmit = async (
+    responses: QuizResponses,
+    audioBlobs: QuizAudioBlobs,
+  ) => {
     if (!quizTask || !profile) return;
 
     const supabase = createClient();
 
     try {
-      // 1. Upsert feedback with quiz_responses (requires unique constraint on task_id)
+      // ── 1. Upload per-question audio blobs and build enriched payload ──
+      const enrichedResponses: Record<
+        string,
+        { answer: string | string[]; audioUrl?: string }
+      > = {};
+
+      for (const [qId, answer] of Object.entries(responses)) {
+        const entry: { answer: string | string[]; audioUrl?: string } = {
+          answer,
+        };
+
+        if (audioBlobs[qId]) {
+          const audioUrl = await uploadStudentMedia(
+            audioBlobs[qId],
+            profile.id,
+            quizTask.id,
+            "audio",
+          );
+          entry.audioUrl = audioUrl;
+        }
+
+        enrichedResponses[qId] = entry;
+      }
+
+      // Also upload audio for questions that have audio but no text answer
+      for (const [qId, blob] of Object.entries(audioBlobs)) {
+        if (!enrichedResponses[qId]) {
+          const audioUrl = await uploadStudentMedia(
+            blob,
+            profile.id,
+            quizTask.id,
+            "audio",
+          );
+          enrichedResponses[qId] = { answer: "", audioUrl };
+        }
+      }
+
+      // ── 2. Upsert feedback with quiz_responses ──
       const { error: feedbackError } = await supabase.from("feedback").upsert(
         {
           task_id: quizTask.id,
           student_id: profile.id,
-          quiz_responses: responses,
+          quiz_responses: enrichedResponses,
         },
         { onConflict: "task_id" },
       );
@@ -172,13 +244,71 @@ export default function SubjectDetailPage() {
         throw new Error(feedbackError.message || "Feedback upsert failed");
       }
 
-      // 2. Close quiz view
-      setIsQuizOpen(false);
+      // ── 3. Mark task as completed ──
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .update({ is_completed: true, completed_at: new Date().toISOString() })
+        .eq("id", quizTask.id);
 
-      // 3. Trigger standard completion via CompletionModal
-      setSelectedTaskId(quizTask.id);
+      if (taskError) throw taskError;
+
+      // ── 4. Calculate XP / level ──
+      const newPointsEarned = profile.points_earned + quizTask.points_value;
+      const goalTotal = profile.current_goal_total ?? 1000;
+      const currentLevel = profile.level ?? 1;
+
+      let finalCurrentXp = profile.current_xp + quizTask.points_value;
+      let newLevelCalc = currentLevel;
+      let shouldLevelUp = false;
+
+      while (finalCurrentXp >= goalTotal) {
+        newLevelCalc += 1;
+        finalCurrentXp -= goalTotal;
+        shouldLevelUp = true;
+      }
+
+      const maxLevelReached = profile.max_level_reached ?? 1;
+      const isNewHighLevel = newLevelCalc > maxLevelReached;
+
+      const profileUpdates: Record<string, unknown> = {
+        points_earned: newPointsEarned,
+        current_xp: finalCurrentXp,
+        level: newLevelCalc,
+      };
+
+      if (isNewHighLevel) {
+        profileUpdates.max_level_reached = newLevelCalc;
+      }
+
+      const { error: profileError } = await supabase
+        .from("student_profiles")
+        .update(profileUpdates)
+        .eq("id", profile.id);
+
+      if (profileError) throw profileError;
+
+      await refreshProfile();
+
+      // ── 5. Optimistic UI update ──
+      const completedTask = tasks.find((t) => t.id === quizTask.id);
+      if (completedTask) {
+        setTasks((prev) => prev.filter((t) => t.id !== quizTask.id));
+        setCompletedTasks((prev) => [
+          { ...completedTask, is_completed: true },
+          ...prev,
+        ]);
+      }
+
+      // ── 6. Play sound, close quiz ──
+      playSuccessSound();
+      setIsQuizOpen(false);
       setQuizTask(null);
-      setIsModalOpen(true);
+
+      // ── 7. Level up modal if needed ──
+      if (shouldLevelUp && isNewHighLevel) {
+        setNewLevel(newLevelCalc);
+        setShowLevelUpModal(true);
+      }
     } catch (error: unknown) {
       const msg =
         error instanceof Error ? error.message : JSON.stringify(error);
@@ -323,6 +453,39 @@ export default function SubjectDetailPage() {
 
       if (profileError) throw profileError;
 
+      // Upload media attachments (if any) and save to feedback
+      if (mediaImage || mediaAudioBlob) {
+        let imageUrl: string | null = null;
+        let audioUrl: string | null = null;
+
+        if (mediaImage) {
+          imageUrl = await uploadStudentMedia(
+            mediaImage,
+            profile.id,
+            selectedTaskId,
+            "image",
+          );
+        }
+        if (mediaAudioBlob) {
+          audioUrl = await uploadStudentMedia(
+            mediaAudioBlob,
+            profile.id,
+            selectedTaskId,
+            "audio",
+          );
+        }
+
+        await supabase.from("feedback").upsert(
+          {
+            task_id: selectedTaskId,
+            student_id: profile.id,
+            student_image_url: imageUrl,
+            student_audio_url: audioUrl,
+          },
+          { onConflict: "task_id" },
+        );
+      }
+
       // Refresh profile from context to get latest data including show_flower_garden
       await refreshProfile();
 
@@ -342,6 +505,7 @@ export default function SubjectDetailPage() {
       // Close completion modal
       setIsModalOpen(false);
       setSelectedTaskId(null);
+      clearMedia();
 
       // 5. Show level up modal only for genuinely new levels (high-water mark)
       if (shouldLevelUp && isNewHighLevel) {
@@ -711,9 +875,31 @@ export default function SubjectDetailPage() {
         onClose={() => {
           setIsModalOpen(false);
           setSelectedTaskId(null);
+          clearMedia();
         }}
         onConfirm={handleConfirmCompletion}
-      />
+        onBeforeConfirm={async () => {
+          // If student is still recording, auto-stop and wait for the blob
+          const blob = await mediaToolbarRef.current?.stopRecordingIfActive();
+          if (blob) {
+            // The AudioRecorder's onRecorded callback will have already fired via
+            // the onstop handler, updating mediaAudioBlob in parent state.
+            // Small delay to let React state settle.
+            await new Promise((r) => setTimeout(r, 50));
+          }
+        }}
+        avatarUrl={profile?.avatar_url}
+      >
+        <MediaUploadToolbar
+          ref={mediaToolbarRef}
+          onImageChange={setMediaImage}
+          onAudioRecorded={handleAudioRecorded}
+          onAudioRemove={handleAudioRemove}
+          hasAudio={!!mediaAudioBlob}
+          audioUrl={mediaAudioUrl}
+          imageFile={mediaImage}
+        />
+      </CompletionModal>
 
       {/* Student Quiz View */}
       {quizTask && quizTask.quiz_data && (

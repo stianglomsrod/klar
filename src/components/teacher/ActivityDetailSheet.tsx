@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   X,
@@ -54,7 +54,10 @@ export type ActivityDetail = {
     student_comment: string | null;
     student_audio_url: string | null;
     student_image_url: string | null;
-    quiz_responses: Record<string, string | string[]> | null;
+    quiz_responses: Record<
+      string,
+      string | string[] | { answer: string | string[]; audioUrl?: string }
+    > | null;
     teacher_reaction: string | null;
     teacher_comment: string | null;
   } | null;
@@ -107,7 +110,14 @@ export default function ActivityDetailSheet({
   returningId,
   savingFeedback,
 }: ActivityDetailSheetProps) {
-  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackComment, setFeedbackComment] = useState(
+    activity?.feedback?.teacher_comment ?? "",
+  );
+
+  // Sync comment input when activity changes (e.g. opening a different sheet)
+  useEffect(() => {
+    setFeedbackComment(activity?.feedback?.teacher_comment ?? "");
+  }, [activity?.id, activity?.feedback?.teacher_comment]);
 
   if (!activity) return null;
 
@@ -116,8 +126,9 @@ export default function ActivityDetailSheet({
   const isQuiz = activity.type === "quiz" && activity.quiz_data;
 
   const handleSendComment = async () => {
-    await onSaveFeedback(activity.id, undefined, feedbackComment);
-    setFeedbackComment("");
+    const commentToSave = feedbackComment;
+    await onSaveFeedback(activity.id, undefined, commentToSave);
+    // Don't clear — the useEffect will sync from updated activity.feedback.teacher_comment
   };
 
   const handleReturn = async () => {
@@ -144,7 +155,7 @@ export default function ActivityDetailSheet({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-lg bg-white shadow-2xl flex flex-col"
+            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-lg sm:max-w-[50vw] bg-white shadow-2xl flex flex-col"
           >
             {/* ── Header ──────────────────────────────── */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
@@ -216,7 +227,27 @@ export default function ActivityDetailSheet({
                 {isQuiz && activity.quiz_data && (
                   <div className="mt-4 space-y-3">
                     {activity.quiz_data.map((q, idx) => {
-                      const answer = activity.feedback?.quiz_responses?.[q.id];
+                      const raw = activity.feedback?.quiz_responses?.[q.id];
+
+                      // Handle both old flat format (string | string[]) and
+                      // new enriched format ({ answer, audioUrl? })
+                      let answer: string | string[] | undefined;
+                      let questionAudioUrl: string | undefined;
+
+                      if (
+                        raw &&
+                        typeof raw === "object" &&
+                        !Array.isArray(raw) &&
+                        "answer" in raw
+                      ) {
+                        // New enriched format
+                        answer = raw.answer;
+                        questionAudioUrl = raw.audioUrl;
+                      } else {
+                        // Old flat format
+                        answer = raw as string | string[] | undefined;
+                      }
+
                       const isChoiceQuestion =
                         q.answerType === "radio" || q.answerType === "checkbox";
                       const selectedSet = new Set(
@@ -269,12 +300,14 @@ export default function ActivityDetailSheet({
                                   </div>
                                 )}
 
-                                {/* No answer indicator for choice questions */}
-                                {isChoiceQuestion && selectedSet.size === 0 && (
-                                  <p className="mt-1.5 text-xs text-slate-400 italic">
-                                    Ikke besvart
-                                  </p>
-                                )}
+                                {/* No answer indicator for choice questions (only if no audio either) */}
+                                {isChoiceQuestion &&
+                                  selectedSet.size === 0 &&
+                                  !questionAudioUrl && (
+                                    <p className="mt-1.5 text-xs text-slate-400 italic">
+                                      Ikke besvart
+                                    </p>
+                                  )}
                               </div>
                             </div>
                           </div>
@@ -289,11 +322,28 @@ export default function ActivityDetailSheet({
                                   <p className="text-sm text-green-800 font-medium">
                                     {answer}
                                   </p>
-                                ) : (
+                                ) : !questionAudioUrl ? (
                                   <p className="text-sm text-slate-400 italic">
                                     Ikke besvart
                                   </p>
-                                )}
+                                ) : null}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Per-question audio answer */}
+                          {questionAudioUrl && (
+                            <div className="bg-blue-50 px-3 py-2.5 border-t border-blue-100">
+                              <div className="flex items-center gap-2 pl-7">
+                                <span className="text-xs text-blue-600 font-medium">
+                                  Muntlig svar:
+                                </span>
+                                <audio
+                                  controls
+                                  src={questionAudioUrl}
+                                  className="h-8 flex-1"
+                                  preload="metadata"
+                                />
                               </div>
                             </div>
                           )}
@@ -318,7 +368,7 @@ export default function ActivityDetailSheet({
                   {(activity.feedback?.student_comment ||
                     activity.feedback?.student_audio_url ||
                     activity.feedback?.student_image_url) && (
-                    <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-4">
                       <MessageSquare className="h-4 w-4 text-slate-400" />
                       <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
                         Elevens kommentar
@@ -328,7 +378,7 @@ export default function ActivityDetailSheet({
 
                   {/* Text comment */}
                   {activity.feedback?.student_comment ? (
-                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 mb-3">
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 mb-4">
                       <p className="text-sm text-slate-700 italic leading-relaxed">
                         &ldquo;{activity.feedback.student_comment}&rdquo;
                       </p>
@@ -343,8 +393,8 @@ export default function ActivityDetailSheet({
 
                   {/* Audio */}
                   {activity.feedback?.student_audio_url && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 mb-1.5">
+                    <div className="mb-4">
+                      <div className="flex items-center gap-2 mb-2">
                         <Volume2 className="h-3.5 w-3.5 text-slate-400" />
                         <span className="text-xs font-medium text-slate-500">
                           Lydopptak
@@ -360,8 +410,8 @@ export default function ActivityDetailSheet({
 
                   {/* Image */}
                   {activity.feedback?.student_image_url && (
-                    <div className="mb-3">
-                      <div className="flex items-center gap-2 mb-1.5">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
                         <ImageIcon className="h-3.5 w-3.5 text-slate-400" />
                         <span className="text-xs font-medium text-slate-500">
                           Bilde
@@ -371,7 +421,7 @@ export default function ActivityDetailSheet({
                       <img
                         src={activity.feedback.student_image_url}
                         alt="Elevens bilde"
-                        className="rounded-lg border border-slate-200 max-h-64 w-auto object-contain"
+                        className="rounded-lg border border-slate-200 max-h-96 w-auto object-contain"
                       />
                     </div>
                   )}
@@ -381,7 +431,7 @@ export default function ActivityDetailSheet({
               {/* ── Existing Teacher Feedback Display ──── */}
               {(activity.feedback?.teacher_reaction ||
                 activity.feedback?.teacher_comment) && (
-                <div className="px-6 py-5 border-b border-slate-100">
+                <div className="px-6 py-5 border-b border-slate-100 bg-indigo-50/30">
                   <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Din tilbakemelding
                   </h3>
