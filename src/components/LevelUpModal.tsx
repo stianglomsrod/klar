@@ -25,7 +25,7 @@ type LevelUpModalProps = {
     rewardType: RewardType,
     payload?: string,
     petalIndex?: number,
-    rewardId?: string
+    rewardId?: string,
   ) => void;
   existingPetals: number;
   existingColors: string[];
@@ -55,12 +55,12 @@ export default function LevelUpModal({
   studentId,
 }: LevelUpModalProps) {
   const [step, setStep] = useState<"celebration" | "colorPicker">(
-    "celebration"
+    "celebration",
   );
   const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [hoveredPetalIndex, setHoveredPetalIndex] = useState<number | null>(
-    null
+    null,
   );
   const [isAnimatingSuccess, setIsAnimatingSuccess] = useState<boolean>(false);
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -72,7 +72,7 @@ export default function LevelUpModal({
   const normalizeColors = (arr: string[]) =>
     Array.from({ length: 5 }, (_, i) => arr[i] || "#E0E0E0");
   const [modalColors, setModalColors] = useState<string[]>(
-    normalizeColors(existingColors)
+    normalizeColors(existingColors),
   );
 
   // Fetch rewards from database when modal opens
@@ -92,7 +92,7 @@ export default function LevelUpModal({
             .from("rewards")
             .select("*")
             .or(
-              `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`
+              `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
             )
             .order("created_at", { ascending: true });
 
@@ -156,7 +156,7 @@ export default function LevelUpModal({
 
   const handleRewardSelect = async (
     rewardType: RewardType,
-    rewardId?: string
+    rewardId?: string,
   ) => {
     if (rewardType === "petal") {
       setSelectedReward(rewardType);
@@ -451,8 +451,8 @@ export default function LevelUpModal({
                     typeof window !== "undefined" && window.innerWidth < 640
                       ? 180
                       : window.innerWidth < 768
-                      ? 220
-                      : 260
+                        ? 220
+                        : 260
                   }
                   petalsFilled={
                     modalColors.filter((c) => c && c.trim().length > 0).length

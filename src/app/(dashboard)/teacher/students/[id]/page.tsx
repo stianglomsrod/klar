@@ -297,7 +297,7 @@ export default function StudentDashboardPage() {
         .single();
 
       const updatedIds = (reward?.specific_student_ids || []).filter(
-        (id: string) => id !== studentId
+        (id: string) => id !== studentId,
       );
 
       const { error } = await supabase
@@ -369,7 +369,7 @@ export default function StudentDashboardPage() {
           .single();
 
         const updatedIds = (reward?.specific_student_ids || []).filter(
-          (id: string) => id !== studentId
+          (id: string) => id !== studentId,
         );
         const { error } = await supabase
           .from("rewards")

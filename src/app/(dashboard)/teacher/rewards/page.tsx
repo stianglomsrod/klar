@@ -96,7 +96,9 @@ export default function RewardsLibraryPage() {
 
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, title, description, emoji, cost_value, cost_type, created_by, created_at, specific_student_ids")
+        .select(
+          "id, title, description, emoji, cost_value, cost_type, created_by, created_at, specific_student_ids",
+        )
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
 
@@ -199,8 +201,8 @@ export default function RewardsLibraryPage() {
                   cost_type: formData.cost_type,
                   specific_student_ids: formData.selectedStudentIds,
                 }
-              : r
-          )
+              : r,
+          ),
         );
       } else {
         // Create new reward
@@ -222,10 +224,7 @@ export default function RewardsLibraryPage() {
 
         if (error) throw error;
 
-        setRewards((prev) => [
-          { ...data, cost: data.cost_value },
-          ...prev,
-        ]);
+        setRewards((prev) => [{ ...data, cost: data.cost_value }, ...prev]);
       }
 
       handleCloseDialog();
@@ -413,24 +412,30 @@ export default function RewardsLibraryPage() {
                     </div>
 
                     {/* Student assignment badge */}
-                    {reward.specific_student_ids.length > 0 && (() => {
-                      const names = reward.specific_student_ids
-                        .map((id) => students.find((s) => s.id === id)?.full_name || "Ukjent")
-                      const label =
-                        names.length <= 3
-                          ? names.join(", ")
-                          : `${names.length} elever`;
-                      const tooltip = names.join(", ");
-                      return (
-                        <div
-                          className="flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full"
-                          title={tooltip}
-                        >
-                          <User size={12} />
-                          <span className="truncate max-w-[120px]">{label}</span>
-                        </div>
-                      );
-                    })()}
+                    {reward.specific_student_ids.length > 0 &&
+                      (() => {
+                        const names = reward.specific_student_ids.map(
+                          (id) =>
+                            students.find((s) => s.id === id)?.full_name ||
+                            "Ukjent",
+                        );
+                        const label =
+                          names.length <= 3
+                            ? names.join(", ")
+                            : `${names.length} elever`;
+                        const tooltip = names.join(", ");
+                        return (
+                          <div
+                            className="flex items-center gap-1 text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full"
+                            title={tooltip}
+                          >
+                            <User size={12} />
+                            <span className="truncate max-w-[120px]">
+                              {label}
+                            </span>
+                          </div>
+                        );
+                      })()}
                   </div>
                 </div>
               </div>
@@ -569,10 +574,14 @@ export default function RewardsLibraryPage() {
                 </label>
                 <div className="border border-slate-300 rounded-lg max-h-48 overflow-y-auto">
                   {students.length === 0 ? (
-                    <p className="p-3 text-sm text-slate-500">Ingen elever funnet</p>
+                    <p className="p-3 text-sm text-slate-500">
+                      Ingen elever funnet
+                    </p>
                   ) : (
                     students.map((student) => {
-                      const isChecked = formData.selectedStudentIds.includes(student.id);
+                      const isChecked = formData.selectedStudentIds.includes(
+                        student.id,
+                      );
                       return (
                         <label
                           key={student.id}
@@ -587,13 +596,17 @@ export default function RewardsLibraryPage() {
                               setFormData((prev) => ({
                                 ...prev,
                                 selectedStudentIds: isChecked
-                                  ? prev.selectedStudentIds.filter((id) => id !== student.id)
+                                  ? prev.selectedStudentIds.filter(
+                                      (id) => id !== student.id,
+                                    )
                                   : [...prev.selectedStudentIds, student.id],
                               }));
                             }}
                             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                           />
-                          <span className="text-sm text-slate-700">{student.full_name}</span>
+                          <span className="text-sm text-slate-700">
+                            {student.full_name}
+                          </span>
                         </label>
                       );
                     })
@@ -602,11 +615,18 @@ export default function RewardsLibraryPage() {
                 {formData.selectedStudentIds.length > 0 && (
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-xs text-indigo-600">
-                      {formData.selectedStudentIds.length} elev{formData.selectedStudentIds.length !== 1 ? "er" : ""} valgt
+                      {formData.selectedStudentIds.length} elev
+                      {formData.selectedStudentIds.length !== 1 ? "er" : ""}{" "}
+                      valgt
                     </p>
                     <button
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, selectedStudentIds: [] }))}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          selectedStudentIds: [],
+                        }))
+                      }
                       className="text-xs text-slate-500 hover:text-slate-700 underline"
                     >
                       Fjern alle
