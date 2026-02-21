@@ -165,5 +165,6 @@ klar/
         ├── 20260112000000_add_get_student_schedule_rpc.sql
         ├── 20260121000000_fix_get_student_schedule_task_counts.sql
         ├── 20260220000000_add_task_library_rls_policies.sql
-        └── 20260220000001_rewards_multi_student.sql
+        ├── 20260220000001_rewards_multi_student.sql
+        └── 20260221000001_activity_feed_updates.sql
 ```

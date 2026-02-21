@@ -30,6 +30,8 @@ CREATE TABLE public.feedback (
   student_comment text,
   student_audio_url text,
   quiz_responses jsonb,
+  teacher_reaction text,
+  teacher_comment text,
   CONSTRAINT feedback_pkey PRIMARY KEY (id),
   CONSTRAINT feedback_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
   CONSTRAINT feedback_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id)
@@ -352,6 +354,7 @@ CREATE TABLE public.tasks (
   subject_id uuid,
   quiz_data jsonb,
   task_library_id uuid,
+  completed_at timestamp with time zone,
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
