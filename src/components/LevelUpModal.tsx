@@ -171,6 +171,7 @@ export default function LevelUpModal({
           reward_id: rewardId,
           is_redeemed: false,
           date_earned: new Date().toISOString(),
+          earned_at_level: newLevel,
         });
 
         if (error) throw error;

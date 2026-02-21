@@ -24,7 +24,7 @@ CREATE TABLE public.classes (
 
 CREATE TABLE public.feedback (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  task_id uuid,
+  task_id uuid UNIQUE,
   student_id uuid,
   created_at timestamp with time zone DEFAULT now(),
   student_comment text,
@@ -32,6 +32,7 @@ CREATE TABLE public.feedback (
   quiz_responses jsonb,
   teacher_reaction text,
   teacher_comment text,
+  student_image_url text,
   CONSTRAINT feedback_pkey PRIMARY KEY (id),
   CONSTRAINT feedback_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
   CONSTRAINT feedback_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id)
@@ -82,8 +83,8 @@ CREATE TABLE public.rewards (
   cost_value integer DEFAULT 1,
   cost_type USER-DEFINED DEFAULT 'flowers'::reward_cost_type,
   created_at timestamp with time zone DEFAULT now(),
-  specific_student_ids uuid[] DEFAULT '{}',
   emoji text DEFAULT '🎁'::text,
+  specific_student_ids ARRAY DEFAULT '{}'::uuid[],
   CONSTRAINT rewards_pkey PRIMARY KEY (id),
   CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
@@ -129,6 +130,7 @@ CREATE TABLE public.student_rewards (
   reward_id uuid,
   is_redeemed boolean DEFAULT false,
   date_earned timestamp with time zone DEFAULT now(),
+  earned_at_level integer NOT NULL DEFAULT 1,
   CONSTRAINT student_rewards_pkey PRIMARY KEY (id),
   CONSTRAINT student_rewards_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT student_rewards_reward_id_fkey FOREIGN KEY (reward_id) REFERENCES public.rewards(id)

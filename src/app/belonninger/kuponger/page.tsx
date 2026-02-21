@@ -13,6 +13,7 @@ type StudentReward = {
   reward_id: string;
   is_redeemed: boolean;
   date_earned: string;
+  earned_at_level: number;
   reward: {
     title: string;
     description?: string;
@@ -50,7 +51,7 @@ export default function KupongerPage() {
             cost_value,
             cost_type
           )
-        `
+        `,
         )
         .eq("student_id", profile.id)
         .order("is_redeemed", { ascending: true })
@@ -73,6 +74,7 @@ export default function KupongerPage() {
         reward_id: item.reward_id,
         is_redeemed: item.is_redeemed,
         date_earned: item.date_earned,
+        earned_at_level: item.earned_at_level ?? 1,
         reward: item.rewards || {
           title: "Ukjent premie",
           description: "",
@@ -93,9 +95,18 @@ export default function KupongerPage() {
   const handleRedeemCoupon = async (rewardId: string) => {
     if (!profile?.id) return;
 
+    // Anti-cheat: block redemption if student's level is below earned_at_level
+    const reward = rewards.find((r) => r.id === rewardId);
+    if (reward && (profile.level ?? 1) < reward.earned_at_level) {
+      alert(
+        `Du må være level ${reward.earned_at_level} for å bruke denne kupongen. Du er nå level ${profile.level ?? 1}.`,
+      );
+      return;
+    }
+
     // Show confirmation dialog
     const confirmed = window.confirm(
-      "Er du sikker på at du vil bruke denne kupongen?\n\nDu bør kun trykke her når du er sammen med læreren din for å vise at du bruker premien."
+      "Er du sikker på at du vil bruke denne kupongen?\n\nDu bør kun trykke her når du er sammen med læreren din for å vise at du bruker premien.",
     );
 
     if (!confirmed) return;
@@ -211,6 +222,8 @@ export default function KupongerPage() {
                     description={reward.reward.description}
                     emoji={reward.reward.emoji}
                     isRedeemed={reward.is_redeemed}
+                    isLocked={(profile?.level ?? 1) < reward.earned_at_level}
+                    lockedLevel={reward.earned_at_level}
                     dateEarned={reward.date_earned}
                     onRedeem={() => handleRedeemCoupon(reward.id)}
                   />

@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, PlayCircle } from "lucide-react";
 
 type Task = {
   id: string;
@@ -54,14 +54,27 @@ export default function TaskCard({
       ) : (
         <button
           onClick={onComplete}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black tracking-wide py-4 px-6 rounded-xl shadow-md border-b-4 active:translate-y-[1px] active:border-b-2 transition-all duration-150 flex items-center justify-center gap-2"
+          className={`w-full font-black tracking-wide py-4 px-6 rounded-xl shadow-md border-b-4 active:translate-y-[1px] active:border-b-2 transition-all duration-150 flex items-center justify-center gap-2 ${
+            task.type === "quiz"
+              ? "bg-purple-600 hover:bg-purple-700 text-white"
+              : "bg-indigo-600 hover:bg-indigo-700 text-white"
+          }`}
           style={{
             borderBottomColor: `currentColor`,
             opacity: 0.9,
           }}
         >
-          <CheckCircle className="h-5 w-5" />
-          Fullfør
+          {task.type === "quiz" ? (
+            <>
+              <PlayCircle className="h-5 w-5" />
+              Start Quiz
+            </>
+          ) : (
+            <>
+              <CheckCircle className="h-5 w-5" />
+              Fullfør
+            </>
+          )}
         </button>
       )}
     </div>

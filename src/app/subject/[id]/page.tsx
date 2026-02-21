@@ -6,6 +6,10 @@ import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
 import LevelUpModal from "@/components/LevelUpModal";
+import StudentQuizView, {
+  type QuizQuestion,
+  type QuizResponses,
+} from "@/components/student/StudentQuizView";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
@@ -18,6 +22,7 @@ type Task = {
   points_value: number;
   type: string;
   is_completed: boolean;
+  quiz_data?: QuizQuestion[] | null;
 };
 
 type Subject = {
@@ -53,6 +58,8 @@ export default function SubjectDetailPage() {
   const [newLevel, setNewLevel] = useState(0);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isStackPulsing, setIsStackPulsing] = useState(false);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizTask, setQuizTask] = useState<Task | null>(null);
   const prevCompletedCount = useRef(completedTasks.length);
 
   // Ensure we start at the top when opening a subject (avoids mid-scroll render)
@@ -129,8 +136,55 @@ export default function SubjectDetailPage() {
 
   // Handle task completion
   const handleTaskComplete = (task: Task) => {
-    setSelectedTaskId(task.id);
-    setIsModalOpen(true);
+    if (task.type === "quiz" && task.quiz_data && task.quiz_data.length > 0) {
+      setQuizTask(task);
+      setIsQuizOpen(true);
+    } else {
+      setSelectedTaskId(task.id);
+      setIsModalOpen(true);
+    }
+  };
+
+  // Handle quiz submission — save responses, then trigger standard completion flow
+  const handleQuizSubmit = async (responses: QuizResponses) => {
+    if (!quizTask || !profile) return;
+
+    const supabase = createClient();
+
+    try {
+      // 1. Upsert feedback with quiz_responses (requires unique constraint on task_id)
+      const { error: feedbackError } = await supabase.from("feedback").upsert(
+        {
+          task_id: quizTask.id,
+          student_id: profile.id,
+          quiz_responses: responses,
+        },
+        { onConflict: "task_id" },
+      );
+
+      if (feedbackError) {
+        console.error("Supabase feedback upsert error:", {
+          message: feedbackError.message,
+          details: feedbackError.details,
+          hint: feedbackError.hint,
+          code: feedbackError.code,
+        });
+        throw new Error(feedbackError.message || "Feedback upsert failed");
+      }
+
+      // 2. Close quiz view
+      setIsQuizOpen(false);
+
+      // 3. Trigger standard completion via CompletionModal
+      setSelectedTaskId(quizTask.id);
+      setQuizTask(null);
+      setIsModalOpen(true);
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error ? error.message : JSON.stringify(error);
+      console.error("Feil ved lagring av quiz-svar:", msg);
+      alert("Noe gikk galt ved lagring av svarene dine. Prøv igjen.");
+    }
   };
 
   const playSuccessSound = () => {
@@ -165,15 +219,26 @@ export default function SubjectDetailPage() {
 
       if (updateError) throw updateError;
 
-      // 3. Update profile: decrement points and current_xp
+      // 3. Update profile: decrement points and current_xp (with level demotion)
       if (profile) {
+        const currentXp = profile.current_xp;
+        const currentLevel = profile.level ?? 1;
+        const goalTotal = profile.current_goal_total ?? 1000;
+        let rawXp = currentXp - taskData.points_value;
+        let newLevel = currentLevel;
+
+        // If XP goes negative, the undone task had triggered a level-up
+        // → demote levels, wrap XP back into previous level's range
+        // (handles multi-level demotions; rewards/petals stay untouched)
+        while (rawXp < 0 && newLevel > 1) {
+          newLevel -= 1;
+          rawXp += goalTotal;
+        }
+
+        const newCurrentXp = Math.max(0, rawXp);
         const newPointsEarned = Math.max(
           0,
           profile.points_earned - taskData.points_value,
-        );
-        const newCurrentXp = Math.max(
-          0,
-          profile.current_xp - taskData.points_value,
         );
 
         const { error: profileError } = await supabase
@@ -181,6 +246,7 @@ export default function SubjectDetailPage() {
           .update({
             points_earned: newPointsEarned,
             current_xp: newCurrentXp,
+            level: newLevel,
           })
           .eq("id", profile.id);
 
@@ -221,14 +287,19 @@ export default function SubjectDetailPage() {
 
       // 2. Calculate new points and current_xp, check for level up
       const newPointsEarned = profile.points_earned + task.points_value;
-      const newCurrentXp = profile.current_xp + task.points_value;
-      const currentLevel = profile.level ?? 1;
       const goalTotal = profile.current_goal_total ?? 1000;
+      const currentLevel = profile.level ?? 1;
 
-      // Check if we've reached the level-up threshold
-      const shouldLevelUp = newCurrentXp >= goalTotal;
-      const newLevel = shouldLevelUp ? currentLevel + 1 : currentLevel;
-      const finalCurrentXp = shouldLevelUp ? 0 : newCurrentXp; // Reset current_xp on level-up
+      // Carry-over: loop handles multi-level jumps (task worth > 1 level)
+      let finalCurrentXp = profile.current_xp + task.points_value;
+      let newLevel = currentLevel;
+      let shouldLevelUp = false;
+
+      while (finalCurrentXp >= goalTotal) {
+        newLevel += 1;
+        finalCurrentXp -= goalTotal;
+        shouldLevelUp = true;
+      }
 
       // 3. Update user profile in student_profiles
       const profileUpdates: any = {
@@ -638,6 +709,20 @@ export default function SubjectDetailPage() {
         }}
         onConfirm={handleConfirmCompletion}
       />
+
+      {/* Student Quiz View */}
+      {quizTask && quizTask.quiz_data && (
+        <StudentQuizView
+          isOpen={isQuizOpen}
+          questions={quizTask.quiz_data}
+          taskTitle={quizTask.title}
+          onClose={() => {
+            setIsQuizOpen(false);
+            setQuizTask(null);
+          }}
+          onSubmit={handleQuizSubmit}
+        />
+      )}
 
       {/* Level Up Modal */}
       <LevelUpModal

@@ -116,9 +116,11 @@ klar/
 │   │   │   └── CouponCard.tsx
 │   │   │
 │   │   ├── student/
-│   │   │   └── StudentHelpButton.tsx
+│   │   │   ├── StudentHelpButton.tsx
+│   │   │   └── StudentQuizView.tsx
 │   │   │
 │   │   ├── teacher/
+│   │   │   ├── ActivityDetailSheet.tsx
 │   │   │   ├── ClassesAccordion.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
 │   │   │   ├── CreateTaskButton.tsx
@@ -166,5 +168,8 @@ klar/
         ├── 20260121000000_fix_get_student_schedule_task_counts.sql
         ├── 20260220000000_add_task_library_rls_policies.sql
         ├── 20260220000001_rewards_multi_student.sql
-        └── 20260221000001_activity_feed_updates.sql
+        ├── 20260221000001_activity_feed_updates.sql
+        ├── 20260221000002_add_quiz_and_media_support.sql
+        └── 20260221000003_add_feedback_task_unique_constraint.sql
+        └── 20260222000000_add_earned_at_level_to_student_rewards.sql
 ```

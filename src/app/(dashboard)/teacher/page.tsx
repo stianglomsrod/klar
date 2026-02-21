@@ -1,57 +1,19 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import Link from "next/link";
-import {
-  Calendar,
-  CheckCircle,
-  Zap,
-  MessageSquare,
-  Undo2,
-  Clock,
-  Send,
-} from "lucide-react";
+import { Calendar, CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
 import {
   useTeacherProfile,
   getDisplayName,
   getInitials,
 } from "@/contexts/TeacherProfileContext";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+import ActivityDetailSheet, {
+  type ActivityDetail,
+} from "@/components/teacher/ActivityDetailSheet";
 
 // ── Types ──────────────────────────────────────────────
-type ActivityItem = {
-  id: string; // task id
-  title: string;
-  points_value: number;
-  completed_at: string;
-  student: {
-    id: string;
-    full_name: string | null;
-    avatar_url: string | null;
-  };
-  subject: {
-    title: string;
-    emoji: string;
-  } | null;
-  feedback: {
-    id: string;
-    student_comment: string | null;
-    student_audio_url: string | null;
-    teacher_reaction: string | null;
-    teacher_comment: string | null;
-  } | null;
-};
+type ActivityItem = ActivityDetail;
 
 // ── Helpers ────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
@@ -70,8 +32,6 @@ function timeAgo(dateStr: string): string {
   });
 }
 
-const QUICK_REACTIONS = ["👍", "🌟", "💪", "🎉", "❤️", "🔥"];
-
 export default function TeacherDashboard() {
   const supabase = createClient();
   const { profile, loading: profileLoading } = useTeacherProfile();
@@ -83,14 +43,14 @@ export default function TeacherDashboard() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
 
-  // Feedback popover
-  const [feedbackOpenId, setFeedbackOpenId] = useState<string | null>(null);
-  const [feedbackComment, setFeedbackComment] = useState("");
+  // Feedback / Return
   const [savingFeedback, setSavingFeedback] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
-
-  // Return task
   const [returningId, setReturningId] = useState<string | null>(null);
+
+  // Detail sheet
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
+    null,
+  );
 
   // ── Fetch activities ───────────────────────────────
   useEffect(() => {
@@ -112,11 +72,14 @@ export default function TeacherDashboard() {
           `
           id,
           title,
+          description,
           points_value,
           completed_at,
+          type,
+          quiz_data,
           student:profiles!tasks_student_id_fkey (id, full_name, avatar_url),
           subject:subjects!tasks_subject_id_fkey (title, emoji),
-          feedback (id, student_comment, student_audio_url, teacher_reaction, teacher_comment)
+          feedback (id, student_comment, student_audio_url, student_image_url, quiz_responses, teacher_reaction, teacher_comment)
         `,
         )
         .eq("created_by", user.id)
@@ -129,8 +92,11 @@ export default function TeacherDashboard() {
       const items: ActivityItem[] = (data || []).map((t: any) => ({
         id: t.id,
         title: t.title,
+        description: t.description ?? null,
         points_value: t.points_value ?? 0,
         completed_at: t.completed_at ?? t.created_at,
+        type: t.type ?? "standard",
+        quiz_data: t.quiz_data ?? null,
         student: Array.isArray(t.student) ? t.student[0] : t.student,
         subject: Array.isArray(t.subject) ? t.subject[0] : t.subject,
         feedback: Array.isArray(t.feedback)
@@ -145,23 +111,6 @@ export default function TeacherDashboard() {
       setLoadingActivities(false);
     }
   };
-
-  // ── Close popover on outside click ─────────────────
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node)
-      ) {
-        setFeedbackOpenId(null);
-        setFeedbackComment("");
-      }
-    };
-    if (feedbackOpenId) {
-      document.addEventListener("mousedown", handleClick);
-      return () => document.removeEventListener("mousedown", handleClick);
-    }
-  }, [feedbackOpenId]);
 
   // ── Save reaction / comment ────────────────────────
   const handleSaveFeedback = async (
@@ -179,14 +128,12 @@ export default function TeacherDashboard() {
       if (comment !== undefined) updates.teacher_comment = comment || null;
 
       if (activity.feedback?.id) {
-        // Update existing feedback row
         const { error } = await supabase
           .from("feedback")
           .update(updates)
           .eq("id", activity.feedback.id);
         if (error) throw error;
       } else {
-        // Insert new feedback row
         const { error } = await supabase.from("feedback").insert({
           task_id: taskId,
           student_id: activity.student.id,
@@ -205,6 +152,8 @@ export default function TeacherDashboard() {
                   id: a.feedback?.id ?? "temp",
                   student_comment: a.feedback?.student_comment ?? null,
                   student_audio_url: a.feedback?.student_audio_url ?? null,
+                  student_image_url: a.feedback?.student_image_url ?? null,
+                  quiz_responses: a.feedback?.quiz_responses ?? null,
                   teacher_reaction:
                     reaction ?? a.feedback?.teacher_reaction ?? null,
                   teacher_comment:
@@ -216,11 +165,6 @@ export default function TeacherDashboard() {
             : a,
         ),
       );
-
-      if (comment !== undefined) {
-        setFeedbackOpenId(null);
-        setFeedbackComment("");
-      }
     } catch (err) {
       console.error("Error saving feedback:", err);
       alert("Kunne ikke lagre tilbakemelding. Prøv igjen.");
@@ -243,14 +187,29 @@ export default function TeacherDashboard() {
         .eq("id", taskId);
       if (taskError) throw taskError;
 
-      // 2. Deduct points from student
+      // 2. Deduct points from student (with level demotion if needed)
       if (activity.points_value > 0) {
         const { data: sp } = await supabase
           .from("student_profiles")
-          .select("points_earned")
+          .select("points_earned, current_xp, level, current_goal_total")
           .eq("id", activity.student.id)
           .single();
 
+        const currentXp = sp?.current_xp ?? 0;
+        const currentLevel = sp?.level ?? 1;
+        const goalTotal = sp?.current_goal_total ?? 1000;
+        let rawXp = currentXp - activity.points_value;
+        let newLevel = currentLevel;
+
+        // If XP goes negative, the returned task had triggered a level-up
+        // → demote levels, wrap XP back into previous level's range
+        // (handles multi-level demotions; rewards/petals stay untouched)
+        while (rawXp < 0 && newLevel > 1) {
+          newLevel -= 1;
+          rawXp += goalTotal;
+        }
+
+        const newCurrentXp = Math.max(0, rawXp);
         const newPoints = Math.max(
           0,
           (sp?.points_earned ?? 0) - activity.points_value,
@@ -258,7 +217,11 @@ export default function TeacherDashboard() {
 
         const { error: pointsError } = await supabase
           .from("student_profiles")
-          .update({ points_earned: newPoints })
+          .update({
+            points_earned: newPoints,
+            current_xp: newCurrentXp,
+            level: newLevel,
+          })
           .eq("id", activity.student.id);
         if (pointsError) throw pointsError;
       }
@@ -405,16 +368,15 @@ export default function TeacherDashboard() {
                 );
 
                 return (
-                  <div
+                  <button
                     key={activity.id}
-                    className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors"
+                    type="button"
+                    onClick={() => setSelectedActivity(activity)}
+                    className="w-full text-left p-3 sm:p-4 hover:bg-slate-50 transition-colors group"
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-3">
                       {/* Student avatar */}
-                      <Link
-                        href={`/teacher/students/${activity.student?.id}`}
-                        className="shrink-0"
-                      >
+                      <div className="shrink-0">
                         {activity.student?.avatar_url ? (
                           <img
                             src={activity.student.avatar_url}
@@ -426,17 +388,14 @@ export default function TeacherDashboard() {
                             {studentInitials}
                           </div>
                         )}
-                      </Link>
+                      </div>
 
                       {/* Info — middle */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap text-sm">
-                          <Link
-                            href={`/teacher/students/${activity.student?.id}`}
-                            className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
-                          >
+                          <span className="font-semibold text-slate-900">
                             {studentName}
-                          </Link>
+                          </span>
                           <span className="text-slate-400">fullførte</span>
                           <span className="font-medium text-slate-700 truncate">
                             {activity.subject?.emoji && (
@@ -452,190 +411,77 @@ export default function TeacherDashboard() {
                               ⭐ {activity.points_value}
                             </span>
                           )}
+                        </div>
 
-                          <span className="flex items-center gap-1 text-xs text-slate-400 ml-auto sm:ml-0">
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="flex items-center gap-1 text-xs text-slate-400">
                             <Clock className="h-3 w-3" />
                             {timeAgo(activity.completed_at)}
                           </span>
-                        </div>
 
-                        {/* Student submission */}
-                        {activity.feedback?.student_comment && (
-                          <p className="mt-1.5 text-sm text-slate-600 italic bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-                            &ldquo;{activity.feedback.student_comment}&rdquo;
-                          </p>
-                        )}
-
-                        {activity.feedback?.student_audio_url && (
-                          <div className="mt-1.5">
-                            <audio
-                              controls
-                              src={activity.feedback.student_audio_url}
-                              className="h-8 w-full max-w-xs"
-                            />
-                          </div>
-                        )}
-
-                        {/* Existing teacher feedback display */}
-                        {(activity.feedback?.teacher_reaction ||
-                          activity.feedback?.teacher_comment) && (
-                          <div className="mt-1.5 flex items-center gap-2 text-sm">
-                            {activity.feedback.teacher_reaction && (
-                              <span className="text-base">
-                                {activity.feedback.teacher_reaction}
-                              </span>
-                            )}
-                            {activity.feedback.teacher_comment && (
-                              <span className="text-slate-600 italic">
-                                {activity.feedback.teacher_comment}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Action buttons — right */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        {/* Feedback / Reaction button */}
-                        <div className="relative">
-                          <button
-                            onClick={() => {
-                              setFeedbackOpenId(
-                                feedbackOpenId === activity.id
-                                  ? null
-                                  : activity.id,
-                              );
-                              setFeedbackComment(
-                                activity.feedback?.teacher_comment ?? "",
-                              );
-                            }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          >
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">
-                              Tilbakemelding
+                          {activity.type === "quiz" && (
+                            <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                              Quiz
                             </span>
-                          </button>
+                          )}
 
-                          {/* Feedback popover */}
-                          {feedbackOpenId === activity.id && (
-                            <div
-                              ref={popoverRef}
-                              className="absolute right-0 top-full mt-1 z-30 w-72 bg-white rounded-xl border border-slate-200 shadow-lg p-4"
-                            >
-                              {/* Quick reactions */}
-                              <p className="text-xs font-medium text-slate-500 mb-2">
-                                Hurtigreaksjon
-                              </p>
-                              <div className="flex gap-1 mb-3">
-                                {QUICK_REACTIONS.map((emoji) => (
-                                  <button
-                                    key={emoji}
-                                    onClick={() =>
-                                      handleSaveFeedback(
-                                        activity.id,
-                                        emoji,
-                                        undefined,
-                                      )
-                                    }
-                                    className={`text-xl p-1.5 rounded-lg transition-colors ${
-                                      activity.feedback?.teacher_reaction ===
-                                      emoji
-                                        ? "bg-indigo-100 ring-2 ring-indigo-400"
-                                        : "hover:bg-slate-100"
-                                    }`}
-                                  >
-                                    {emoji}
-                                  </button>
-                                ))}
-                              </div>
-
-                              {/* Comment */}
-                              <p className="text-xs font-medium text-slate-500 mb-2">
-                                Kommentar
-                              </p>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={feedbackComment}
-                                  onChange={(e) =>
-                                    setFeedbackComment(e.target.value)
-                                  }
-                                  placeholder="Skriv en kommentar..."
-                                  className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !savingFeedback) {
-                                      handleSaveFeedback(
-                                        activity.id,
-                                        undefined,
-                                        feedbackComment,
-                                      );
-                                    }
-                                  }}
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleSaveFeedback(
-                                      activity.id,
-                                      undefined,
-                                      feedbackComment,
-                                    )
-                                  }
-                                  disabled={savingFeedback}
-                                  className="p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg transition-colors"
-                                >
-                                  <Send className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
+                          {/* Teacher feedback indicator */}
+                          {activity.feedback?.teacher_reaction && (
+                            <span className="text-sm">
+                              {activity.feedback.teacher_reaction}
+                            </span>
+                          )}
+                          {activity.feedback?.teacher_comment && (
+                            <span className="text-xs text-slate-500 italic truncate max-w-[150px]">
+                              {activity.feedback.teacher_comment}
+                            </span>
                           )}
                         </div>
-
-                        {/* Return task — AlertDialog */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                              <Undo2 className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">
-                                Send i retur
-                              </span>
-                            </button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Send oppgave i retur?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Oppgaven &ldquo;{activity.title}&rdquo; blir
-                                satt tilbake til ugjort
-                                {activity.points_value > 0 &&
-                                  ` og ${activity.points_value} poeng trekkes fra ${studentName}`}
-                                .
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                              <AlertDialogAction
-                                variant="destructive"
-                                onClick={() => handleReturnTask(activity.id)}
-                              >
-                                {returningId === activity.id
-                                  ? "Sender..."
-                                  : "Ja, send i retur"}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </div>
+
+                      {/* Chevron */}
+                      <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-slate-500 transition-colors shrink-0" />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
       </div>
+
+      {/* ── Activity Detail Sheet ───────────────────── */}
+      <ActivityDetailSheet
+        activity={selectedActivity}
+        isOpen={!!selectedActivity}
+        onClose={() => setSelectedActivity(null)}
+        onSaveFeedback={async (taskId, reaction, comment) => {
+          await handleSaveFeedback(taskId, reaction, comment);
+          // Update the selected activity in-place so sheet reflects changes
+          setSelectedActivity((prev) => {
+            if (!prev || prev.id !== taskId) return prev;
+            return {
+              ...prev,
+              feedback: {
+                id: prev.feedback?.id ?? "temp",
+                student_comment: prev.feedback?.student_comment ?? null,
+                student_audio_url: prev.feedback?.student_audio_url ?? null,
+                student_image_url: prev.feedback?.student_image_url ?? null,
+                quiz_responses: prev.feedback?.quiz_responses ?? null,
+                teacher_reaction:
+                  reaction ?? prev.feedback?.teacher_reaction ?? null,
+                teacher_comment:
+                  comment !== undefined
+                    ? comment || null
+                    : (prev.feedback?.teacher_comment ?? null),
+              },
+            };
+          });
+        }}
+        onReturnTask={handleReturnTask}
+        returningId={returningId}
+        savingFeedback={savingFeedback}
+      />
     </div>
   );
 }
