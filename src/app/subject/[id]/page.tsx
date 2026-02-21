@@ -113,7 +113,7 @@ export default function SubjectDetailPage() {
       if (completedError) {
         console.error(
           "Feil ved henting av fullførte oppgaver:",
-          completedError
+          completedError,
         );
       } else {
         setCompletedTasks(completedTasksData || []);
@@ -139,7 +139,7 @@ export default function SubjectDetailPage() {
     audio
       .play()
       .catch((e) =>
-        console.log("Audio play failed (user interaction needed first):", e)
+        console.log("Audio play failed (user interaction needed first):", e),
       );
   };
 
@@ -169,11 +169,11 @@ export default function SubjectDetailPage() {
       if (profile) {
         const newPointsEarned = Math.max(
           0,
-          profile.points_earned - taskData.points_value
+          profile.points_earned - taskData.points_value,
         );
         const newCurrentXp = Math.max(
           0,
-          profile.current_xp - taskData.points_value
+          profile.current_xp - taskData.points_value,
         );
 
         const { error: profileError } = await supabase
@@ -214,7 +214,7 @@ export default function SubjectDetailPage() {
       // 1. Mark task as completed
       const { error: taskError } = await supabase
         .from("tasks")
-        .update({ is_completed: true })
+        .update({ is_completed: true, completed_at: new Date().toISOString() })
         .eq("id", selectedTaskId);
 
       if (taskError) throw taskError;
@@ -283,7 +283,7 @@ export default function SubjectDetailPage() {
     rewardType: "petal" | "database",
     payload?: string,
     petalIndex?: number,
-    rewardId?: string
+    rewardId?: string,
   ) => {
     if (!profile) return;
 
@@ -295,7 +295,7 @@ export default function SubjectDetailPage() {
         const currentColors = profile.petal_colors || [];
         const normalizedColors = Array.from(
           { length: 5 },
-          (_, i) => currentColors[i] || "#E0E0E0"
+          (_, i) => currentColors[i] || "#E0E0E0",
         );
         const targetIndex =
           typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5
@@ -307,7 +307,7 @@ export default function SubjectDetailPage() {
 
         // Recalculate progress as count of non-grey colors (exclude #E0E0E0 which is the grey/empty marker)
         const newPetalsProgress = normalizedColors.filter(
-          (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0"
+          (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0",
         ).length;
 
         // Check if flower is complete (5 petals)

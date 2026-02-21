@@ -9,7 +9,6 @@ import {
   Zap,
   MessageSquare,
   Undo2,
-  X,
   Clock,
   Send,
 } from "lucide-react";
@@ -18,6 +17,17 @@ import {
   getDisplayName,
   getInitials,
 } from "@/contexts/TeacherProfileContext";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 // ── Types ──────────────────────────────────────────────
 type ActivityItem = {
@@ -45,6 +55,7 @@ type ActivityItem = {
 
 // ── Helpers ────────────────────────────────────────────
 function timeAgo(dateStr: string): string {
+  if (!dateStr || isNaN(new Date(dateStr).getTime())) return "Nylig";
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "akkurat nå";
@@ -78,8 +89,7 @@ export default function TeacherDashboard() {
   const [savingFeedback, setSavingFeedback] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  // Return confirmation
-  const [confirmReturnId, setConfirmReturnId] = useState<string | null>(null);
+  // Return task
   const [returningId, setReturningId] = useState<string | null>(null);
 
   // ── Fetch activities ───────────────────────────────
@@ -255,7 +265,6 @@ export default function TeacherDashboard() {
 
       // 3. Remove from feed
       setActivities((prev) => prev.filter((a) => a.id !== taskId));
-      setConfirmReturnId(null);
     } catch (err) {
       console.error("Error returning task:", err);
       alert("Kunne ikke sende i retur. Prøv igjen.");
@@ -398,9 +407,8 @@ export default function TeacherDashboard() {
                 return (
                   <div
                     key={activity.id}
-                    className="p-4 sm:p-5 hover:bg-slate-50/50 transition-colors"
+                    className="p-3 sm:p-4 hover:bg-slate-50/50 transition-colors"
                   >
-                    {/* Top row: avatar + info + time */}
                     <div className="flex items-start gap-3">
                       {/* Student avatar */}
                       <Link
@@ -411,45 +419,41 @@ export default function TeacherDashboard() {
                           <img
                             src={activity.student.avatar_url}
                             alt={studentName}
-                            className="w-10 h-10 rounded-full object-cover"
+                            className="w-9 h-9 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm">
+                          <div className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-xs">
                             {studentInitials}
                           </div>
                         )}
                       </Link>
 
-                      {/* Info */}
+                      {/* Info — middle */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap text-sm">
                           <Link
                             href={`/teacher/students/${activity.student?.id}`}
-                            className="text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
+                            className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors"
                           >
                             {studentName}
                           </Link>
-                          <span className="text-sm text-slate-500">
-                            fullførte
-                          </span>
-                          <span className="text-sm font-medium text-slate-800 truncate">
+                          <span className="text-slate-400">fullførte</span>
+                          <span className="font-medium text-slate-700 truncate">
                             {activity.subject?.emoji && (
-                              <span className="mr-1">
+                              <span className="mr-0.5">
                                 {activity.subject.emoji}
                               </span>
                             )}
                             {activity.title}
                           </span>
-                        </div>
 
-                        {/* Points badge + time */}
-                        <div className="flex items-center gap-3 mt-1">
                           {activity.points_value > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">
-                              ⭐ {activity.points_value} poeng
+                            <span className="inline-flex items-center gap-0.5 text-xs font-medium text-yellow-700 bg-yellow-50 px-1.5 py-0.5 rounded-full">
+                              ⭐ {activity.points_value}
                             </span>
                           )}
-                          <span className="flex items-center gap-1 text-xs text-slate-400">
+
+                          <span className="flex items-center gap-1 text-xs text-slate-400 ml-auto sm:ml-0">
                             <Clock className="h-3 w-3" />
                             {timeAgo(activity.completed_at)}
                           </span>
@@ -457,15 +461,13 @@ export default function TeacherDashboard() {
 
                         {/* Student submission */}
                         {activity.feedback?.student_comment && (
-                          <div className="mt-2 p-3 bg-slate-50 rounded-lg border border-slate-100">
-                            <p className="text-sm text-slate-700 italic">
-                              &ldquo;{activity.feedback.student_comment}&rdquo;
-                            </p>
-                          </div>
+                          <p className="mt-1.5 text-sm text-slate-600 italic bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                            &ldquo;{activity.feedback.student_comment}&rdquo;
+                          </p>
                         )}
 
                         {activity.feedback?.student_audio_url && (
-                          <div className="mt-2">
+                          <div className="mt-1.5">
                             <audio
                               controls
                               src={activity.feedback.student_audio_url}
@@ -477,9 +479,9 @@ export default function TeacherDashboard() {
                         {/* Existing teacher feedback display */}
                         {(activity.feedback?.teacher_reaction ||
                           activity.feedback?.teacher_comment) && (
-                          <div className="mt-2 flex items-center gap-2 text-sm">
+                          <div className="mt-1.5 flex items-center gap-2 text-sm">
                             {activity.feedback.teacher_reaction && (
-                              <span className="text-lg">
+                              <span className="text-base">
                                 {activity.feedback.teacher_reaction}
                               </span>
                             )}
@@ -491,136 +493,141 @@ export default function TeacherDashboard() {
                           </div>
                         )}
                       </div>
-                    </div>
 
-                    {/* Action buttons */}
-                    <div className="flex items-center gap-2 mt-3 ml-13 pl-[52px]">
-                      {/* Feedback / Reaction button */}
-                      <div className="relative">
-                        <button
-                          onClick={() => {
-                            setFeedbackOpenId(
-                              feedbackOpenId === activity.id
-                                ? null
-                                : activity.id,
-                            );
-                            setFeedbackComment(
-                              activity.feedback?.teacher_comment ?? "",
-                            );
-                            setConfirmReturnId(null);
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          Tilbakemelding
-                        </button>
-
-                        {/* Feedback popover */}
-                        {feedbackOpenId === activity.id && (
-                          <div
-                            ref={popoverRef}
-                            className="absolute left-0 top-full mt-1 z-30 w-72 bg-white rounded-xl border border-slate-200 shadow-lg p-4"
+                      {/* Action buttons — right */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Feedback / Reaction button */}
+                        <div className="relative">
+                          <button
+                            onClick={() => {
+                              setFeedbackOpenId(
+                                feedbackOpenId === activity.id
+                                  ? null
+                                  : activity.id,
+                              );
+                              setFeedbackComment(
+                                activity.feedback?.teacher_comment ?? "",
+                              );
+                            }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                           >
-                            {/* Quick reactions */}
-                            <p className="text-xs font-medium text-slate-500 mb-2">
-                              Hurtigreaksjon
-                            </p>
-                            <div className="flex gap-1 mb-3">
-                              {QUICK_REACTIONS.map((emoji) => (
-                                <button
-                                  key={emoji}
-                                  onClick={() =>
-                                    handleSaveFeedback(
-                                      activity.id,
-                                      emoji,
-                                      undefined,
-                                    )
-                                  }
-                                  className={`text-xl p-1.5 rounded-lg transition-colors ${
-                                    activity.feedback?.teacher_reaction ===
-                                    emoji
-                                      ? "bg-indigo-100 ring-2 ring-indigo-400"
-                                      : "hover:bg-slate-100"
-                                  }`}
-                                >
-                                  {emoji}
-                                </button>
-                              ))}
-                            </div>
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">
+                              Tilbakemelding
+                            </span>
+                          </button>
 
-                            {/* Comment */}
-                            <p className="text-xs font-medium text-slate-500 mb-2">
-                              Kommentar
-                            </p>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={feedbackComment}
-                                onChange={(e) =>
-                                  setFeedbackComment(e.target.value)
-                                }
-                                placeholder="Skriv en kommentar..."
-                                className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !savingFeedback) {
+                          {/* Feedback popover */}
+                          {feedbackOpenId === activity.id && (
+                            <div
+                              ref={popoverRef}
+                              className="absolute right-0 top-full mt-1 z-30 w-72 bg-white rounded-xl border border-slate-200 shadow-lg p-4"
+                            >
+                              {/* Quick reactions */}
+                              <p className="text-xs font-medium text-slate-500 mb-2">
+                                Hurtigreaksjon
+                              </p>
+                              <div className="flex gap-1 mb-3">
+                                {QUICK_REACTIONS.map((emoji) => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() =>
+                                      handleSaveFeedback(
+                                        activity.id,
+                                        emoji,
+                                        undefined,
+                                      )
+                                    }
+                                    className={`text-xl p-1.5 rounded-lg transition-colors ${
+                                      activity.feedback?.teacher_reaction ===
+                                      emoji
+                                        ? "bg-indigo-100 ring-2 ring-indigo-400"
+                                        : "hover:bg-slate-100"
+                                    }`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Comment */}
+                              <p className="text-xs font-medium text-slate-500 mb-2">
+                                Kommentar
+                              </p>
+                              <div className="flex gap-2">
+                                <input
+                                  type="text"
+                                  value={feedbackComment}
+                                  onChange={(e) =>
+                                    setFeedbackComment(e.target.value)
+                                  }
+                                  placeholder="Skriv en kommentar..."
+                                  className="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !savingFeedback) {
+                                      handleSaveFeedback(
+                                        activity.id,
+                                        undefined,
+                                        feedbackComment,
+                                      );
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={() =>
                                     handleSaveFeedback(
                                       activity.id,
                                       undefined,
                                       feedbackComment,
-                                    );
+                                    )
                                   }
-                                }}
-                              />
-                              <button
-                                onClick={() =>
-                                  handleSaveFeedback(
-                                    activity.id,
-                                    undefined,
-                                    feedbackComment,
-                                  )
-                                }
-                                disabled={savingFeedback}
-                                className="p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg transition-colors"
-                              >
-                                <Send className="h-4 w-4" />
-                              </button>
+                                  disabled={savingFeedback}
+                                  className="p-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-lg transition-colors"
+                                >
+                                  <Send className="h-4 w-4" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Return task button */}
-                      {confirmReturnId === activity.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-red-600">Sikker?</span>
-                          <button
-                            onClick={() => handleReturnTask(activity.id)}
-                            disabled={returningId === activity.id}
-                            className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-300 rounded-lg transition-colors"
-                          >
-                            {returningId === activity.id
-                              ? "Sender..."
-                              : "Ja, send i retur"}
-                          </button>
-                          <button
-                            onClick={() => setConfirmReturnId(null)}
-                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
+                          )}
                         </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setConfirmReturnId(activity.id);
-                            setFeedbackOpenId(null);
-                          }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Undo2 className="h-3.5 w-3.5" />
-                          Send i retur
-                        </button>
-                      )}
+
+                        {/* Return task — AlertDialog */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <button className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                              <Undo2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">
+                                Send i retur
+                              </span>
+                            </button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Send oppgave i retur?
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Oppgaven &ldquo;{activity.title}&rdquo; blir
+                                satt tilbake til ugjort
+                                {activity.points_value > 0 &&
+                                  ` og ${activity.points_value} poeng trekkes fra ${studentName}`}
+                                .
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                              <AlertDialogAction
+                                variant="destructive"
+                                onClick={() => handleReturnTask(activity.id)}
+                              >
+                                {returningId === activity.id
+                                  ? "Sender..."
+                                  : "Ja, send i retur"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </div>
                 );

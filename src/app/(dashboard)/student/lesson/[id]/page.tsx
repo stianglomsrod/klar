@@ -53,7 +53,7 @@ export default function LessonDetailPage() {
 
         const { data, error: rpcError } = await supabase.rpc(
           "get_lesson_details",
-          { p_entry_id: id }
+          { p_entry_id: id },
         );
 
         if (rpcError) {
@@ -87,7 +87,10 @@ export default function LessonDetailPage() {
 
       const { error } = await supabase
         .from("tasks")
-        .update({ is_completed: newCompletedState })
+        .update({
+          is_completed: newCompletedState,
+          completed_at: newCompletedState ? new Date().toISOString() : null,
+        })
         .eq("id", task.id);
 
       if (error) throw error;
@@ -96,7 +99,7 @@ export default function LessonDetailPage() {
       setLesson((prev) => {
         if (!prev) return null;
         const updatedTasks = prev.tasks.map((t) =>
-          t.id === task.id ? { ...t, is_completed: newCompletedState } : t
+          t.id === task.id ? { ...t, is_completed: newCompletedState } : t,
         );
         return {
           ...prev,
