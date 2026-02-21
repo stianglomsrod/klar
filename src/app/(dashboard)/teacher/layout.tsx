@@ -4,13 +4,21 @@ import { useState } from "react";
 import { Menu, X, GraduationCap } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
+import {
+  TeacherProfileProvider,
+  useTeacherProfile,
+  getInitials,
+  getDisplayName,
+} from "@/contexts/TeacherProfileContext";
 
-export default function TeacherLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function TeacherLayoutInner({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { profile, loading } = useTeacherProfile();
+
+  const displayName = getDisplayName(profile);
+  const email = profile?.email ?? "";
+  const initials = getInitials(profile?.full_name, "L");
+  const avatarUrl = profile?.avatar_url;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -36,16 +44,22 @@ export default function TeacherLayout({
           {/* Footer */}
           <div className="px-4 py-4 border-t border-slate-200">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
-                L
-              </div>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="w-9 h-9 rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
+                  {loading ? "…" : initials}
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-900 truncate">
-                  Lærernavn
+                  {loading ? "Laster..." : displayName}
                 </p>
-                <p className="text-xs text-slate-500 truncate">
-                  lærer@skole.no
-                </p>
+                <p className="text-xs text-slate-500 truncate">{email}</p>
               </div>
             </div>
           </div>
@@ -123,16 +137,22 @@ export default function TeacherLayout({
                 {/* Drawer Footer */}
                 <div className="px-4 py-4 border-t border-slate-200">
                   <div className="flex items-center gap-3 px-3 py-2">
-                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
-                      L
-                    </div>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="w-9 h-9 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
+                        {loading ? "…" : initials}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-slate-900 truncate">
-                        Lærernavn
+                        {loading ? "Laster..." : displayName}
                       </p>
-                      <p className="text-xs text-slate-500 truncate">
-                        lærer@skole.no
-                      </p>
+                      <p className="text-xs text-slate-500 truncate">{email}</p>
                     </div>
                   </div>
                 </div>
@@ -147,5 +167,17 @@ export default function TeacherLayout({
         <div className="min-h-screen">{children}</div>
       </main>
     </div>
+  );
+}
+
+export default function TeacherLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <TeacherProfileProvider>
+      <TeacherLayoutInner>{children}</TeacherLayoutInner>
+    </TeacherProfileProvider>
   );
 }

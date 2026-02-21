@@ -1,14 +1,23 @@
 "use client";
 
 import { Calendar, CheckCircle, Zap } from "lucide-react";
+import {
+  useTeacherProfile,
+  getDisplayName,
+} from "@/contexts/TeacherProfileContext";
 
 export default function TeacherDashboard() {
+  const { profile, loading } = useTeacherProfile();
+  const firstName = loading
+    ? "..."
+    : (getDisplayName(profile).split(" ")[0] ?? "Lærer");
+
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">
-          Hei, Lærernavn 👋
+          Hei, {firstName} 👋
         </h1>
         <p className="text-slate-600">
           Velkommen til lærer dashboardet. Her kan du administrere klasser,
