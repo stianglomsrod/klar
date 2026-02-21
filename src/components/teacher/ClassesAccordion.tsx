@@ -38,6 +38,7 @@ type Trinn = {
 type ClassesAccordionProps = {
   onStudentClick?: (student: Student) => void;
   teacherId?: string;
+  searchQuery?: string;
 };
 
 type DropdownPosition = {
@@ -48,13 +49,14 @@ type DropdownPosition = {
 export default function ClassesAccordion({
   onStudentClick,
   teacherId = "",
+  searchQuery = "",
 }: ClassesAccordionProps) {
   const router = useRouter();
   const [trinnGroups, setTrinnGroups] = useState<Trinn[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedTrinn, setExpandedTrinn] = useState<Set<string>>(new Set());
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [openMenu, setOpenMenu] = useState<{
     type: "trinn" | "class" | "student";
@@ -79,7 +81,7 @@ export default function ClassesAccordion({
   // Helper function to group classes by trinn
   const groupClassesByTrinn = (
     classes: { id: string; name: string }[],
-    students: Student[]
+    students: Student[],
   ): Trinn[] => {
     // Assign students to classes
     const classesWithStudents: Class[] = classes.map((cls) => ({
@@ -142,7 +144,7 @@ export default function ClassesAccordion({
             class_id,
             show_flower_garden
           )
-          `
+          `,
         )
         .eq("role", "student")
         .order("full_name", { ascending: true });
@@ -164,7 +166,7 @@ export default function ClassesAccordion({
       // Group classes by trinn dynamically
       const trinnGroups = groupClassesByTrinn(
         classesData || [],
-        transformedStudents
+        transformedStudents,
       );
 
       setTrinnGroups(trinnGroups);
@@ -199,7 +201,7 @@ export default function ClassesAccordion({
     e: React.MouseEvent,
     type: "trinn" | "class" | "student",
     id: string,
-    student?: Student
+    student?: Student,
   ) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -256,6 +258,49 @@ export default function ClassesAccordion({
     }
   }, [openMenu]);
 
+  // Filter trinn/classes based on search query
+  const filteredTrinnGroups = searchQuery.trim()
+    ? trinnGroups
+        .map((trinn) => {
+          const q = searchQuery.toLowerCase();
+          // Check if trinn name matches
+          const trinnMatches = trinn.name.toLowerCase().includes(q);
+          if (trinnMatches) return trinn;
+          // Otherwise filter to classes whose name matches or have matching students
+          const filteredClasses = trinn.classes
+            .map((cls) => {
+              const classMatches = cls.name.toLowerCase().includes(q);
+              if (classMatches) return cls;
+              const filteredStudents = cls.students.filter((s) =>
+                s.full_name.toLowerCase().includes(q),
+              );
+              if (filteredStudents.length > 0)
+                return { ...cls, students: filteredStudents };
+              return null;
+            })
+            .filter((cls): cls is Class => cls !== null);
+          if (filteredClasses.length > 0)
+            return { ...trinn, classes: filteredClasses };
+          return null;
+        })
+        .filter((trinn): trinn is Trinn => trinn !== null)
+    : trinnGroups;
+
+  // Auto-expand trinn/classes when searching
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const expandedT = new Set<string>();
+      const expandedC = new Set<string>();
+      filteredTrinnGroups.forEach((trinn) => {
+        expandedT.add(trinn.id);
+        trinn.classes.forEach((cls) => expandedC.add(cls.id));
+      });
+      setExpandedTrinn(expandedT);
+      setExpandedClasses(expandedC);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
@@ -266,14 +311,18 @@ export default function ClassesAccordion({
     );
   }
 
-  if (trinnGroups.length === 0) {
+  if (filteredTrinnGroups.length === 0) {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
         <div className="text-center">
           <GraduationCap className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-          <p className="text-slate-600 mb-2">Ingen klassestruktur funnet</p>
+          <p className="text-slate-600 mb-2">
+            {searchQuery.trim() ? "Ingen treff" : "Ingen klassestruktur funnet"}
+          </p>
           <p className="text-sm text-slate-500">
-            Opprett klasser for å organisere elevene dine
+            {searchQuery.trim()
+              ? "Prøv et annet søkeord"
+              : "Opprett klasser for å organisere elevene dine"}
           </p>
         </div>
       </div>
@@ -287,11 +336,11 @@ export default function ClassesAccordion({
       </div>
 
       <div className="divide-y divide-slate-200">
-        {trinnGroups.map((trinn) => {
+        {filteredTrinnGroups.map((trinn) => {
           const isTrinnExpanded = expandedTrinn.has(trinn.id);
           const totalStudents = trinn.classes.reduce(
             (sum, cls) => sum + cls.students.length,
-            0
+            0,
           );
 
           return (
@@ -391,7 +440,7 @@ export default function ClassesAccordion({
                                     <button
                                       onClick={() =>
                                         router.push(
-                                          `/teacher/students/${student.id}`
+                                          `/teacher/students/${student.id}`,
                                         )
                                       }
                                       className="flex-1 flex items-center gap-3 text-left"
@@ -436,7 +485,7 @@ export default function ClassesAccordion({
                                           e,
                                           "student",
                                           student.id,
-                                          student
+                                          student,
                                         );
                                       }}
                                       className="ml-2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
@@ -520,7 +569,7 @@ export default function ClassesAccordion({
                   handleMenuAction(
                     "edit-student",
                     openMenu.id,
-                    openMenu.student
+                    openMenu.student,
                   )
                 }
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"

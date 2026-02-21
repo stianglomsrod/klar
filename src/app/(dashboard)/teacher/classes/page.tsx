@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Search, Filter, LayoutGrid, List } from "lucide-react";
+import { Search, Filter, School, Users } from "lucide-react";
 import StudentTable from "@/components/teacher/StudentTable";
 import EditStudentSheet from "@/components/teacher/EditStudentSheet";
 import ClassesAccordion from "@/components/teacher/ClassesAccordion";
@@ -60,7 +60,7 @@ export default function ClassesPage() {
             show_flower_garden,
             custom_welcome_message
           )
-          `
+          `,
         )
         .eq("role", "student")
         .order("full_name", { ascending: true });
@@ -102,14 +102,14 @@ export default function ClassesPage() {
     // Filter by class
     if (selectedClass !== "Alle") {
       filtered = filtered.filter(
-        (student) => student.class_name === selectedClass
+        (student) => student.class_name === selectedClass,
       );
     }
 
     // Filter by search query
     if (searchQuery.trim()) {
       filtered = filtered.filter((student) =>
-        student.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+        student.full_name.toLowerCase().includes(searchQuery.toLowerCase()),
       );
     }
 
@@ -123,8 +123,8 @@ export default function ClassesPage() {
       new Set(
         students
           .map((s) => s.class_name)
-          .filter((name): name is string => name !== null)
-      )
+          .filter((name): name is string => name !== null),
+      ),
     ),
   ];
 
@@ -138,7 +138,7 @@ export default function ClassesPage() {
     updates: {
       show_flower_garden: boolean;
       custom_welcome_message: string | null;
-    }
+    },
   ) => {
     try {
       const { error } = await supabase
@@ -150,7 +150,7 @@ export default function ClassesPage() {
 
       // Update local state
       setStudents((prev) =>
-        prev.map((s) => (s.id === studentId ? { ...s, ...updates } : s))
+        prev.map((s) => (s.id === studentId ? { ...s, ...updates } : s)),
       );
 
       setIsSheetOpen(false);
@@ -191,8 +191,8 @@ export default function ClassesPage() {
               : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
           }`}
         >
-          <LayoutGrid className="h-4 w-4" />
-          Klassestruktur
+          <School className="h-4 w-4" />
+          Klasser
         </button>
         <button
           onClick={() => setViewMode("table")}
@@ -202,15 +202,66 @@ export default function ClassesPage() {
               : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
           }`}
         >
-          <List className="h-4 w-4" />
-          Tabell
+          <Users className="h-4 w-4" />
+          Elever
         </button>
+      </div>
+
+      {/* Global Search & Filter Toolbar */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search Bar */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+            <input
+              type="text"
+              placeholder={
+                viewMode === "hierarchy"
+                  ? "Søk etter klasse..."
+                  : "Søk etter elev..."
+              }
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Class Filter - only in table view */}
+          {viewMode === "table" && (
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="pl-10 pr-8 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white appearance-none cursor-pointer min-w-[150px]"
+              >
+                {classNames.map((className) => (
+                  <option key={className} value={className}>
+                    {className}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Results count - only in table view */}
+        {viewMode === "table" && (
+          <div className="mt-3 pt-3 border-t border-slate-100">
+            <p className="text-sm text-slate-600">
+              Viser{" "}
+              <span className="font-semibold">{filteredStudents.length}</span>{" "}
+              av <span className="font-semibold">{students.length}</span> elever
+            </p>
+          </div>
+        )}
       </div>
 
       {viewMode === "hierarchy" ? (
         /* Hierarchy View */
         <ClassesAccordion
           teacherId={teacherId}
+          searchQuery={searchQuery}
           onStudentClick={(student) => {
             // Find the full student object from our list
             const fullStudent = students.find((s) => s.id === student.id);
@@ -220,56 +271,11 @@ export default function ClassesPage() {
           }}
         />
       ) : (
-        <>
-          {/* Toolbar */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              {/* Search Bar */}
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Søk etter elev..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Class Filter */}
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="pl-10 pr-8 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white appearance-none cursor-pointer min-w-[150px]"
-                >
-                  {classNames.map((className) => (
-                    <option key={className} value={className}>
-                      {className}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Results count */}
-            <div className="mt-3 pt-3 border-t border-slate-100">
-              <p className="text-sm text-slate-600">
-                Viser{" "}
-                <span className="font-semibold">{filteredStudents.length}</span>{" "}
-                av <span className="font-semibold">{students.length}</span>{" "}
-                elever
-              </p>
-            </div>
-          </div>
-
-          {/* Student Table */}
-          <StudentTable
-            students={filteredStudents}
-            onEditStudent={handleEditStudent}
-          />
-        </>
+        /* Student Table */
+        <StudentTable
+          students={filteredStudents}
+          onEditStudent={handleEditStudent}
+        />
       )}
 
       {/* Edit Student Sheet */}
