@@ -25,6 +25,7 @@ klar/
 ├── SCHEDULE_PICKER_VISUAL_GUIDE.md
 ├── SETUP_CHECKLIST.md
 ├── TEACHERS_SCHEDULE_PICKER_GUIDE.md
+├── TECH_DEBT.md
 ├── tailwind.config.ts
 ├── tsconfig.json
 │
@@ -78,8 +79,15 @@ klar/
 │   │   │       │       └── page.tsx
 │   │   │       ├── tasks/
 │   │   │       │   └── page.tsx
-│   │   │       └── timeplan/
+│   │   │       ├── timeplan/
+│   │   │       │   └── page.tsx
+│   │   │       └── ukebrev/
 │   │   │           └── page.tsx
+│   │   │
+│   │   ├── actions/
+│   │   │   ├── student-actions.ts
+│   │   │   ├── parse-weekly-plan.ts
+│   │   │   └── save-weekly-plan.ts
 │   │   │
 │   │   ├── api/
 │   │   │   └── seed/
@@ -121,16 +129,19 @@ klar/
 │   │   │   ├── FeedbackBubble.tsx
 │   │   │   ├── FeedbackSheet.tsx
 │   │   │   ├── StudentHelpButton.tsx
-│   │   │   └── StudentQuizView.tsx
+│   │   │   ├── StudentQuizView.tsx
+│   │   │   └── SubjectProgress.tsx
 │   │   │
 │   │   ├── teacher/
 │   │   │   ├── ActivityDetailSheet.tsx
+│   │   │   ├── AddStudentModal.tsx
 │   │   │   ├── ClassesAccordion.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
 │   │   │   ├── CreateTaskButton.tsx
 │   │   │   ├── CreateTaskModal.tsx
 │   │   │   ├── EditStudentSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
+│   │   │   ├── PreviewScheduleGrid.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
@@ -142,6 +153,7 @@ klar/
 │   │       ├── CircularProgress.tsx
 │   │       ├── color-picker-grid.tsx
 │   │       ├── dropdown-menu.tsx
+│   │       ├── edit-dialog.tsx
 │   │       ├── emoji-picker.tsx
 │   │       ├── MediaUploadToolbar.tsx
 │   │       ├── popover.tsx
@@ -157,6 +169,7 @@ klar/
 │   ├── hooks/
 │   │   ├── useMediaQuery.ts
 │   │   ├── useStudentProfile.ts
+│   │   ├── useTaskCompletion.ts
 │   │   ├── useTeacherProfile.ts
 │   │   ├── useTimeTracker.ts
 │   │   └── useTTS.ts
@@ -184,5 +197,6 @@ klar/
         ├── 20260222000000_add_earned_at_level_to_student_rewards.sql
         ├── 20260222000001_add_max_level_reached.sql
         ├── 20260222000002_create_student_media_bucket.sql
-        └── 20260222100000_add_feedback_teacher_id_and_read_at.sql
+        ├── 20260222100000_add_feedback_teacher_id_and_read_at.sql
+        └── 20260222200000_add_current_password_plaintext.sql
 ```

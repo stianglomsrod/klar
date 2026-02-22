@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
 import LevelUpModal from "@/components/LevelUpModal";
+import SubjectProgress from "@/components/student/SubjectProgress";
 import StudentQuizView, {
   type QuizQuestion,
   type QuizResponses,
@@ -13,7 +14,7 @@ import StudentQuizView, {
 } from "@/components/student/StudentQuizView";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import MediaUploadToolbar, {
   type MediaUploadToolbarHandle,
@@ -56,7 +57,14 @@ export default function SubjectDetailPage() {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completedTasks, setCompletedTasks] = useState<Task[]>([]);
-  const { profile, refresh: refreshProfile } = useStudentProfile();
+  const {
+    profile,
+    isCompleting,
+    completeTask,
+    undoTask,
+    selectReward,
+    playSuccessSound,
+  } = useTaskCompletion();
   const [loading, setLoading] = useState(true);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -276,52 +284,10 @@ export default function SubjectDetailPage() {
         throw new Error(feedbackError.message || "Feedback upsert failed");
       }
 
-      // ── 3. Mark task as completed ──
-      const { error: taskError } = await supabase
-        .from("tasks")
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
-        .eq("id", quizTask.id);
+      // ── 3. Complete task via hook (marks done, XP, level, sound) ──
+      const result = await completeTask(quizTask.id, quizTask.points_value);
 
-      if (taskError) throw taskError;
-
-      // ── 4. Calculate XP / level ──
-      const newPointsEarned = profile.points_earned + quizTask.points_value;
-      const goalTotal = profile.current_goal_total ?? 1000;
-      const currentLevel = profile.level ?? 1;
-
-      let finalCurrentXp = profile.current_xp + quizTask.points_value;
-      let newLevelCalc = currentLevel;
-      let shouldLevelUp = false;
-
-      while (finalCurrentXp >= goalTotal) {
-        newLevelCalc += 1;
-        finalCurrentXp -= goalTotal;
-        shouldLevelUp = true;
-      }
-
-      const maxLevelReached = profile.max_level_reached ?? 1;
-      const isNewHighLevel = newLevelCalc > maxLevelReached;
-
-      const profileUpdates: Record<string, unknown> = {
-        points_earned: newPointsEarned,
-        current_xp: finalCurrentXp,
-        level: newLevelCalc,
-      };
-
-      if (isNewHighLevel) {
-        profileUpdates.max_level_reached = newLevelCalc;
-      }
-
-      const { error: profileError } = await supabase
-        .from("student_profiles")
-        .update(profileUpdates)
-        .eq("id", profile.id);
-
-      if (profileError) throw profileError;
-
-      await refreshProfile();
-
-      // ── 5. Optimistic UI update ──
+      // ── 4. Optimistic UI update ──
       const completedTask = tasks.find((t) => t.id === quizTask.id);
       if (completedTask) {
         setTasks((prev) => prev.filter((t) => t.id !== quizTask.id));
@@ -331,14 +297,13 @@ export default function SubjectDetailPage() {
         ]);
       }
 
-      // ── 6. Play sound, close quiz ──
-      playSuccessSound();
+      // ── 5. Close quiz ──
       setIsQuizOpen(false);
       setQuizTask(null);
 
-      // ── 7. Level up modal if needed ──
-      if (shouldLevelUp && isNewHighLevel) {
-        setNewLevel(newLevelCalc);
+      // ── 6. Level up modal if needed ──
+      if (result?.shouldLevelUp && result.isNewHighLevel) {
+        setNewLevel(result.newLevel);
         setShowLevelUpModal(true);
       }
     } catch (error: unknown) {
@@ -349,84 +314,15 @@ export default function SubjectDetailPage() {
     }
   };
 
-  const playSuccessSound = () => {
-    const audio = new Audio("/sounds/pling.mp3");
-    audio.volume = 0.5; // Not too loud
-    audio
-      .play()
-      .catch((e) =>
-        console.log("Audio play failed (user interaction needed first):", e),
-      );
-  };
-
   const handleUndoTask = async (taskId: string) => {
-    const supabase = createClient();
-
-    try {
-      // 1. Fetch task to get points_value
-      const { data: taskData, error: taskFetchError } = await supabase
-        .from("tasks")
-        .select("points_value")
-        .eq("id", taskId)
-        .single();
-
-      if (taskFetchError || !taskData)
-        throw taskFetchError || new Error("Task not found");
-
-      // 2. Mark task as incomplete
-      const { error: updateError } = await supabase
-        .from("tasks")
-        .update({ is_completed: false })
-        .eq("id", taskId);
-
-      if (updateError) throw updateError;
-
-      // 3. Update profile: decrement points and current_xp (with level demotion)
-      if (profile) {
-        const currentXp = profile.current_xp;
-        const currentLevel = profile.level ?? 1;
-        const goalTotal = profile.current_goal_total ?? 1000;
-        let rawXp = currentXp - taskData.points_value;
-        let newLevel = currentLevel;
-
-        // If XP goes negative, the undone task had triggered a level-up
-        // → demote levels, wrap XP back into previous level's range
-        // (handles multi-level demotions; rewards/petals stay untouched)
-        while (rawXp < 0 && newLevel > 1) {
-          newLevel -= 1;
-          rawXp += goalTotal;
-        }
-
-        const newCurrentXp = Math.max(0, rawXp);
-        const newPointsEarned = Math.max(
-          0,
-          profile.points_earned - taskData.points_value,
-        );
-
-        const { error: profileError } = await supabase
-          .from("student_profiles")
-          .update({
-            points_earned: newPointsEarned,
-            current_xp: newCurrentXp,
-            level: newLevel,
-          })
-          .eq("id", profile.id);
-
-        if (profileError) throw profileError;
-
-        // 4. Refresh profile from context to get latest data
-        await refreshProfile();
-      }
-
-      // 5. Move task from completed to active list
+    const success = await undoTask(taskId);
+    if (success) {
+      // Move task from completed to active list
       const task = completedTasks.find((t) => t.id === taskId);
       if (task) {
         setCompletedTasks((prev) => prev.filter((t) => t.id !== taskId));
         setTasks((prev) => [...prev, { ...task, is_completed: false }]);
       }
-    } catch (error) {
-      console.error("Feil ved angring av oppgave:", error);
-      alert("Noe gikk galt. Prøv igjen.");
     }
   };
 
@@ -436,57 +332,10 @@ export default function SubjectDetailPage() {
     const task = tasks.find((t) => t.id === selectedTaskId);
     if (!task) return;
 
-    const supabase = createClient();
-
     try {
-      // 1. Mark task as completed
-      const { error: taskError } = await supabase
-        .from("tasks")
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
-        .eq("id", selectedTaskId);
-
-      if (taskError) throw taskError;
-
-      // 2. Calculate new points and current_xp, check for level up
-      const newPointsEarned = profile.points_earned + task.points_value;
-      const goalTotal = profile.current_goal_total ?? 1000;
-      const currentLevel = profile.level ?? 1;
-
-      // Carry-over: loop handles multi-level jumps (task worth > 1 level)
-      let finalCurrentXp = profile.current_xp + task.points_value;
-      let newLevel = currentLevel;
-      let shouldLevelUp = false;
-
-      while (finalCurrentXp >= goalTotal) {
-        newLevel += 1;
-        finalCurrentXp -= goalTotal;
-        shouldLevelUp = true;
-      }
-
-      // 3. Update user profile in student_profiles
-      const maxLevelReached = profile.max_level_reached ?? 1;
-      const isNewHighLevel = newLevel > maxLevelReached;
-
-      const profileUpdates: any = {
-        points_earned: newPointsEarned,
-        current_xp: finalCurrentXp,
-        level: newLevel,
-      };
-
-      // Only bump high-water mark when we truly surpass it
-      if (isNewHighLevel) {
-        profileUpdates.max_level_reached = newLevel;
-      }
-
-      const { error: profileError } = await supabase
-        .from("student_profiles")
-        .update(profileUpdates)
-        .eq("id", profile.id);
-
-      if (profileError) throw profileError;
-
-      // Upload media attachments (if any) and save to feedback
+      // 1. Upload media attachments (if any) before completing
       if (mediaImage || mediaAudioBlob) {
+        const supabase = createClient();
         let imageUrl: string | null = null;
         let audioUrl: string | null = null;
 
@@ -518,10 +367,10 @@ export default function SubjectDetailPage() {
         );
       }
 
-      // Refresh profile from context to get latest data including show_flower_garden
-      await refreshProfile();
+      // 2. Complete task via hook (marks done, XP, level, sound)
+      const result = await completeTask(selectedTaskId, task.points_value);
 
-      // 4. Optimistic update: move task from active to completed list
+      // 3. Optimistic UI update
       const completedTask = tasks.find((t) => t.id === selectedTaskId);
       if (completedTask) {
         setTasks((prev) => prev.filter((t) => t.id !== selectedTaskId));
@@ -531,17 +380,14 @@ export default function SubjectDetailPage() {
         ]);
       }
 
-      // Play success sound
-      playSuccessSound();
-
-      // Close completion modal
+      // 4. Close modal & clear media
       setIsModalOpen(false);
       setSelectedTaskId(null);
       clearMedia();
 
-      // 5. Show level up modal only for genuinely new levels (high-water mark)
-      if (shouldLevelUp && isNewHighLevel) {
-        setNewLevel(newLevel);
+      // 5. Level up modal if needed
+      if (result?.shouldLevelUp && result.isNewHighLevel) {
+        setNewLevel(result.newLevel);
         setShowLevelUpModal(true);
       }
     } catch (error) {
@@ -557,67 +403,14 @@ export default function SubjectDetailPage() {
     petalIndex?: number,
     rewardId?: string,
   ) => {
-    if (!profile) return;
-
-    const supabase = createClient();
-
-    try {
-      if (rewardType === "petal" && payload) {
-        // Prepare a fixed-length colors array of 5 slots
-        const currentColors = profile.petal_colors || [];
-        const normalizedColors = Array.from(
-          { length: 5 },
-          (_, i) => currentColors[i] || "#E0E0E0",
-        );
-        const targetIndex =
-          typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5
-            ? petalIndex
-            : 0;
-
-        // Place color at the chosen index
-        normalizedColors[targetIndex] = payload;
-
-        // Recalculate progress as count of non-grey colors (exclude #E0E0E0 which is the grey/empty marker)
-        const newPetalsProgress = normalizedColors.filter(
-          (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0",
-        ).length;
-
-        // Check if flower is complete (5 petals)
-        const isFlowerComplete = newPetalsProgress >= 5;
-
-        const profileUpdates: any = {
-          petals_progress: isFlowerComplete ? 0 : newPetalsProgress,
-          petal_colors: isFlowerComplete ? [] : normalizedColors,
-        };
-
-        if (isFlowerComplete) {
-          profileUpdates.flowers_collected = profile.flowers_collected + 1;
-        }
-
-        // Update Supabase
-        const { error } = await supabase
-          .from("student_profiles")
-          .update(profileUpdates)
-          .eq("id", profile.id);
-
-        if (error) throw error;
-
-        // Refresh profile from context to get latest data
-        await refreshProfile();
-      } else if (rewardType === "database" && rewardId) {
-        // Handle database reward selection
-        // TODO: Implement reward claim logic - e.g., save to student_rewards table
-        // You can add logic here to:
-        // 1. Create a record in student_rewards table
-        // 2. Mark the reward as claimed
-        // 3. Update any relevant student data
-      }
-
-      // Close level up modal
+    const success = await selectReward(
+      rewardType,
+      payload,
+      petalIndex,
+      rewardId,
+    );
+    if (success) {
       setShowLevelUpModal(false);
-    } catch (error) {
-      console.error("Feil ved valg av belønning:", error);
-      alert("Noe gikk galt. Prøv igjen.");
     }
   };
 
@@ -701,8 +494,6 @@ export default function SubjectDetailPage() {
 
   const totalTasks = tasks.length + completedTasks.length;
   const completedCount = completedTasks.length;
-  const progressPercent =
-    totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
   return (
     <main className="bg-gradient-to-b from-gray-50 to-white pb-32">
@@ -751,17 +542,11 @@ export default function SubjectDetailPage() {
             </h1>
 
             {/* Progress Pill */}
-            <div className="mt-2 w-32 h-6 bg-gray-200 rounded-full relative overflow-hidden shadow-inner">
-              <div
-                className={`absolute top-0 left-0 h-full ${
-                  getSubjectTheme(subject.color_theme).progress
-                } transition-all duration-500 ease-out`}
-                style={{ width: `${progressPercent}%` }}
-              ></div>
-              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-700 z-10">
-                {completedCount} / {totalTasks}
-              </div>
-            </div>
+            <SubjectProgress
+              completed={completedCount}
+              total={totalTasks}
+              colorTheme={subject.color_theme}
+            />
           </div>
         </section>
 

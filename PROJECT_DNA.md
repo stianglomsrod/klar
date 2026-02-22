@@ -22,12 +22,15 @@
 | **Date**          | date-fns                                 | ^4.1.0                        |
 | **Confetti**      | canvas-confetti + react-confetti         | latest                        |
 | **Class Merge**   | clsx + tailwind-merge                    | latest                        |
+| **AI / LLM**      | Google Generative AI (Gemini 2.5 Flash)  | latest                        |
+| **Doc Parsing**   | Mammoth (.docx → text)                   | latest                        |
 
 ### Environment Variables (`.env.local`)
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
+GEMINI_API_KEY=<google-gemini-api-key>
 ```
 
 ### Scripts
@@ -56,17 +59,23 @@ src/app/
 │   └── login/page.tsx
 │
 ├── (dashboard)/        # Dashboard route group
-│   ├── student/        # Student dashboard (layout, page, fag/, lesson/[id]/)
+│   ├── student/        # Student dashboard (layout, page, fag/)
+│   │   └── lesson/[id]/page.tsx   # Container B — session-scoped tasks
 │   └── teacher/        # Teacher dashboard (layout, page, classes/, messages/,
-│                       #   rewards/, students/[id]/, tasks/, timeplan/)
+│                       #   rewards/, students/[id]/, tasks/, timeplan/, ukebrev/)
+│
+├── actions/            # Server Actions
+│   ├── student-actions.ts  # createStudent, resetStudentPassword, updateStudentClass
+│   └── parse-weekly-plan.ts  # AI-powered .docx → structured JSON (Gemini + Mammoth)
+│   └── save-weekly-plan.ts   # Resolves class/subject names → IDs, saves to DB
 │
 ├── api/seed/route.ts   # Seed data endpoint
 ├── belonninger/        # Rewards pages (garden, coupons)
 │   ├── layout.tsx, page.tsx, hage/, kuponger/
 │
-└── subject/            # Student task interaction
+└── subject/            # Container A — global subject library
     ├── layout.tsx
-    └── [id]/page.tsx   # ~919 lines — THE main student task/quiz page
+    └── [id]/page.tsx   # ~746 lines — all tasks for a subject (refactored Phase A)
 ```
 
 ### 2.2 Supabase Client Helpers
@@ -92,13 +101,14 @@ src/app/
 
 ### 2.4 Hooks
 
-| Hook                | Purpose                                                                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.      |
-| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`. |
-| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                             |
-| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                             |
-| `useMediaQuery`     | CSS media query hook                                                                                                                      |
+| Hook                | Purpose                                                                                                                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                           |
+| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                      |
+| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used by both Container A and B. |
+| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                  |
+| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                  |
+| `useMediaQuery`     | CSS media query hook                                                                                                                                                                           |
 
 ### 2.5 XP / Leveling System
 
@@ -184,17 +194,31 @@ Slide-out panel for teacher grading. ~554 lines.
 - Image display: `max-h-96`
 - Return-task functionality via `AlertDialog` confirmation
 
-### 3.7 Subject Page (`src/app/subject/[id]/page.tsx`)
+### 3.7 Subject Page — Container A (`src/app/subject/[id]/page.tsx`)
 
-The main student task interaction page (~919 lines). Key wiring:
+Global subject library (~746 lines, refactored in Phase A). Shows **all tasks** for a subject regardless of schedule.
 
+- Uses `useTaskCompletion()` hook for XP/leveling (extracted in Phase A)
+- Uses `<SubjectProgress>` component for progress pill (extracted in Phase A)
+- Uses `<TaskCard>` for individual task cards
 - `mediaToolbarRef = useRef<MediaUploadToolbarHandle>(null)`
 - `CompletionModal` receives:
   - `avatarUrl={profile?.avatar_url}`
   - `onBeforeConfirm` → calls `mediaToolbarRef.current?.stopRecordingIfActive()`
 - `MediaUploadToolbar` receives `ref={mediaToolbarRef}`
 - Handles both standard tasks and quizzes
-- Manages task completion, XP, leveling, flower petal progression
+- Archive modal for completed tasks with undo
+
+### 3.8 Lesson Page — Container B (`src/app/(dashboard)/student/lesson/[id]/page.tsx`)
+
+Session-scoped task view (~460 lines, built in Phase B). Shows **only tasks linked to a specific schedule entry** via the `task_schedule_entries` junction table.
+
+- Data flow: `schedule_entries` → `task_schedule_entries` → `tasks`
+- Reuses: `TaskCard`, `useTaskCompletion()`, `SubjectProgress`, `CompletionModal`, `LevelUpModal`, `StudentQuizView`, `MediaUploadToolbar`
+- NO archive drawer (session view = focused on current tasks only)
+- "Se alle [Fag]-oppgaver →" link to Container A (`/subject/[subjectId]`)
+- Empty states: "Ingen oppgaver for denne timen" (zero tasks) vs "Gratulerer!" (all completed)
+- Student dashboard (`/student`) links here via `router.push(/student/lesson/${entry.id})`
 
 ---
 
@@ -307,11 +331,11 @@ When making structural changes, always update:
 3. **This file (`PROJECT_DNA.md`)** — if architecture or key patterns change
 4. Create a **migration file** in `supabase/migrations/` for any schema changes (naming: `YYYYMMDD######_description.sql`)
 
-### 6.7 No Manual Build Checks
+### 6.7 Build Checks
 
-- **Do not run** `npx tsc --noEmit`, `next build`, or similar build/lint verification commands
-- The developer runs the dev server locally and handles build monitoring
-- Focus purely on code implementation
+- **Do not run** manual build checks (like `npx tsc --noEmit`, `next build`, or similar) **unless** the user explicitly instructs you to exercise extreme caution or gentleness during complex refactoring.
+- The developer runs the dev server locally and handles build monitoring.
+- Focus purely on code implementation.
 
 ### 6.8 Summary Format
 
@@ -320,6 +344,11 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - Use **nested bullet points only** — no tables
 - Include: **Created/Modified files**, **SQL migration code**, and **Key logic changes**
 - Keep the block self-contained so it can be pasted directly into a changelog or PR description
+
+### 6.9 Rule Change Protocol
+
+- Any future changes to the Persistent Rules (this section 6) **MUST** be immediately updated in this file (`PROJECT_DNA.md`).
+- Whenever `PROJECT_DNA.md` is modified, the exact changes must be clearly detailed in the end-of-turn summary so the user is fully aware of updated operating parameters.
 
 ---
 
@@ -336,7 +365,8 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 ### Student Experience
 
 - `SubjectCard.tsx` — subject grid cards on student dashboard
-- `TaskCard.tsx` — individual task cards within a subject
+- `TaskCard.tsx` — individual task cards (TTS, points badge, quiz/standard button). Used by both Container A & B.
+- `SubjectProgress.tsx` — reusable progress pill (X/Y with color-themed fill). Used by both Container A & B.
 - `CompletionModal.tsx` — task submission confirmation
 - `LevelUpModal.tsx` — level-up celebration overlay
 - `WelcomeOverlay.tsx` — welcome screen with daily announcement
@@ -357,6 +387,8 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `ClassMonitorToggle.tsx` — live monitoring toggle
 - `HelpRequestQueue.tsx` — help request management
 - `EditStudentSheet.tsx` — student profile editing
+- `AddStudentModal.tsx` — student creation modal with class combobox + generated passwords
+- `PreviewScheduleGrid.tsx` — visual timetable grid for AI-parsed weekly plan preview (click-to-edit cards, Pencil hover icon)
 - `TeacherSidebar.tsx` — teacher-specific sidebar
 
 ### UI Primitives
@@ -370,6 +402,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `emoji-picker.tsx` — emoji picker wrapper
 - `time-picker.tsx` — time input component
 - `alert-dialog.tsx` — Radix AlertDialog wrapper
+- `edit-dialog.tsx` — Reusable edit dialog (Portal + Framer Motion, controlled open/close/save)
 - `button.tsx` — button primitive
 - `dropdown-menu.tsx` — dropdown menu
 - `popover.tsx` — Radix Popover wrapper
@@ -424,3 +457,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 9. **Global unread feedback badge + FeedbackSheet** — `Navigation.tsx` polls `feedback` table every 30s for unread teacher feedback (`read_at IS NULL`). Clicking the 💬 badge opens `FeedbackSheet.tsx` (sliding sheet from right) which lists all teacher feedback grouped by subject/task. The sheet auto-marks unread items as read after 2 s and dispatches `window.dispatchEvent(new Event("feedback-read"))` to clear the badge instantly.
 
 10. **Tech Debt Rule** — Any "hack", workaround, or intentional technical debt **MUST** be documented immediately in `TECH_DEBT.md` at the project root. This includes invisible emails, plaintext passwords, or any shortcut that deviates from best practices.
+
+11. **Dual containers — route awareness** — Schedule blocks link to `/student/lesson/[id]` (session-scoped via `task_schedule_entries`). Subject cards link to `/subject/[id]` (global by `subject_id`). Never conflate these routes — they serve different data contexts.
+
+12. **Server Actions for auth mutations** — Creating students, resetting passwords, and updating classes **MUST** use the admin client (`SUPABASE_SERVICE_ROLE_KEY`) via `src/app/actions/student-actions.ts` to avoid logging out the active teacher session.
