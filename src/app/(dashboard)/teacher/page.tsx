@@ -13,6 +13,7 @@ import ActivityDetailSheet, {
 } from "@/components/teacher/ActivityDetailSheet";
 import RecentStudents from "@/components/teacher/RecentStudents";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
+import AddStudentModal from "@/components/teacher/AddStudentModal";
 
 // ── Types ──────────────────────────────────────────────
 type ActivityItem = ActivityDetail;
@@ -56,6 +57,9 @@ export default function TeacherDashboard() {
 
   // Create task modal
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
+
+  // Add student modal
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
 
   // ── Fetch activities ───────────────────────────────
   useEffect(() => {
@@ -258,7 +262,6 @@ export default function TeacherDashboard() {
           oppgaver og følge med på elevenes fremgang.
         </p>
       </div>
-
       {/* Widgets Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Widget 1: Nylig besøkte elever */}
@@ -316,7 +319,10 @@ export default function TeacherDashboard() {
             >
               + Ny oppgave
             </button>
-            <button className="w-full px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 font-medium rounded-lg transition-colors text-left">
+            <button
+              onClick={() => setAddStudentOpen(true)}
+              className="w-full px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 font-medium rounded-lg transition-colors text-left"
+            >
               + Legg til elev
             </button>
             <button className="w-full px-4 py-3 bg-orange-50 hover:bg-orange-100 text-orange-700 font-medium rounded-lg transition-colors text-left">
@@ -325,7 +331,6 @@ export default function TeacherDashboard() {
           </div>
         </div>
       </div>
-
       {/* ── Recent Activity Feed ────────────────────── */}
       <div className="mt-8">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -442,7 +447,6 @@ export default function TeacherDashboard() {
           )}
         </div>
       </div>
-
       {/* ── Activity Detail Sheet ───────────────────── */}
       <ActivityDetailSheet
         activity={selectedActivity}
@@ -477,7 +481,6 @@ export default function TeacherDashboard() {
         returningId={returningId}
         savingFeedback={savingFeedback}
       />
-
       {/* ── Create Task Modal ───────────────────────── */}
       <TaskCreatorModal
         isOpen={createTaskOpen}
@@ -487,6 +490,12 @@ export default function TeacherDashboard() {
           fetchActivities();
         }}
       />
+      {/* ── Add Student Modal ────────────────────── */}
+      <AddStudentModal
+        isOpen={addStudentOpen}
+        onClose={() => setAddStudentOpen(false)}
+        onSuccess={() => setAddStudentOpen(false)}
+      />{" "}
     </div>
   );
 }

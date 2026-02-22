@@ -123,6 +123,7 @@ CREATE TABLE public.student_profiles (
   show_flower_garden boolean DEFAULT true,
   custom_welcome_message text,
   max_level_reached integer NOT NULL DEFAULT 1,
+  current_password_plaintext text,
   CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
   CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)

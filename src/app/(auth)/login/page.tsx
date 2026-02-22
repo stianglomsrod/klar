@@ -21,9 +21,14 @@ export default function LoginPage() {
 
     try {
       // Step 1: Authenticate with Supabase
+      // Invisible email hack: bare usernames get @skole.klar.app appended
+      const loginEmail = email.includes("@")
+        ? email
+        : `${email}@skole.klar.app`;
+
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
-          email,
+          email: loginEmail,
           password,
         });
 
@@ -114,16 +119,17 @@ export default function LoginPage() {
                 htmlFor="email"
                 className="block text-sm font-semibold text-slate-900 mb-2"
               >
-                E-postadresse
+                Brukernavn eller e-post
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <input
                   id="email"
-                  type="email"
+                  type="text"
+                  autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ditt@eksempel.no"
+                  placeholder="brukernavn eller e-post"
                   required
                   disabled={loading}
                   className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all disabled:bg-slate-50 disabled:text-slate-500"

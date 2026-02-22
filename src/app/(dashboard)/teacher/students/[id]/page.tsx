@@ -1,12 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 import { recordStudentVisit } from "@/components/teacher/RecentStudents";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@/components/ui/popover";
+import {
+  resetStudentPassword,
+  updateStudentClass,
+} from "@/app/actions/student-actions";
 import {
   ArrowLeft,
   Star,
@@ -22,6 +31,13 @@ import {
   Sparkles,
   X,
   FileQuestion,
+  Search,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Copy,
+  Check,
+  Loader2,
 } from "lucide-react";
 
 type StudentProfile = {
@@ -57,6 +73,18 @@ type Reward = {
   emoji: string;
   cost: number;
 };
+
+type ClassOption = {
+  id: string;
+  name: string;
+  grade_name: string | null;
+};
+
+/** "5A" → "5. Trinn", "10B" → "10. Trinn" */
+function inferGradeName(className: string): string {
+  const match = className.match(/^(\d+)/);
+  return match ? `${match[1]}. Trinn` : "Annet";
+}
 
 export default function StudentDashboardPage() {
   const router = useRouter();
@@ -105,6 +133,20 @@ export default function StudentDashboardPage() {
     type: "standard" as "standard" | "quiz",
   });
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+
+  // ── Class combobox state ───────────────────────────
+  const [classSearch, setClassSearch] = useState("");
+  const [selectedGrade, setSelectedGrade] = useState("");
+  const [classes, setClasses] = useState<ClassOption[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [comboOpen, setComboOpen] = useState(false);
+  const [classUpdating, setClassUpdating] = useState(false);
+
+  // ── Password state ─────────────────────────────────
+  const [currentPassword, setCurrentPassword] = useState<string | null>(null);
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [passwordResetting, setPasswordResetting] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
 
   const supabase = createClient();
 
@@ -199,7 +241,9 @@ export default function StudentDashboardPage() {
         avatar_url: studentData.avatar_url,
       });
       setSelectedClass(studentData.class_name || "");
+      setClassSearch(studentData.class_name || "");
       setWelcomeMessage(data.custom_welcome_message || "");
+      setCurrentPassword(data.current_password_plaintext || null);
     } catch (error) {
       console.error(
         "Error fetching student:",
@@ -272,6 +316,114 @@ export default function StudentDashboardPage() {
     } catch (error) {
       console.error("Error fetching student profile data:", error);
     }
+  };
+
+  // ── Fetch available classes ────────────────────────
+  const fetchClasses = useCallback(async () => {
+    setClassesLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("classes")
+        .select("id, name, grades:grade_id(name)")
+        .order("name");
+      if (error) throw error;
+      setClasses(
+        (data || []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          grade_name: c.grades?.name || null,
+        })),
+      );
+    } catch (err) {
+      console.error("Error fetching classes:", err);
+    } finally {
+      setClassesLoading(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchClasses();
+  }, [fetchClasses]);
+
+  // ── Class combobox helpers ─────────────────────────
+  const filteredClasses = classes.filter((c) =>
+    c.name.toLowerCase().includes(classSearch.toLowerCase()),
+  );
+  const exactMatch = classes.some(
+    (c) => c.name.toLowerCase() === classSearch.trim().toLowerCase(),
+  );
+
+  const handleSelectClass = useCallback(
+    async (cls: ClassOption) => {
+      setSelectedClass(cls.name);
+      setSelectedGrade(cls.grade_name || inferGradeName(cls.name));
+      setClassSearch(cls.name);
+      setComboOpen(false);
+
+      // Persist to DB
+      setClassUpdating(true);
+      const result = await updateStudentClass(
+        studentId,
+        cls.name,
+        cls.grade_name || inferGradeName(cls.name),
+      );
+      setClassUpdating(false);
+      if (!result.success) {
+        console.error("Failed to update class:", result.error);
+      } else {
+        // Update local level from grade name
+        const levelMatch = (cls.grade_name || cls.name).match(/^(\d+)/);
+        if (levelMatch && student) {
+          setStudent({ ...student, level: parseInt(levelMatch[1], 10) });
+        }
+      }
+    },
+    [studentId, student],
+  );
+
+  const handleCreateClass = useCallback(async () => {
+    const name = classSearch.trim();
+    if (!name) return;
+    const grade = inferGradeName(name);
+    setSelectedClass(name);
+    setSelectedGrade(grade);
+    setClassSearch(name);
+    setComboOpen(false);
+
+    // Persist to DB
+    setClassUpdating(true);
+    const result = await updateStudentClass(studentId, name, grade);
+    setClassUpdating(false);
+    if (!result.success) {
+      console.error("Failed to create/update class:", result.error);
+    } else {
+      // Refresh classes list to include the new class
+      fetchClasses();
+      const levelMatch = name.match(/^(\d+)/);
+      if (levelMatch && student) {
+        setStudent({ ...student, level: parseInt(levelMatch[1], 10) });
+      }
+    }
+  }, [classSearch, studentId, student, fetchClasses]);
+
+  // ── Password handlers ──────────────────────────────
+  const handleResetPassword = async () => {
+    setPasswordResetting(true);
+    const result = await resetStudentPassword(studentId);
+    setPasswordResetting(false);
+    if (result.success) {
+      setCurrentPassword(result.newPassword);
+      setPasswordVisible(true); // Auto-reveal the new password
+    } else {
+      alert(`Feil: ${result.error}`);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!currentPassword) return;
+    await navigator.clipboard.writeText(currentPassword);
+    setPasswordCopied(true);
+    setTimeout(() => setPasswordCopied(false), 2000);
   };
 
   const formatDate = (dateString: string) => {
@@ -736,28 +888,152 @@ export default function StudentDashboardPage() {
               </div>
             </div>
 
-            {/* Class Selection */}
+            {/* Class Selection — Combobox */}
             <div>
               <label className="text-sm font-medium text-slate-900 block mb-2">
                 Klasse
+                {classUpdating && (
+                  <Loader2 className="inline h-3 w-3 ml-1.5 animate-spin text-indigo-500" />
+                )}
               </label>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-              >
-                <option value="">Ingen klasse</option>
-                <option value="3B">3B</option>
-                <option value="5A">5A</option>
-                <option value="8A">8A</option>
-                <option value="10. Trinn">10. Trinn</option>
-              </select>
+              <Popover open={comboOpen} onOpenChange={setComboOpen}>
+                <PopoverAnchor asChild>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Søk etter klasse…"
+                      value={classSearch}
+                      onChange={(e) => {
+                        setClassSearch(e.target.value);
+                        setSelectedClass("");
+                        if (!comboOpen) setComboOpen(true);
+                      }}
+                      onFocus={() => setComboOpen(true)}
+                      className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400"
+                    />
+                  </div>
+                </PopoverAnchor>
+                <PopoverContent
+                  className="p-0 w-[var(--radix-popover-trigger-width)] z-[100]"
+                  align="start"
+                  sideOffset={4}
+                  onOpenAutoFocus={(e) => e.preventDefault()}
+                >
+                  <div className="max-h-48 overflow-y-auto">
+                    {classesLoading ? (
+                      <div className="px-4 py-3 text-sm text-slate-400">
+                        Laster klasser…
+                      </div>
+                    ) : filteredClasses.length === 0 && !classSearch.trim() ? (
+                      <div className="px-4 py-3 text-sm text-slate-400">
+                        Ingen klasser funnet.
+                      </div>
+                    ) : filteredClasses.length === 0 && classSearch.trim() ? (
+                      <button
+                        type="button"
+                        onClick={handleCreateClass}
+                        className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 transition-colors flex items-center gap-2 text-green-700 font-medium"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Opprett klasse &ldquo;{classSearch.trim()}&rdquo;
+                      </button>
+                    ) : (
+                      <>
+                        {filteredClasses.map((cls) => (
+                          <button
+                            key={cls.id}
+                            type="button"
+                            onClick={() => handleSelectClass(cls)}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between"
+                          >
+                            <span className="font-medium text-slate-700">
+                              {cls.name}
+                            </span>
+                            {cls.grade_name && (
+                              <span className="text-xs text-slate-400">
+                                {cls.grade_name}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                        {classSearch.trim() && !exactMatch && (
+                          <button
+                            type="button"
+                            onClick={handleCreateClass}
+                            className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 transition-colors flex items-center gap-2 border-t border-slate-100 text-green-700 font-medium"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Opprett klasse &ldquo;{classSearch.trim()}&rdquo;
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Reset Password */}
-            <button className="w-full px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-              Nullstill passord
-            </button>
+            {/* Password Section */}
+            <div>
+              <label className="text-sm font-medium text-slate-900 block mb-2">
+                🔑 Passord
+              </label>
+
+              {/* Password display row */}
+              <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <span className="flex-1 text-sm font-mono text-slate-700 select-all truncate">
+                  {passwordVisible && currentPassword
+                    ? currentPassword
+                    : "••••••••"}
+                </span>
+
+                {/* Toggle visibility */}
+                <button
+                  type="button"
+                  onClick={() => setPasswordVisible((v) => !v)}
+                  className="p-1 rounded hover:bg-slate-200 transition-colors text-slate-500"
+                  title={passwordVisible ? "Skjul passord" : "Vis passord"}
+                >
+                  {passwordVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+
+                {/* Copy */}
+                {currentPassword && (
+                  <button
+                    type="button"
+                    onClick={handleCopyPassword}
+                    className="p-1 rounded hover:bg-slate-200 transition-colors text-slate-500"
+                    title="Kopier passord"
+                  >
+                    {passwordCopied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Generate new password button */}
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={passwordResetting}
+                className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {passwordResetting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Generer nytt passord
+              </button>
+            </div>
           </div>
         </div>
 

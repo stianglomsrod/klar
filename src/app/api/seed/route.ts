@@ -12,7 +12,6 @@ const SEED_DATA = {
           name: "5A",
           students: [
             { name: "Ole Oppfinner", email: "ole@skole.no" },
-            { name: "Kari Kreativ", email: "kari@skole.no" },
             { name: "Per Påskehare", email: "per@skole.no" },
           ],
         },
@@ -52,7 +51,7 @@ export async function POST() {
         details:
           "NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -82,7 +81,7 @@ export async function POST() {
           // Check if user already exists
           const { data: existingUsers } = await supabase.auth.admin.listUsers();
           const existingUser = existingUsers?.users?.find(
-            (u) => u.email === student.email
+            (u) => u.email === student.email,
           );
 
           let userId: string;
@@ -144,7 +143,7 @@ export async function POST() {
               p_student_id: userId,
               p_class_name: cls.name,
               p_grade_name: grade.name,
-            }
+            },
           );
 
           if (rpcError) {
@@ -163,7 +162,7 @@ export async function POST() {
           });
 
           console.log(
-            `✅ Created: ${student.name} (${student.email}) -> ${grade.name} / ${cls.name}`
+            `✅ Created: ${student.name} (${student.email}) -> ${grade.name} / ${cls.name}`,
           );
         } catch (err) {
           results.errors.push({

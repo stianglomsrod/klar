@@ -399,6 +399,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 | `20260222000001` | Add max_level_reached column           |
 | `20260222000002` | Create student-media storage bucket    |
 | `20260222100000` | Add teacher_id & read_at to feedback   |
+| `20260222200000` | Add current_password_plaintext column  |
 
 ---
 
@@ -421,3 +422,5 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 8. **All state is Supabase** — No local database, no Redux, no external state management. Everything persists via Supabase queries. Context providers cache in-memory for the session only.
 
 9. **Global unread feedback badge + FeedbackSheet** — `Navigation.tsx` polls `feedback` table every 30s for unread teacher feedback (`read_at IS NULL`). Clicking the 💬 badge opens `FeedbackSheet.tsx` (sliding sheet from right) which lists all teacher feedback grouped by subject/task. The sheet auto-marks unread items as read after 2 s and dispatches `window.dispatchEvent(new Event("feedback-read"))` to clear the badge instantly.
+
+10. **Tech Debt Rule** — Any "hack", workaround, or intentional technical debt **MUST** be documented immediately in `TECH_DEBT.md` at the project root. This includes invisible emails, plaintext passwords, or any shortcut that deviates from best practices.
