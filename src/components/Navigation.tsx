@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "./Sidebar";
+import FeedbackSheet from "./student/FeedbackSheet";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { createClient } from "@/utils/supabase/client";
 
 export default function Navigation() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -137,22 +139,20 @@ export default function Navigation() {
             <span className="text-sm font-medium text-gray-700">Klar</span>
           </button>
 
-          {/* Right Slot: Unread feedback badge */}
+          {/* Right Slot: Feedback button (always visible) */}
           <div className="flex-shrink-0 w-10 flex items-center justify-center">
-            <AnimatePresence>
-              {unreadCount > 0 && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0 }}
-                  transition={{ type: "spring", damping: 12, stiffness: 300 }}
-                  className="relative flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 cursor-pointer"
-                  onClick={() => setSidebarOpen(true)}
-                  title="Du har nye tilbakemeldinger"
-                >
-                  <span className="text-base">💬</span>
+            <div
+              className="relative flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 cursor-pointer hover:bg-indigo-100 transition-colors"
+              onClick={() => setFeedbackSheetOpen(true)}
+              title="Tilbakemeldinger"
+            >
+              <span className="text-base">💬</span>
+              <AnimatePresence>
+                {unreadCount > 0 && (
                   <motion.span
+                    initial={{ scale: 0 }}
                     animate={{ scale: [1, 1.2, 1] }}
+                    exit={{ scale: 0 }}
                     transition={{
                       duration: 1.5,
                       repeat: Infinity,
@@ -162,12 +162,21 @@ export default function Navigation() {
                   >
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </motion.span>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Feedback "Wall of Praise" sheet */}
+      {profile?.id && (
+        <FeedbackSheet
+          isOpen={feedbackSheetOpen}
+          onClose={() => setFeedbackSheetOpen(false)}
+          studentId={profile.id}
+        />
+      )}
     </>
   );
 }

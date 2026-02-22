@@ -119,6 +119,7 @@ klar/
 │   │   │
 │   │   ├── student/
 │   │   │   ├── FeedbackBubble.tsx
+│   │   │   ├── FeedbackSheet.tsx
 │   │   │   ├── StudentHelpButton.tsx
 │   │   │   └── StudentQuizView.tsx
 │   │   │

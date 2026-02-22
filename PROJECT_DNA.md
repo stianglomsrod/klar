@@ -344,6 +344,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `StudentHelpButton.tsx` — help request trigger
 - `StudentQuizView.tsx` — full quiz experience
 - `FeedbackBubble.tsx` — messenger-style teacher feedback display with TTS
+- `FeedbackSheet.tsx` — "Wall of Praise" sliding sheet; fetches all feedback with subject/task context, renders FeedbackBubble cards, auto-marks as read
 - `ArchiveDrawer.tsx` + `ResponsiveArchive.tsx` — completed task archive
 
 ### Teacher Experience
@@ -419,4 +420,4 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 8. **All state is Supabase** — No local database, no Redux, no external state management. Everything persists via Supabase queries. Context providers cache in-memory for the session only.
 
-9. **Global unread feedback badge** — `Navigation.tsx` polls `feedback` table every 30s for unread teacher feedback (`read_at IS NULL`). Subject pages dispatch `window.dispatchEvent(new Event("feedback-read"))` after marking feedback as read, which Navigation listens for to instantly clear the badge.
+9. **Global unread feedback badge + FeedbackSheet** — `Navigation.tsx` polls `feedback` table every 30s for unread teacher feedback (`read_at IS NULL`). Clicking the 💬 badge opens `FeedbackSheet.tsx` (sliding sheet from right) which lists all teacher feedback grouped by subject/task. The sheet auto-marks unread items as read after 2 s and dispatches `window.dispatchEvent(new Event("feedback-read"))` to clear the badge instantly.

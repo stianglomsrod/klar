@@ -20,9 +20,6 @@ import MediaUploadToolbar, {
 } from "@/components/ui/MediaUploadToolbar";
 import { uploadStudentMedia } from "@/utils/supabase/storage";
 import { useCallback } from "react";
-import FeedbackBubble, {
-  type FeedbackData,
-} from "@/components/student/FeedbackBubble";
 
 type Task = {
   id: string;
@@ -32,7 +29,6 @@ type Task = {
   type: string;
   is_completed: boolean;
   quiz_data?: QuizQuestion[] | null;
-  feedback?: FeedbackData | null;
 };
 
 type Subject = {
@@ -102,52 +98,6 @@ export default function SubjectDetailPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [subjectId]);
-
-  // Mark unread feedback as read when archive is opened
-  const markFeedbackAsRead = useCallback(async () => {
-    const unreadTaskIds = completedTasks
-      .filter(
-        (t) =>
-          t.feedback &&
-          !t.feedback.read_at &&
-          (t.feedback.teacher_reaction || t.feedback.teacher_comment),
-      )
-      .map((t) => t.id);
-
-    if (unreadTaskIds.length === 0) return;
-
-    const supabase = createClient();
-    const now = new Date().toISOString();
-
-    // Update DB
-    await supabase
-      .from("feedback")
-      .update({ read_at: now })
-      .in("task_id", unreadTaskIds)
-      .is("read_at", null);
-
-    // Optimistic local update
-    setCompletedTasks((prev) =>
-      prev.map((t) =>
-        unreadTaskIds.includes(t.id) && t.feedback
-          ? { ...t, feedback: { ...t.feedback, read_at: now } }
-          : t,
-      ),
-    );
-
-    // Notify Navigation to refresh unread badge
-    window.dispatchEvent(new Event("feedback-read"));
-  }, [completedTasks]);
-
-  // When archive opens, mark feedback as read after a short delay
-  // so the student sees the "new" indicators briefly
-  useEffect(() => {
-    if (!isArchiveOpen) return;
-    const timer = setTimeout(() => {
-      markFeedbackAsRead();
-    }, 2000); // 2s delay so student can see the ✨ before it disappears
-    return () => clearTimeout(timer);
-  }, [isArchiveOpen, markFeedbackAsRead]);
 
   // Trigger stack pulse animation when a task is completed (count increases)
   useEffect(() => {
@@ -754,14 +704,6 @@ export default function SubjectDetailPage() {
   const progressPercent =
     totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
-  // Count unread teacher feedback
-  const unreadFeedbackCount = completedTasks.filter(
-    (t) =>
-      t.feedback &&
-      !t.feedback.read_at &&
-      (t.feedback.teacher_reaction || t.feedback.teacher_comment),
-  ).length;
-
   return (
     <main className="bg-gradient-to-b from-gray-50 to-white pb-32">
       <div className="max-w-5xl mx-auto w-full px-4 space-y-4">
@@ -789,21 +731,6 @@ export default function SubjectDetailPage() {
                 <span className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
                   {completedCount}
                 </span>
-
-                {/* Unread feedback indicator */}
-                {unreadFeedbackCount > 0 && (
-                  <motion.span
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    className="absolute -top-1 -left-1 bg-indigo-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm"
-                  >
-                    ✨
-                  </motion.span>
-                )}
               </motion.button>
             )}
 
@@ -908,13 +835,6 @@ export default function SubjectDetailPage() {
                             Angre
                           </button>
                         </div>
-
-                        {/* Teacher feedback bubble */}
-                        {task.feedback &&
-                          (task.feedback.teacher_reaction ||
-                            task.feedback.teacher_comment) && (
-                            <FeedbackBubble feedback={task.feedback} />
-                          )}
                       </div>
                     ))}
                   </div>
