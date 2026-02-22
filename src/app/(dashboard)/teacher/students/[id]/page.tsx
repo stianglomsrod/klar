@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
+import { recordStudentVisit } from "@/components/teacher/RecentStudents";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import {
   ArrowLeft,
@@ -191,6 +192,12 @@ export default function StudentDashboardPage() {
       };
 
       setStudent(studentData);
+      // Track visit for "Nylig besøkte elever" widget
+      recordStudentVisit({
+        id: studentData.id,
+        full_name: studentData.full_name,
+        avatar_url: studentData.avatar_url,
+      });
       setSelectedClass(studentData.class_name || "");
       setWelcomeMessage(data.custom_welcome_message || "");
     } catch (error) {

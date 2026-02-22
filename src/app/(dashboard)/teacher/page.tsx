@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Calendar, CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
+import { CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
 import {
   useTeacherProfile,
   getDisplayName,
@@ -11,6 +11,8 @@ import {
 import ActivityDetailSheet, {
   type ActivityDetail,
 } from "@/components/teacher/ActivityDetailSheet";
+import RecentStudents from "@/components/teacher/RecentStudents";
+import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 
 // ── Types ──────────────────────────────────────────────
 type ActivityItem = ActivityDetail;
@@ -51,6 +53,9 @@ export default function TeacherDashboard() {
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
     null,
   );
+
+  // Create task modal
+  const [createTaskOpen, setCreateTaskOpen] = useState(false);
 
   // ── Fetch activities ───────────────────────────────
   useEffect(() => {
@@ -256,28 +261,8 @@ export default function TeacherDashboard() {
 
       {/* Widgets Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Widget 1: Dagens Melding */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
-              <Calendar className="h-5 w-5 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Dagens Melding
-            </h2>
-          </div>
-
-          <div className="space-y-3">
-            <textarea
-              placeholder="Skriv en melding til elevene..."
-              className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-              rows={4}
-            />
-            <button className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
-              Send Melding
-            </button>
-          </div>
-        </div>
+        {/* Widget 1: Nylig besøkte elever */}
+        <RecentStudents />
 
         {/* Widget 2: Venter på godkjenning */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
@@ -325,7 +310,10 @@ export default function TeacherDashboard() {
           </div>
 
           <div className="space-y-3">
-            <button className="w-full px-4 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded-lg transition-colors text-left">
+            <button
+              onClick={() => setCreateTaskOpen(true)}
+              className="w-full px-4 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium rounded-lg transition-colors text-left"
+            >
               + Ny oppgave
             </button>
             <button className="w-full px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 font-medium rounded-lg transition-colors text-left">
@@ -488,6 +476,16 @@ export default function TeacherDashboard() {
         onReturnTask={handleReturnTask}
         returningId={returningId}
         savingFeedback={savingFeedback}
+      />
+
+      {/* ── Create Task Modal ───────────────────────── */}
+      <TaskCreatorModal
+        isOpen={createTaskOpen}
+        onClose={() => setCreateTaskOpen(false)}
+        onSuccess={() => {
+          setCreateTaskOpen(false);
+          fetchActivities();
+        }}
       />
     </div>
   );

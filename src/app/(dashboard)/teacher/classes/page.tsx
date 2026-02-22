@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Filter, School, Users } from "lucide-react";
 import StudentTable from "@/components/teacher/StudentTable";
@@ -19,6 +20,7 @@ type Student = {
 };
 
 export default function ClassesPage() {
+  const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,9 @@ export default function ClassesPage() {
   const [selectedClass, setSelectedClass] = useState<string>("Alle");
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "hierarchy">("hierarchy");
+  const [viewMode, setViewMode] = useState<"table" | "hierarchy">(
+    searchParams.get("tab") === "elever" ? "table" : "hierarchy",
+  );
   const [teacherId, setTeacherId] = useState<string>("");
 
   const supabase = createClient();
