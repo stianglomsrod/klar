@@ -79,7 +79,7 @@ export default function TeacherDashboard() {
           quiz_data,
           student:profiles!tasks_student_id_fkey (id, full_name, avatar_url),
           subject:subjects!tasks_subject_id_fkey (title, emoji),
-          feedback (id, student_comment, student_audio_url, student_image_url, quiz_responses, teacher_reaction, teacher_comment)
+          feedback (id, student_comment, student_audio_url, student_image_url, quiz_responses, teacher_reaction, teacher_comment, teacher_id, read_at)
         `,
         )
         .eq("created_by", user.id)
@@ -127,6 +127,9 @@ export default function TeacherDashboard() {
       if (reaction !== undefined) updates.teacher_reaction = reaction;
       if (comment !== undefined) updates.teacher_comment = comment || null;
 
+      // Always attach teacher_id
+      if (profile?.id) updates.teacher_id = profile.id;
+
       if (activity.feedback?.id) {
         const { error } = await supabase
           .from("feedback")
@@ -160,6 +163,8 @@ export default function TeacherDashboard() {
                     comment !== undefined
                       ? comment || null
                       : (a.feedback?.teacher_comment ?? null),
+                  teacher_id: profile?.id ?? a.feedback?.teacher_id ?? null,
+                  read_at: a.feedback?.read_at ?? null,
                 },
               }
             : a,
@@ -474,6 +479,8 @@ export default function TeacherDashboard() {
                   comment !== undefined
                     ? comment || null
                     : (prev.feedback?.teacher_comment ?? null),
+                teacher_id: profile?.id ?? prev.feedback?.teacher_id ?? null,
+                read_at: prev.feedback?.read_at ?? null,
               },
             };
           });

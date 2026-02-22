@@ -60,6 +60,8 @@ export type ActivityDetail = {
     > | null;
     teacher_reaction: string | null;
     teacher_comment: string | null;
+    teacher_id: string | null;
+    read_at: string | null;
   } | null;
 };
 

@@ -20,6 +20,9 @@ import MediaUploadToolbar, {
 } from "@/components/ui/MediaUploadToolbar";
 import { uploadStudentMedia } from "@/utils/supabase/storage";
 import { useCallback } from "react";
+import FeedbackBubble, {
+  type FeedbackData,
+} from "@/components/student/FeedbackBubble";
 
 type Task = {
   id: string;
@@ -29,6 +32,7 @@ type Task = {
   type: string;
   is_completed: boolean;
   quiz_data?: QuizQuestion[] | null;
+  feedback?: FeedbackData | null;
 };
 
 type Subject = {
@@ -99,6 +103,52 @@ export default function SubjectDetailPage() {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [subjectId]);
 
+  // Mark unread feedback as read when archive is opened
+  const markFeedbackAsRead = useCallback(async () => {
+    const unreadTaskIds = completedTasks
+      .filter(
+        (t) =>
+          t.feedback &&
+          !t.feedback.read_at &&
+          (t.feedback.teacher_reaction || t.feedback.teacher_comment),
+      )
+      .map((t) => t.id);
+
+    if (unreadTaskIds.length === 0) return;
+
+    const supabase = createClient();
+    const now = new Date().toISOString();
+
+    // Update DB
+    await supabase
+      .from("feedback")
+      .update({ read_at: now })
+      .in("task_id", unreadTaskIds)
+      .is("read_at", null);
+
+    // Optimistic local update
+    setCompletedTasks((prev) =>
+      prev.map((t) =>
+        unreadTaskIds.includes(t.id) && t.feedback
+          ? { ...t, feedback: { ...t.feedback, read_at: now } }
+          : t,
+      ),
+    );
+
+    // Notify Navigation to refresh unread badge
+    window.dispatchEvent(new Event("feedback-read"));
+  }, [completedTasks]);
+
+  // When archive opens, mark feedback as read after a short delay
+  // so the student sees the "new" indicators briefly
+  useEffect(() => {
+    if (!isArchiveOpen) return;
+    const timer = setTimeout(() => {
+      markFeedbackAsRead();
+    }, 2000); // 2s delay so student can see the ✨ before it disappears
+    return () => clearTimeout(timer);
+  }, [isArchiveOpen, markFeedbackAsRead]);
+
   // Trigger stack pulse animation when a task is completed (count increases)
   useEffect(() => {
     if (completedTasks.length > prevCompletedCount.current) {
@@ -141,10 +191,20 @@ export default function SubjectDetailPage() {
         setTasks(tasksData || []);
       }
 
-      // Fetch completed tasks for this subject
+      // Fetch completed tasks for this subject (with feedback + teacher profile)
       const { data: completedTasksData, error: completedError } = await supabase
         .from("tasks")
-        .select("*")
+        .select(
+          `
+          *,
+          feedback (
+            teacher_reaction,
+            teacher_comment,
+            read_at,
+            teacher:profiles!feedback_teacher_id_fkey ( full_name, avatar_url )
+          )
+        `,
+        )
         .eq("subject_id", subjectId)
         .eq("is_completed", true)
         .order("created_at", { ascending: false });
@@ -155,7 +215,29 @@ export default function SubjectDetailPage() {
           completedError,
         );
       } else {
-        setCompletedTasks(completedTasksData || []);
+        const mapped = (completedTasksData || []).map((t: any) => {
+          const fb = Array.isArray(t.feedback) ? t.feedback[0] : t.feedback;
+          // Extract the teacher profile from the FK join
+          // Supabase may return object, array-of-one, or null
+          let teacherProfile = null;
+          if (fb?.teacher) {
+            teacherProfile = Array.isArray(fb.teacher)
+              ? (fb.teacher[0] ?? null)
+              : fb.teacher;
+          }
+          return {
+            ...t,
+            feedback: fb
+              ? {
+                  teacher_reaction: fb.teacher_reaction ?? null,
+                  teacher_comment: fb.teacher_comment ?? null,
+                  read_at: fb.read_at ?? null,
+                  teacher: teacherProfile,
+                }
+              : null,
+          };
+        });
+        setCompletedTasks(mapped);
       }
 
       setLoading(false);
@@ -672,6 +754,14 @@ export default function SubjectDetailPage() {
   const progressPercent =
     totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0;
 
+  // Count unread teacher feedback
+  const unreadFeedbackCount = completedTasks.filter(
+    (t) =>
+      t.feedback &&
+      !t.feedback.read_at &&
+      (t.feedback.teacher_reaction || t.feedback.teacher_comment),
+  ).length;
+
   return (
     <main className="bg-gradient-to-b from-gray-50 to-white pb-32">
       <div className="max-w-5xl mx-auto w-full px-4 space-y-4">
@@ -699,6 +789,21 @@ export default function SubjectDetailPage() {
                 <span className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
                   {completedCount}
                 </span>
+
+                {/* Unread feedback indicator */}
+                {unreadFeedbackCount > 0 && (
+                  <motion.span
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -top-1 -left-1 bg-indigo-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm"
+                  >
+                    ✨
+                  </motion.span>
+                )}
               </motion.button>
             )}
 
@@ -776,31 +881,40 @@ export default function SubjectDetailPage() {
                     {completedTasks.map((task) => (
                       <div
                         key={task.id}
-                        className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start justify-between gap-4 hover:shadow-md transition-shadow"
+                        className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
                       >
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">
-                            {task.title}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            {task.description}
-                          </p>
-                          <div className="mt-2 flex items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
-                              ✓ Fullført
-                            </span>
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                              {task.points_value} poeng
-                            </span>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900 mb-1">
+                              {task.title}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {task.description}
+                            </p>
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                ✓ Fullført
+                              </span>
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                {task.points_value} poeng
+                              </span>
+                            </div>
                           </div>
+                          <button
+                            onClick={() => handleUndoTask(task.id)}
+                            className="flex-shrink-0 bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors border border-amber-200"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                            Angre
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleUndoTask(task.id)}
-                          className="flex-shrink-0 bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors border border-amber-200"
-                        >
-                          <Undo2 className="h-4 w-4" />
-                          Angre
-                        </button>
+
+                        {/* Teacher feedback bubble */}
+                        {task.feedback &&
+                          (task.feedback.teacher_reaction ||
+                            task.feedback.teacher_comment) && (
+                            <FeedbackBubble feedback={task.feedback} />
+                          )}
                       </div>
                     ))}
                   </div>

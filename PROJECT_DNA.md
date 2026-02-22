@@ -307,6 +307,20 @@ When making structural changes, always update:
 3. **This file (`PROJECT_DNA.md`)** — if architecture or key patterns change
 4. Create a **migration file** in `supabase/migrations/` for any schema changes (naming: `YYYYMMDD######_description.sql`)
 
+### 6.7 No Manual Build Checks
+
+- **Do not run** `npx tsc --noEmit`, `next build`, or similar build/lint verification commands
+- The developer runs the dev server locally and handles build monitoring
+- Focus purely on code implementation
+
+### 6.8 Summary Format
+
+Every end-of-turn summary must be delivered inside a **single markdown code block** (` ```markdown ... ``` `) for easy copy-pasting. Rules:
+
+- Use **nested bullet points only** — no tables
+- Include: **Created/Modified files**, **SQL migration code**, and **Key logic changes**
+- Keep the block self-contained so it can be pasted directly into a changelog or PR description
+
 ---
 
 ## 7. Component Inventory — Quick Reference
@@ -329,6 +343,7 @@ When making structural changes, always update:
 - `FlowerPot.tsx` — visual flower/petal XP display
 - `StudentHelpButton.tsx` — help request trigger
 - `StudentQuizView.tsx` — full quiz experience
+- `FeedbackBubble.tsx` — messenger-style teacher feedback display with TTS
 - `ArchiveDrawer.tsx` + `ResponsiveArchive.tsx` — completed task archive
 
 ### Teacher Experience
@@ -382,6 +397,7 @@ When making structural changes, always update:
 | `20260222000000` | Add earned_at_level to student_rewards |
 | `20260222000001` | Add max_level_reached column           |
 | `20260222000002` | Create student-media storage bucket    |
+| `20260222100000` | Add teacher_id & read_at to feedback   |
 
 ---
 
@@ -402,3 +418,5 @@ When making structural changes, always update:
 7. **Animations are intentionally calm** — No pulse/bounce. The avatar uses a slow breathing scale (`[1, 1.06, 1]` over 3s). This is a deliberate UX decision for the target audience (children).
 
 8. **All state is Supabase** — No local database, no Redux, no external state management. Everything persists via Supabase queries. Context providers cache in-memory for the session only.
+
+9. **Global unread feedback badge** — `Navigation.tsx` polls `feedback` table every 30s for unread teacher feedback (`read_at IS NULL`). Subject pages dispatch `window.dispatchEvent(new Event("feedback-read"))` after marking feedback as read, which Navigation listens for to instantly clear the badge.

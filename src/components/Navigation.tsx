@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "./Sidebar";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { createClient } from "@/utils/supabase/client";
 
 export default function Navigation() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const { profile, refresh } = useStudentProfile();
@@ -25,6 +28,39 @@ export default function Navigation() {
   }, [refresh]);
 
   const isRootPage = pathname === "/" || pathname === "/student";
+
+  // Fetch unread feedback count for the global badge
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const fetchUnreadCount = async () => {
+      const supabase = createClient();
+      const { count, error } = await supabase
+        .from("feedback")
+        .select("id", { count: "exact", head: true })
+        .eq("student_id", profile.id)
+        .is("read_at", null)
+        .or("teacher_reaction.not.is.null,teacher_comment.not.is.null");
+
+      if (!error && count !== null) {
+        setUnreadCount(count);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Re-check every 30s while mounted
+    const interval = setInterval(fetchUnreadCount, 30000);
+
+    // Instant refresh when a subject page marks feedback as read
+    const handleFeedbackRead = () => fetchUnreadCount();
+    window.addEventListener("feedback-read", handleFeedbackRead);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("feedback-read", handleFeedbackRead);
+    };
+  }, [profile?.id, pathname]); // re-fetch when navigating between pages
 
   // Use current_xp for progress bar (per-level accumulator)
   const userLevel = profile?.level ?? 1;
@@ -101,8 +137,35 @@ export default function Navigation() {
             <span className="text-sm font-medium text-gray-700">Klar</span>
           </button>
 
-          {/* Right Slot: Empty for now (balance layout) */}
-          <div className="flex-shrink-0 w-10"></div>
+          {/* Right Slot: Unread feedback badge */}
+          <div className="flex-shrink-0 w-10 flex items-center justify-center">
+            <AnimatePresence>
+              {unreadCount > 0 && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  transition={{ type: "spring", damping: 12, stiffness: 300 }}
+                  className="relative flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 cursor-pointer"
+                  onClick={() => setSidebarOpen(true)}
+                  title="Du har nye tilbakemeldinger"
+                >
+                  <span className="text-base">💬</span>
+                  <motion.span
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                    className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full border-2 border-white shadow-sm px-1"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </motion.span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </header>
     </>

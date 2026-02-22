@@ -118,6 +118,7 @@ klar/
 │   │   │   └── CouponCard.tsx
 │   │   │
 │   │   ├── student/
+│   │   │   ├── FeedbackBubble.tsx
 │   │   │   ├── StudentHelpButton.tsx
 │   │   │   └── StudentQuizView.tsx
 │   │   │
@@ -181,5 +182,6 @@ klar/
         └── 20260221000003_add_feedback_task_unique_constraint.sql
         ├── 20260222000000_add_earned_at_level_to_student_rewards.sql
         ├── 20260222000001_add_max_level_reached.sql
-        └── 20260222000002_create_student_media_bucket.sql
+        ├── 20260222000002_create_student_media_bucket.sql
+        └── 20260222100000_add_feedback_teacher_id_and_read_at.sql
 ```

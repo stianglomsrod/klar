@@ -33,9 +33,12 @@ CREATE TABLE public.feedback (
   teacher_reaction text,
   teacher_comment text,
   student_image_url text,
+  teacher_id uuid,
+  read_at timestamp with time zone,
   CONSTRAINT feedback_pkey PRIMARY KEY (id),
   CONSTRAINT feedback_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
-  CONSTRAINT feedback_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id)
+  CONSTRAINT feedback_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
+  CONSTRAINT feedback_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.profiles(id)
 );
 
 CREATE TABLE public.grades (
