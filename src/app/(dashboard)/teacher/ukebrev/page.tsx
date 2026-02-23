@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Upload,
   Loader2,
@@ -24,6 +24,16 @@ import type {
 import { saveWeeklyPlan } from "@/app/actions/save-weekly-plan";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";
 import { EditDialog } from "@/components/ui/edit-dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 // ── Types ────────────────────────────────────────────
 
@@ -53,41 +63,111 @@ export default function UkebrevPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [toastVariant, setToastVariant] = useState<"success" | "error">(
+    "success",
+  );
+  const [missingData, setMissingData] = useState<{
+    classes: string[];
+    subjects: string[];
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const DRAFT_KEY = "ukebrev_draft";
+
+  // ── Restore draft from localStorage on mount ──
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as WeeklyPlanData;
+        setData(parsed);
+        setFileName("(gjenopprettet utkast)");
+      }
+    } catch {
+      localStorage.removeItem(DRAFT_KEY);
+    }
+  }, []);
+
+  // ── Sync edits to localStorage ──
+  useEffect(() => {
+    if (data) {
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+      } catch {
+        /* quota exceeded — ignore */
+      }
+    }
+  }, [data]);
 
   // ── Upload handler ──
+  const handleFile = useCallback(async (file: File) => {
+    // Guard: locked or empty file (e.g. open in Word)
+    if (file.size === 0) {
+      setToastVariant("error");
+      setToastMessage(
+        "Kunne ikke lese filen. Har du den åpen i Word? Lukk dokumentet og prøv igjen.",
+      );
+      setTimeout(() => setToastMessage(null), 5000);
+      return;
+    }
+
+    setFileName(file.name);
+    setError(null);
+    setData(null);
+    setIsLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const result = await parseWeeklyPlan(formData);
+
+      if (result.success) {
+        setData(result.data);
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      setError("Noe gikk galt. Prøv igjen.");
+    } finally {
+      setIsLoading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }, []);
+
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-
-      setFileName(file.name);
-      setError(null);
-      setData(null);
-      setIsLoading(true);
-
-      try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const result = await parseWeeklyPlan(formData);
-
-        if (result.success) {
-          setData(result.data);
-        } else {
-          setError(result.error);
-        }
-      } catch {
-        setError("Noe gikk galt. Prøv igjen.");
-      } finally {
-        setIsLoading(false);
-        // Reset input so same file can be re-uploaded
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
+      handleFile(file);
     },
-    [],
+    [handleFile],
   );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+      const file = e.dataTransfer.files?.[0];
+      if (file) handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }, []);
 
   // ── Reset handler ──
   const handleReset = useCallback(() => {
@@ -95,33 +175,53 @@ export default function UkebrevPage() {
     setError(null);
     setFileName(null);
     setIsLoading(false);
+    localStorage.removeItem(DRAFT_KEY);
   }, []);
 
   // ── Toast handler ──
-  const showToast = useCallback((message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
-  }, []);
+  const showToast = useCallback(
+    (message: string, variant: "success" | "error" = "success") => {
+      setToastVariant(variant);
+      setToastMessage(message);
+      setTimeout(
+        () => setToastMessage(null),
+        variant === "error" ? 5000 : 3000,
+      );
+    },
+    [],
+  );
 
   // ── Save handler ──
-  const handleSave = useCallback(async () => {
-    if (!data || isSaving) return;
-    setIsSaving(true);
-    try {
-      const result = await saveWeeklyPlan(data);
-      if (result.success) {
-        showToast("Ukebrev og timeplan er lagret!");
-        // Reset after brief delay so user can read the toast
-        setTimeout(() => handleReset(), 1500);
-      } else {
-        setError(result.error);
+  const handleSave = useCallback(
+    async (forceCreate = false) => {
+      if (!data || isSaving) return;
+      setIsSaving(true);
+      setError(null);
+      try {
+        const result = await saveWeeklyPlan(data, forceCreate);
+        if (result.success) {
+          localStorage.removeItem(DRAFT_KEY);
+          showToast("Ukebrev og timeplan er lagret!");
+          setMissingData(null);
+          setTimeout(() => handleReset(), 1500);
+        } else if ("missingClasses" in result) {
+          // Missing classes/subjects — show confirmation dialog
+          setMissingData({
+            classes: result.missingClasses,
+            subjects: result.missingSubjects,
+          });
+        } else {
+          console.error("Lagringsfeil:", result.error);
+          showToast(result.error, "error");
+        }
+      } catch {
+        showToast("Noe gikk galt under lagring. Prøv igjen.", "error");
+      } finally {
+        setIsSaving(false);
       }
-    } catch {
-      setError("Noe gikk galt under lagring. Prøv igjen.");
-    } finally {
-      setIsSaving(false);
-    }
-  }, [data, isSaving, showToast, handleReset]);
+    },
+    [data, isSaving, showToast, handleReset],
+  );
 
   // ── Edit state ──────────────────────────────────────
 
@@ -281,7 +381,16 @@ export default function UkebrevPage() {
 
       {/* ── Upload Section ── */}
       {!data && !isLoading && (
-        <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 sm:p-12 text-center bg-white hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors">
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center bg-white transition-colors ${
+            isDragOver
+              ? "border-indigo-500 bg-indigo-50/50"
+              : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30"
+          }`}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -505,7 +614,7 @@ export default function UkebrevPage() {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
-              onClick={handleSave}
+              onClick={() => handleSave()}
               disabled={isSaving}
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
@@ -702,10 +811,76 @@ export default function UkebrevPage() {
         )}
       </EditDialog>
 
+      {/* ── Missing Data Confirmation Dialog ── */}
+      <AlertDialog
+        open={!!missingData}
+        onOpenChange={(open) => {
+          if (!open) setMissingData(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Manglende data i databasen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Følgende finnes ikke i systemet ennå:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="mt-3 space-y-3 text-sm">
+            {missingData && missingData.classes.length > 0 && (
+              <div>
+                <p className="font-semibold text-slate-800">Klasser:</p>
+                <ul className="list-disc list-inside ml-1 mt-0.5">
+                  {missingData.classes.map((c) => (
+                    <li key={c} className="text-slate-700">
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {missingData && missingData.subjects.length > 0 && (
+              <div>
+                <p className="font-semibold text-slate-800">Fag:</p>
+                <ul className="list-disc list-inside ml-1 mt-0.5">
+                  {missingData.subjects.map((s) => (
+                    <li key={s} className="text-slate-700">
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-slate-600">
+              Vil du at systemet skal opprette disse for deg nå?
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => handleSave(true)}
+              disabled={isSaving}
+              autoClose={false}
+            >
+              {isSaving ? "Oppretter..." : "Ja, opprett og lagre"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Toast Notification ── */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-          <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+        <div
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+            toastVariant === "error"
+              ? "bg-red-600 text-white"
+              : "bg-slate-900 text-white"
+          }`}
+        >
+          {toastVariant === "error" ? (
+            <AlertCircle className="h-5 w-5 text-red-200" />
+          ) : (
+            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+          )}
           <span className="text-sm font-medium">{toastMessage}</span>
         </div>
       )}

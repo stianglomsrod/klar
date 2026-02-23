@@ -22,6 +22,21 @@ CREATE TABLE public.classes (
   CONSTRAINT classes_grade_id_fkey FOREIGN KEY (grade_id) REFERENCES public.grades(id)
 );
 
+-- RLS for classes (applied manually in Supabase – documented here for parity)
+ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Teachers can view all classes" ON public.classes
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can insert classes" ON public.classes
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
 CREATE TABLE public.feedback (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   task_id uuid UNIQUE,
@@ -160,6 +175,22 @@ CREATE TABLE public.subjects (
   CONSTRAINT subjects_pkey PRIMARY KEY (id),
   CONSTRAINT subjects_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );
+
+-- RLS for subjects (applied manually in Supabase – documented here for parity)
+ALTER TABLE public.subjects ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Teachers can view all subjects" ON public.subjects
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can insert subjects" ON public.subjects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
 -- Daily announcements for targeted messages
 CREATE TABLE IF NOT EXISTS public.daily_announcements (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

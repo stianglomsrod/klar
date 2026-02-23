@@ -86,6 +86,7 @@ klar/
 │   │   │
 │   │   ├── actions/
 │   │   │   ├── student-actions.ts
+│   │   │   ├── manage-subjects.ts
 │   │   │   ├── parse-weekly-plan.ts
 │   │   │   └── save-weekly-plan.ts
 │   │   │

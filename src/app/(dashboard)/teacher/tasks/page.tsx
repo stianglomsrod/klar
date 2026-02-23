@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import {
   Search,
@@ -9,11 +9,19 @@ import {
   Edit2,
   Trash2,
   Loader2,
+  Settings,
+  Pencil,
+  X,
+  Check,
 } from "lucide-react";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import type { SubjectTheme } from "@/utils/subject-colors";
 import CreateTaskButton from "@/components/teacher/CreateTaskButton";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 import type { EditTaskData } from "@/components/teacher/CreateTaskModal";
+import { updateSubject, deleteSubject } from "@/app/actions/manage-subjects";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker";
+import { ColorPickerGrid } from "@/components/ui/color-picker-grid";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -73,12 +81,64 @@ export default function TaskLibraryPage() {
     type: "success" | "error";
     visible: boolean;
   }>({ message: "", type: "success", visible: false });
+
+  // Subject Admin state
+  const [subjectAdminOpen, setSubjectAdminOpen] = useState(false);
+  const [editingSubjectId, setEditingSubjectId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    emoji: "",
+    color_theme: "blue" as SubjectTheme,
+  });
+  const [subjectActionLoading, setSubjectActionLoading] = useState(false);
+
   const supabase = createClient();
 
   const showToast = (message: string, type: "success" | "error") => {
     setToast({ message, type, visible: true });
     setTimeout(() => setToast((prev) => ({ ...prev, visible: false })), 3000);
   };
+
+  // ── Subject Admin handlers ──
+
+  const startEditingSubject = useCallback((subject: Subject) => {
+    setEditingSubjectId(subject.id);
+    setEditForm({
+      title: subject.title,
+      emoji: subject.emoji,
+      color_theme: subject.color_theme as SubjectTheme,
+    });
+  }, []);
+
+  const cancelEditingSubject = useCallback(() => {
+    setEditingSubjectId(null);
+  }, []);
+
+  const handleUpdateSubject = useCallback(async () => {
+    if (!editingSubjectId || !editForm.title.trim()) return;
+    setSubjectActionLoading(true);
+    const result = await updateSubject(editingSubjectId, editForm);
+    setSubjectActionLoading(false);
+    if (result.success) {
+      showToast("Faget ble oppdatert", "success");
+      setEditingSubjectId(null);
+      fetchSubjects();
+    } else {
+      showToast(result.error, "error");
+    }
+  }, [editingSubjectId, editForm]);
+
+  const handleDeleteSubject = useCallback(async (id: string) => {
+    setSubjectActionLoading(true);
+    const result = await deleteSubject(id);
+    setSubjectActionLoading(false);
+    if (result.success) {
+      showToast("Faget ble slettet", "success");
+      fetchSubjects();
+    } else {
+      showToast(result.error, "error");
+    }
+  }, []);
 
   useEffect(() => {
     fetchSubjects();
@@ -263,22 +323,34 @@ export default function TaskLibraryPage() {
       {/* Sidebar - Subject Filter */}
       <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
         <div className="p-4">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-            Filtrer etter fag
-          </h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Filtrer etter fag
+            </h2>
+            <button
+              onClick={() => setSubjectAdminOpen(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+              title="Administrer fag"
+            >
+              <Settings className="h-3.5 w-3.5" />
+            </button>
+          </div>
 
           {/* All Tasks */}
           <button
             onClick={() => setSelectedSubject(null)}
-            className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
+            className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors font-semibold ${
               selectedSubject === null
-                ? "bg-indigo-50 text-indigo-700 font-medium"
+                ? "bg-indigo-50 text-indigo-700"
                 : "text-gray-700 hover:bg-gray-100"
             }`}
           >
             <span className="mr-2">📚</span>
             Alle oppgaver
           </button>
+
+          {/* Divider */}
+          <div className="border-b border-gray-200 my-2" />
 
           {/* Subject List */}
           {loading ? (
@@ -550,6 +622,146 @@ export default function TaskLibraryPage() {
                 "Slett"
               )}
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Subject Admin Dialog */}
+      <AlertDialog
+        open={subjectAdminOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSubjectAdminOpen(false);
+            setEditingSubjectId(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Administrer fag</AlertDialogTitle>
+            <AlertDialogDescription>
+              Rediger eller slett fag. Fag som er i bruk kan ikke slettes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto -mx-1 px-1">
+            {subjects.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">
+                Ingen fag funnet.
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {subjects.map((subject) => {
+                  const isEditing = editingSubjectId === subject.id;
+                  const usedColors = new Set(
+                    subjects
+                      .filter((s) => s.id !== subject.id)
+                      .map((s) => s.color_theme as SubjectTheme),
+                  );
+
+                  return (
+                    <li key={subject.id} className="py-3">
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          {/* Edit row: emoji + name */}
+                          <div className="flex items-center gap-2">
+                            <EmojiPickerButton
+                              value={editForm.emoji}
+                              onChange={(emoji) =>
+                                setEditForm((f) => ({ ...f, emoji }))
+                              }
+                            />
+                            <input
+                              type="text"
+                              value={editForm.title}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  title: e.target.value,
+                                }))
+                              }
+                              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
+
+                          {/* Color picker */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">
+                              Farge:
+                            </span>
+                            <ColorPickerGrid
+                              value={editForm.color_theme}
+                              onChange={(color) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  color_theme: color,
+                                }))
+                              }
+                              usedColors={usedColors}
+                            />
+                          </div>
+
+                          {/* Save / Cancel */}
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={cancelEditingSubject}
+                              className="p-1.5 text-gray-500 hover:bg-gray-100 rounded transition-colors"
+                              title="Avbryt"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={handleUpdateSubject}
+                              disabled={
+                                subjectActionLoading || !editForm.title.trim()
+                              }
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-50"
+                              title="Lagre"
+                            >
+                              {subjectActionLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{subject.emoji}</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {subject.title}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => startEditingSubject(subject)}
+                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              title="Rediger"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubject(subject.id)}
+                              disabled={subjectActionLoading}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                              title="Slett"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Lukk</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -91,7 +91,13 @@ export function AlertDialogTrigger({
   );
 }
 
-export function AlertDialogContent({ children }: { children: ReactNode }) {
+export function AlertDialogContent({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   const { open, setOpen } = useAlertDialog();
 
   if (typeof document === "undefined") return null;
@@ -115,7 +121,7 @@ export function AlertDialogContent({ children }: { children: ReactNode }) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="fixed left-[50%] top-[50%] z-[10000] w-full max-w-md translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-xl p-6 border border-gray-200"
+            className={`fixed left-[50%] top-[50%] z-[10000] w-full max-w-md translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-xl p-6 border border-gray-200 ${className ?? ""}`}
             onClick={(e) => e.stopPropagation()}
           >
             {children}

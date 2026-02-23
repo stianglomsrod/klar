@@ -67,7 +67,7 @@ src/app/
 ├── actions/            # Server Actions
 │   ├── student-actions.ts  # createStudent, resetStudentPassword, updateStudentClass
 │   └── parse-weekly-plan.ts  # AI-powered .docx → structured JSON (Gemini + Mammoth)
-│   └── save-weekly-plan.ts   # Resolves class/subject names → IDs, saves to DB
+│   └── save-weekly-plan.ts   # Class/subject normalization, hybrid splitting, auto-create flow, saves to DB
 │
 ├── api/seed/route.ts   # Seed data endpoint
 ├── belonninger/        # Rewards pages (garden, coupons)
@@ -461,3 +461,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 11. **Dual containers — route awareness** — Schedule blocks link to `/student/lesson/[id]` (session-scoped via `task_schedule_entries`). Subject cards link to `/subject/[id]` (global by `subject_id`). Never conflate these routes — they serve different data contexts.
 
 12. **Server Actions for auth mutations** — Creating students, resetting passwords, and updating classes **MUST** use the admin client (`SUPABASE_SERVICE_ROLE_KEY`) via `src/app/actions/student-actions.ts` to avoid logging out the active teacher session.
+
+13. **Class & subject normalization** — `save-weekly-plan.ts` normalizes both class names (`normalizeClassName`: strip non-alphanumeric → uppercase, e.g. "7 a" → "7A") and subject names (`splitAndNormalizeSubject`: alias dictionary + `/`/`og` splitting, e.g. "Nor/bib" → ["Norsk","Bibliotek"]). Hybrid subjects use the first part's `subject_id` and store the full joined name in `custom_title`. If missing classes or subjects are found, the frontend shows an AlertDialog offering to auto-create them before retrying.
+
+14. **Masterplan auto-creation (week_number=0)** — `WeeklyScheduleEditor` fetches `week_number=0` as fallback and `week_number=N` as primary. Entries from the primary query that don't exist in the fallback get `isFallback=false` → displayed with an "Endret" badge. To prevent false badges on first import, `save-weekly-plan.ts` section 6a auto-creates `week_number=0` duplicates for any class that lacks masterplan entries. This is non-blocking — if the masterplan insert fails, the week entries are still saved.
