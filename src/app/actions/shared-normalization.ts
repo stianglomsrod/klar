@@ -9,6 +9,19 @@
 export const normalizeClassName = (name: string) =>
   name.replace(/[^a-zA-Z0-9æøåÆØÅ]/g, "").toUpperCase();
 
+/**
+ * Detect if a normalized class name is a grade-level target (e.g., "6TRINN", "6").
+ * Returns the grade number as a string if detected, or null otherwise.
+ */
+export function extractGradeNumber(normalizedName: string): string | null {
+  // "6TRINN", "7TRINN" etc.
+  const trinnMatch = normalizedName.match(/^(\d{1,2})TRINN$/);
+  if (trinnMatch) return trinnMatch[1];
+  // Bare digit — "6", "7" (only 1-2 digit numbers, no letters)
+  if (/^\d{1,2}$/.test(normalizedName)) return normalizedName;
+  return null;
+}
+
 // ── Subject Normalization & Splitting ────────────────
 
 /** Dictionary mapping common Norwegian abbreviations → canonical subject name */

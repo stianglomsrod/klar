@@ -116,16 +116,21 @@ export function AlertDialogContent({
             onClick={() => setOpen(false)}
           />
           {/* Centered dialog box */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.15 }}
-            className={`fixed left-[50%] top-[50%] z-[10000] w-full max-w-md translate-x-[-50%] translate-y-[-50%] bg-white rounded-lg shadow-xl p-6 border border-gray-200 ${className ?? ""}`}
-            onClick={(e) => e.stopPropagation()}
+          <div
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
+            onClick={() => setOpen(false)}
           >
-            {children}
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className={`w-full max-w-md bg-white rounded-lg shadow-xl p-6 border border-gray-200 max-h-[85vh] flex flex-col ${className ?? ""}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {children}
+            </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
@@ -140,7 +145,9 @@ export function AlertDialogHeader({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={`space-y-2 ${className}`}>{children}</div>;
+  return (
+    <div className={`space-y-2 flex-shrink-0 ${className}`}>{children}</div>
+  );
 }
 
 export function AlertDialogFooter({
@@ -151,7 +158,9 @@ export function AlertDialogFooter({
   className?: string;
 }) {
   return (
-    <div className={`flex justify-end gap-2 mt-4 ${className}`}>{children}</div>
+    <div className={`flex justify-end gap-2 mt-4 flex-shrink-0 ${className}`}>
+      {children}
+    </div>
   );
 }
 

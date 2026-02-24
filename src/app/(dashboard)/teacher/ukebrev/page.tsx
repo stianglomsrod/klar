@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
@@ -72,7 +73,13 @@ export default function UkebrevPage() {
   const [missingData, setMissingData] = useState<{
     classes: string[];
     subjects: string[];
+    grades: string[];
   } | null>(null);
+  const [customGradeClasses, setCustomGradeClasses] = useState<
+    Record<string, string>
+  >({});
+  const [subjectEdits, setSubjectEdits] = useState<Record<string, string>>({});
+  const [deletedSubjects, setDeletedSubjects] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -206,8 +213,35 @@ export default function UkebrevPage() {
       setIsSaving(true);
       setError(null);
       try {
-        if (data.documentType === "ukeplanlegger") {
-          const result = await saveLessonPlan(data, forceCreate);
+        // Apply subject corrections before saving (ukeplanlegger only)
+        let saveData = data;
+        if (
+          forceCreate &&
+          data.documentType === "ukeplanlegger" &&
+          (deletedSubjects.length > 0 || Object.keys(subjectEdits).length > 0)
+        ) {
+          const cleaned = {
+            ...data,
+            tasks: data.tasks
+              .filter((t) => !deletedSubjects.includes(t.subjectName))
+              .map((t) => {
+                const newName = subjectEdits[t.subjectName];
+                if (newName && newName.trim()) {
+                  return { ...t, subjectName: newName.trim() };
+                }
+                return t;
+              }),
+          };
+          saveData = cleaned;
+          setData(cleaned);
+        }
+
+        if (saveData.documentType === "ukeplanlegger") {
+          const result = await saveLessonPlan(
+            saveData,
+            forceCreate,
+            forceCreate ? customGradeClasses : undefined,
+          );
           if (result.success) {
             localStorage.removeItem(DRAFT_KEY);
             if (result.unmatchedSessions.length > 0) {
@@ -225,13 +259,17 @@ export default function UkebrevPage() {
             setMissingData({
               classes: result.missingClasses,
               subjects: result.missingSubjects,
+              grades: result.missingGrades,
             });
+            setCustomGradeClasses({});
+            setSubjectEdits({});
+            setDeletedSubjects([]);
           } else {
             console.error("Lagringsfeil:", result.error);
             showToast(result.error, "error");
           }
         } else {
-          const result = await saveWeeklyPlan(data, forceCreate);
+          const result = await saveWeeklyPlan(saveData, forceCreate);
           if (result.success) {
             localStorage.removeItem(DRAFT_KEY);
             showToast("Ukebrev og timeplan er lagret!");
@@ -241,6 +279,7 @@ export default function UkebrevPage() {
             setMissingData({
               classes: result.missingClasses,
               subjects: result.missingSubjects,
+              grades: [],
             });
           } else {
             console.error("Lagringsfeil:", result.error);
@@ -253,7 +292,15 @@ export default function UkebrevPage() {
         setIsSaving(false);
       }
     },
-    [data, isSaving, showToast, handleReset],
+    [
+      data,
+      isSaving,
+      showToast,
+      handleReset,
+      customGradeClasses,
+      subjectEdits,
+      deletedSubjects,
+    ],
   );
 
   // ── Edit state ──────────────────────────────────────
@@ -898,7 +945,12 @@ export default function UkebrevPage() {
       <AlertDialog
         open={!!missingData}
         onOpenChange={(open) => {
-          if (!open) setMissingData(null);
+          if (!open) {
+            setMissingData(null);
+            setCustomGradeClasses({});
+            setSubjectEdits({});
+            setDeletedSubjects([]);
+          }
         }}
       >
         <AlertDialogContent>
@@ -908,7 +960,34 @@ export default function UkebrevPage() {
               Følgende finnes ikke i systemet ennå:
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="mt-3 space-y-3 text-sm">
+          <div className="mt-3 space-y-3 text-sm overflow-y-auto flex-1 min-h-0">
+            {missingData && missingData.grades.length > 0 && (
+              <div className="space-y-3">
+                <p className="font-semibold text-slate-800">
+                  Trinn uten klasser:
+                </p>
+                {missingData.grades.map((grade) => (
+                  <div key={grade}>
+                    <label className="block text-sm text-slate-700 mb-1">
+                      Vi fant ingen klasser for {grade}. trinn. Hvilke klasser
+                      vil du opprette?
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={`f.eks. ${grade}A, ${grade}B`}
+                      value={customGradeClasses[grade] ?? ""}
+                      onChange={(e) =>
+                        setCustomGradeClasses((prev) => ({
+                          ...prev,
+                          [grade]: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
             {missingData && missingData.classes.length > 0 && (
               <div>
                 <p className="font-semibold text-slate-800">Klasser:</p>
@@ -921,18 +1000,48 @@ export default function UkebrevPage() {
                 </ul>
               </div>
             )}
-            {missingData && missingData.subjects.length > 0 && (
-              <div>
-                <p className="font-semibold text-slate-800">Fag:</p>
-                <ul className="list-disc list-inside ml-1 mt-0.5">
-                  {missingData.subjects.map((s) => (
-                    <li key={s} className="text-slate-700">
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {missingData &&
+              missingData.subjects.filter((s) => !deletedSubjects.includes(s))
+                .length > 0 && (
+                <div>
+                  <p className="font-semibold text-slate-800">
+                    Fag (rediger eller slett feilaktige):
+                  </p>
+                  <div className="mt-1.5 space-y-2">
+                    {missingData.subjects
+                      .filter((s) => !deletedSubjects.includes(s))
+                      .map((s) => (
+                        <div key={s} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={subjectEdits[s] ?? s}
+                            onChange={(e) =>
+                              setSubjectEdits((prev) => ({
+                                ...prev,
+                                [s]: e.target.value,
+                              }))
+                            }
+                            className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeletedSubjects((prev) => [...prev, s])
+                            }
+                            className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Fjern dette faget — oppgavene slettes"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Tips: Slett fag som AI-en har funnet på, eller endre navnet
+                    til riktig fag.
+                  </p>
+                </div>
+              )}
             <p className="text-slate-600">
               Vil du at systemet skal opprette disse for deg nå?
             </p>

@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import type { LessonPlanData, LessonPlanTask } from "./parse-weekly-plan";
 import {
   normalizeClassName,
+  extractGradeNumber,
   splitAndNormalizeSubject,
 } from "./shared-normalization";
 
@@ -27,6 +28,7 @@ export type SaveLessonPlanResult =
       success: false;
       missingClasses: string[];
       missingSubjects: string[];
+      missingGrades: string[];
     };
 
 // ── Server Action ────────────────────────────────────
@@ -34,6 +36,7 @@ export type SaveLessonPlanResult =
 export async function saveLessonPlan(
   data: LessonPlanData,
   forceCreate?: boolean,
+  customGradeClasses?: Record<string, string>,
 ): Promise<SaveLessonPlanResult> {
   const supabase = await createClient();
 
@@ -104,6 +107,49 @@ export async function saveLessonPlan(
 
     const missingClasses = normalizedClassNames.filter((n) => !classMap.has(n));
 
+    // ── 1b. Smart grade resolution — detect "TRINN" targets ──
+
+    const gradeExpansionMap = new Map<string, string[]>();
+    const missingGrades: string[] = [];
+    const gradeToNorms = new Map<string, string[]>();
+    const actualMissingClasses: string[] = [];
+
+    for (const norm of missingClasses) {
+      const grade = extractGradeNumber(norm);
+      if (!grade) {
+        actualMissingClasses.push(norm);
+        continue;
+      }
+
+      // Query classes whose name starts with this grade number
+      const { data: fetched } = await supabase
+        .from("classes")
+        .select("id, name")
+        .ilike("name", `${grade}%`);
+
+      // Filter to exact grade match (avoid grade "1" matching "10A")
+      const gradeClasses = (fetched ?? []).filter((c) => {
+        const cn = normalizeClassName(c.name);
+        if (!cn.startsWith(grade)) return false;
+        return cn.length === grade.length || !/\d/.test(cn[grade.length]);
+      });
+
+      if (gradeClasses.length > 0) {
+        gradeExpansionMap.set(
+          norm,
+          gradeClasses.map((c) => c.id),
+        );
+        for (const c of gradeClasses) {
+          classMap.set(normalizeClassName(c.name), c.id);
+        }
+      } else {
+        if (!missingGrades.includes(grade)) missingGrades.push(grade);
+        const norms = gradeToNorms.get(grade) ?? [];
+        norms.push(norm);
+        gradeToNorms.set(grade, norms);
+      }
+    }
+
     // ── 2. Resolve subject names ──
 
     const allRawSubjectNames = [
@@ -146,15 +192,22 @@ export async function saveLessonPlan(
 
     if (
       !forceCreate &&
-      (missingClasses.length > 0 || missingSubjects.length > 0)
+      (actualMissingClasses.length > 0 ||
+        missingSubjects.length > 0 ||
+        missingGrades.length > 0)
     ) {
-      return { success: false, missingClasses, missingSubjects };
+      return {
+        success: false,
+        missingClasses: actualMissingClasses,
+        missingSubjects,
+        missingGrades,
+      };
     }
 
     // ── 4. Auto-create missing entities ──
 
-    if (missingClasses.length > 0) {
-      const rows = missingClasses.map((norm) => ({ name: norm }));
+    if (actualMissingClasses.length > 0) {
+      const rows = actualMissingClasses.map((norm) => ({ name: norm }));
       const { data: created, error: createError } = await supabase
         .from("classes")
         .insert(rows)
@@ -169,6 +222,45 @@ export async function saveLessonPlan(
 
       for (const c of created ?? []) {
         classMap.set(normalizeClassName(c.name), c.id);
+      }
+    }
+
+    // ── 4b. Auto-create classes from custom grade input ──
+
+    if (missingGrades.length > 0 && customGradeClasses) {
+      for (const grade of missingGrades) {
+        const raw = customGradeClasses[grade];
+        if (!raw) continue;
+        const names = raw
+          .split(",")
+          .map((n) => n.trim())
+          .filter(Boolean);
+        if (names.length === 0) continue;
+
+        const rows = names.map((n) => ({ name: normalizeClassName(n) }));
+        const { data: created, error: createError } = await supabase
+          .from("classes")
+          .insert(rows)
+          .select("id, name");
+
+        if (createError) {
+          return {
+            success: false,
+            error: `Feil ved opprettelse av klasser for ${grade}. trinn: ${createError.message}`,
+          };
+        }
+
+        const ids: string[] = [];
+        for (const c of created ?? []) {
+          classMap.set(normalizeClassName(c.name), c.id);
+          ids.push(c.id);
+        }
+
+        // Map grade-target norms to the newly created class IDs
+        const norms = gradeToNorms.get(grade) ?? [];
+        for (const norm of norms) {
+          gradeExpansionMap.set(norm, ids);
+        }
       }
     }
 
@@ -201,12 +293,18 @@ export async function saveLessonPlan(
     const allClassIds = [...new Set(classMap.values())];
 
     for (const task of data.tasks) {
-      // Determine class_ids for this task
+      // Determine class_ids for this task (with grade expansion)
       const targetClassIds: string[] = task.targetClasses.includes("Alle")
         ? allClassIds
         : task.targetClasses
-            .map((c) => classMap.get(normalizeClassName(c)))
-            .filter((id): id is string => !!id);
+            .flatMap((c) => {
+              const norm = normalizeClassName(c);
+              const gradeIds = gradeExpansionMap.get(norm);
+              if (gradeIds) return gradeIds;
+              const id = classMap.get(norm);
+              return id ? [id] : [];
+            })
+            .filter((id, i, arr) => arr.indexOf(id) === i);
 
       if (targetClassIds.length === 0) {
         unmatchedSessions.push({
