@@ -18,11 +18,14 @@ import {
 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
-  WeeklyPlanData,
+  LessonPlanTask,
   ScheduleEntry,
+  ParsedDocument,
 } from "@/app/actions/parse-weekly-plan";
 import { saveWeeklyPlan } from "@/app/actions/save-weekly-plan";
+import { saveLessonPlan } from "@/app/actions/save-lesson-plan";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";
+import PreviewLessonPlan from "@/components/teacher/PreviewLessonPlan";
 import { EditDialog } from "@/components/ui/edit-dialog";
 import {
   AlertDialog,
@@ -58,7 +61,7 @@ const DAY_OPTIONS = [
 
 export default function UkebrevPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const [data, setData] = useState<WeeklyPlanData | null>(null);
+  const [data, setData] = useState<ParsedDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -73,16 +76,21 @@ export default function UkebrevPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const DRAFT_KEY = "ukebrev_draft";
+  const DRAFT_KEY = "planlegging_draft";
 
   // ── Restore draft from localStorage on mount ──
   useEffect(() => {
     try {
       const saved = localStorage.getItem(DRAFT_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved) as WeeklyPlanData;
-        setData(parsed);
-        setFileName("(gjenopprettet utkast)");
+        const parsed = JSON.parse(saved) as ParsedDocument;
+        if (
+          parsed.documentType === "ukebrev" ||
+          parsed.documentType === "ukeplanlegger"
+        ) {
+          setData(parsed);
+          setFileName("(gjenopprettet utkast)");
+        }
       }
     } catch {
       localStorage.removeItem(DRAFT_KEY);
@@ -198,21 +206,46 @@ export default function UkebrevPage() {
       setIsSaving(true);
       setError(null);
       try {
-        const result = await saveWeeklyPlan(data, forceCreate);
-        if (result.success) {
-          localStorage.removeItem(DRAFT_KEY);
-          showToast("Ukebrev og timeplan er lagret!");
-          setMissingData(null);
-          setTimeout(() => handleReset(), 1500);
-        } else if ("missingClasses" in result) {
-          // Missing classes/subjects — show confirmation dialog
-          setMissingData({
-            classes: result.missingClasses,
-            subjects: result.missingSubjects,
-          });
+        if (data.documentType === "ukeplanlegger") {
+          const result = await saveLessonPlan(data, forceCreate);
+          if (result.success) {
+            localStorage.removeItem(DRAFT_KEY);
+            if (result.unmatchedSessions.length > 0) {
+              showToast(
+                `Lagret! ${result.stats.tasksCreated} oppgaver opprettet. ${result.unmatchedSessions.length} økter ble ikke koblet til timeplanen.`,
+              );
+            } else {
+              showToast(
+                `Lagret! ${result.stats.tasksCreated} oppgaver opprettet og ${result.stats.scheduleLinked} koblet til timeplanen.`,
+              );
+            }
+            setMissingData(null);
+            setTimeout(() => handleReset(), 2000);
+          } else if ("missingClasses" in result) {
+            setMissingData({
+              classes: result.missingClasses,
+              subjects: result.missingSubjects,
+            });
+          } else {
+            console.error("Lagringsfeil:", result.error);
+            showToast(result.error, "error");
+          }
         } else {
-          console.error("Lagringsfeil:", result.error);
-          showToast(result.error, "error");
+          const result = await saveWeeklyPlan(data, forceCreate);
+          if (result.success) {
+            localStorage.removeItem(DRAFT_KEY);
+            showToast("Ukebrev og timeplan er lagret!");
+            setMissingData(null);
+            setTimeout(() => handleReset(), 2000);
+          } else if ("missingClasses" in result) {
+            setMissingData({
+              classes: result.missingClasses,
+              subjects: result.missingSubjects,
+            });
+          } else {
+            console.error("Lagringsfeil:", result.error);
+            showToast(result.error, "error");
+          }
         }
       } catch {
         showToast("Noe gikk galt under lagring. Prøv igjen.", "error");
@@ -227,11 +260,11 @@ export default function UkebrevPage() {
 
   const [editState, setEditState] = useState<EditState>(null);
 
-  // ── Mutators ────────────────────────────────────────
+  // ── Mutators (ukebrev-specific — guarded by documentType) ──────
 
   const updateMessage = useCallback((index: number, value: string) => {
     setData((prev) => {
-      if (!prev) return prev;
+      if (!prev || prev.documentType !== "ukebrev") return prev;
       const msgs = [...prev.generalMessages];
       msgs[index] = value;
       return { ...prev, generalMessages: msgs };
@@ -240,7 +273,7 @@ export default function UkebrevPage() {
 
   const updateGoalSubject = useCallback((index: number, value: string) => {
     setData((prev) => {
-      if (!prev) return prev;
+      if (!prev || prev.documentType !== "ukebrev") return prev;
       return {
         ...prev,
         learningGoals: prev.learningGoals.map((g, i) =>
@@ -253,7 +286,7 @@ export default function UkebrevPage() {
   const updateGoalItem = useCallback(
     (goalIdx: number, itemIdx: number, value: string) => {
       setData((prev) => {
-        if (!prev) return prev;
+        if (!prev || prev.documentType !== "ukebrev") return prev;
         return {
           ...prev,
           learningGoals: prev.learningGoals.map((g, i) => {
@@ -270,7 +303,7 @@ export default function UkebrevPage() {
 
   const updateHomeworkSubject = useCallback((index: number, value: string) => {
     setData((prev) => {
-      if (!prev) return prev;
+      if (!prev || prev.documentType !== "ukebrev") return prev;
       return {
         ...prev,
         homework: prev.homework.map((h, i) =>
@@ -283,7 +316,7 @@ export default function UkebrevPage() {
   const updateHomeworkTask = useCallback(
     (hwIdx: number, taskIdx: number, value: string) => {
       setData((prev) => {
-        if (!prev) return prev;
+        if (!prev || prev.documentType !== "ukebrev") return prev;
         return {
           ...prev,
           homework: prev.homework.map((h, i) => {
@@ -301,10 +334,25 @@ export default function UkebrevPage() {
   const updateScheduleEntry = useCallback(
     (index: number, entry: ScheduleEntry) => {
       setData((prev) => {
-        if (!prev) return prev;
+        if (!prev || prev.documentType !== "ukebrev") return prev;
         return {
           ...prev,
           schedule: prev.schedule.map((s, i) => (i === index ? entry : s)),
+        };
+      });
+    },
+    [],
+  );
+
+  // ── Mutator (ukeplanlegger-specific) ──────
+
+  const updateLessonTask = useCallback(
+    (index: number, updated: LessonPlanTask) => {
+      setData((prev) => {
+        if (!prev || prev.documentType !== "ukeplanlegger") return prev;
+        return {
+          ...prev,
+          tasks: prev.tasks.map((t, i) => (i === index ? updated : t)),
         };
       });
     },
@@ -373,9 +421,10 @@ export default function UkebrevPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {/* ── Header ── */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Ukebrev</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Planlegging</h1>
         <p className="text-slate-500 mt-1">
-          Last opp en ukeplan (.docx) og la AI-en analysere innholdet
+          Last opp et ukebrev eller undervisningsplan (.docx) — AI-en
+          klassifiserer og analyserer automatisk
         </p>
       </div>
 
@@ -408,10 +457,11 @@ export default function UkebrevPage() {
             </div>
             <div>
               <p className="text-lg font-semibold text-slate-800">
-                Last opp ukeplan
+                Last opp dokument
               </p>
               <p className="text-sm text-slate-500 mt-1">
-                Dra og slipp eller klikk for å velge en .docx-fil
+                Dra og slipp eller klikk for å velge en .docx-fil (ukebrev eller
+                undervisningsplan)
               </p>
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
@@ -445,7 +495,7 @@ export default function UkebrevPage() {
         <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
           <Loader2 className="h-10 w-10 animate-spin text-indigo-500 mx-auto" />
           <p className="text-slate-700 font-medium mt-4">
-            AI analyserer ukebrevet...
+            AI analyserer dokumentet...
           </p>
           <p className="text-slate-500 text-sm mt-1">
             {fileName && (
@@ -466,7 +516,14 @@ export default function UkebrevPage() {
             <div className="flex items-center gap-3">
               <CalendarDays className="h-8 w-8 opacity-80" />
               <div>
-                <h2 className="text-2xl font-bold">Uke {data.weekNumber}</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-bold">Uke {data.weekNumber}</h2>
+                  <span className="text-xs font-medium bg-white/20 rounded-full px-2.5 py-0.5">
+                    {data.documentType === "ukebrev"
+                      ? "📨 Ukebrev"
+                      : "📋 Ukeplanlegger"}
+                  </span>
+                </div>
                 <p className="text-indigo-100 text-sm mt-0.5">
                   Analysert fra {fileName}
                 </p>
@@ -478,136 +535,153 @@ export default function UkebrevPage() {
             </div>
           </div>
 
-          {/* General Messages */}
-          {data.generalMessages.length > 0 && (
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 bg-amber-50 flex items-center gap-2.5">
-                <Megaphone className="h-5 w-5 text-amber-600" />
-                <h3 className="font-semibold text-slate-800">
-                  Beskjeder og informasjon
-                </h3>
-              </div>
-              <ul className="divide-y divide-slate-100">
-                {data.generalMessages.map((msg, i) => (
-                  <li
-                    key={i}
-                    className="px-5 py-3 text-slate-700 text-sm hover:bg-amber-50 cursor-pointer transition-colors"
-                    onClick={() =>
-                      setEditState({ type: "message", index: i, value: msg })
-                    }
-                  >
-                    {msg}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
+          {/* ── Ukebrev Preview ── */}
+          {data.documentType === "ukebrev" && (
+            <>
+              {/* General Messages */}
+              {data.generalMessages.length > 0 && (
+                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 bg-amber-50 flex items-center gap-2.5">
+                    <Megaphone className="h-5 w-5 text-amber-600" />
+                    <h3 className="font-semibold text-slate-800">
+                      Beskjeder og informasjon
+                    </h3>
+                  </div>
+                  <ul className="divide-y divide-slate-100">
+                    {data.generalMessages.map((msg, i) => (
+                      <li
+                        key={i}
+                        className="px-5 py-3 text-slate-700 text-sm hover:bg-amber-50 cursor-pointer transition-colors"
+                        onClick={() =>
+                          setEditState({
+                            type: "message",
+                            index: i,
+                            value: msg,
+                          })
+                        }
+                      >
+                        {msg}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
-          {/* Learning Goals */}
-          {data.learningGoals.length > 0 && (
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 bg-emerald-50 flex items-center gap-2.5">
-                <GraduationCap className="h-5 w-5 text-emerald-600" />
-                <h3 className="font-semibold text-slate-800">Læringsmål</h3>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {data.learningGoals.map((goal, i) => (
-                  <div key={i} className="px-5 py-4">
-                    <h4
-                      className="font-medium text-slate-900 mb-2 hover:text-emerald-700 cursor-pointer transition-colors inline-block"
-                      onClick={() =>
-                        setEditState({
-                          type: "goalSubject",
-                          index: i,
-                          value: goal.subject,
-                        })
-                      }
-                    >
-                      {goal.subject}
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {goal.goals.map((g, j) => (
-                        <li
-                          key={j}
-                          className="text-sm text-slate-600 flex items-start gap-2 hover:bg-emerald-50 cursor-pointer transition-colors rounded-md px-1.5 py-0.5 -mx-1.5"
+              {/* Learning Goals */}
+              {data.learningGoals.length > 0 && (
+                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 bg-emerald-50 flex items-center gap-2.5">
+                    <GraduationCap className="h-5 w-5 text-emerald-600" />
+                    <h3 className="font-semibold text-slate-800">Læringsmål</h3>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {data.learningGoals.map((goal, i) => (
+                      <div key={i} className="px-5 py-4">
+                        <h4
+                          className="font-medium text-slate-900 mb-2 hover:text-emerald-700 cursor-pointer transition-colors inline-block"
                           onClick={() =>
                             setEditState({
-                              type: "goalItem",
-                              goalIndex: i,
-                              itemIndex: j,
-                              value: g,
+                              type: "goalSubject",
+                              index: i,
+                              value: goal.subject,
                             })
                           }
                         >
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                          {g}
-                        </li>
-                      ))}
-                    </ul>
+                          {goal.subject}
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {goal.goals.map((g, j) => (
+                            <li
+                              key={j}
+                              className="text-sm text-slate-600 flex items-start gap-2 hover:bg-emerald-50 cursor-pointer transition-colors rounded-md px-1.5 py-0.5 -mx-1.5"
+                              onClick={() =>
+                                setEditState({
+                                  type: "goalItem",
+                                  goalIndex: i,
+                                  itemIndex: j,
+                                  value: g,
+                                })
+                              }
+                            >
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                              {g}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
+                </section>
+              )}
 
-          {/* Homework */}
-          {data.homework.length > 0 && (
-            <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-5 py-4 border-b border-slate-100 bg-blue-50 flex items-center gap-2.5">
-                <BookOpen className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-slate-800">Lekser</h3>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {data.homework.map((hw, i) => (
-                  <div key={i} className="px-5 py-4">
-                    <h4
-                      className="font-medium text-slate-900 mb-2 hover:text-blue-700 cursor-pointer transition-colors inline-block"
-                      onClick={() =>
-                        setEditState({
-                          type: "homeworkSubject",
-                          index: i,
-                          value: hw.subject,
-                        })
-                      }
-                    >
-                      {hw.subject}
-                    </h4>
-                    <ul className="space-y-1.5">
-                      {hw.tasks.map((task, j) => (
-                        <li
-                          key={j}
-                          className="text-sm text-slate-600 flex items-start gap-2 hover:bg-blue-50 cursor-pointer transition-colors rounded-md px-1.5 py-0.5 -mx-1.5"
+              {/* Homework */}
+              {data.homework.length > 0 && (
+                <section className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-slate-100 bg-blue-50 flex items-center gap-2.5">
+                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    <h3 className="font-semibold text-slate-800">Lekser</h3>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {data.homework.map((hw, i) => (
+                      <div key={i} className="px-5 py-4">
+                        <h4
+                          className="font-medium text-slate-900 mb-2 hover:text-blue-700 cursor-pointer transition-colors inline-block"
                           onClick={() =>
                             setEditState({
-                              type: "homeworkTask",
-                              hwIndex: i,
-                              taskIndex: j,
-                              value: task,
+                              type: "homeworkSubject",
+                              index: i,
+                              value: hw.subject,
                             })
                           }
                         >
-                          <span className="text-blue-400 mt-0.5">•</span>
-                          {task}
-                        </li>
-                      ))}
-                    </ul>
+                          {hw.subject}
+                        </h4>
+                        <ul className="space-y-1.5">
+                          {hw.tasks.map((task, j) => (
+                            <li
+                              key={j}
+                              className="text-sm text-slate-600 flex items-start gap-2 hover:bg-blue-50 cursor-pointer transition-colors rounded-md px-1.5 py-0.5 -mx-1.5"
+                              onClick={() =>
+                                setEditState({
+                                  type: "homeworkTask",
+                                  hwIndex: i,
+                                  taskIndex: j,
+                                  value: task,
+                                })
+                              }
+                            >
+                              <span className="text-blue-400 mt-0.5">•</span>
+                              {task}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
+              )}
+
+              {/* Schedule Grid */}
+              {data.schedule.length > 0 && (
+                <PreviewScheduleGrid
+                  schedule={data.schedule}
+                  onEditEntry={(idx) =>
+                    setEditState({
+                      type: "schedule",
+                      index: idx,
+                      entry: { ...data.schedule[idx] },
+                    })
+                  }
+                />
+              )}
+            </>
           )}
 
-          {/* Schedule Grid */}
-          {data.schedule.length > 0 && (
-            <PreviewScheduleGrid
-              schedule={data.schedule}
-              onEditEntry={(idx) =>
-                setEditState({
-                  type: "schedule",
-                  index: idx,
-                  entry: { ...data.schedule[idx] },
-                })
-              }
+          {/* ── Ukeplanlegger Preview ── */}
+          {data.documentType === "ukeplanlegger" && (
+            <PreviewLessonPlan
+              tasks={data.tasks}
+              onUpdateTask={updateLessonTask}
             />
           )}
 
@@ -623,7 +697,11 @@ export default function UkebrevPage() {
               ) : (
                 <Save className="h-5 w-5" />
               )}
-              {isSaving ? "Lagrer..." : "Lagre og Publiser"}
+              {isSaving
+                ? "Lagrer..."
+                : data.documentType === "ukeplanlegger"
+                  ? "Lagre oppgaver"
+                  : "Lagre og Publiser"}
             </button>
             <button
               onClick={handleReset}
@@ -636,135 +714,67 @@ export default function UkebrevPage() {
         </div>
       )}
 
-      {/* ── Edit Dialog ── */}
-      <EditDialog
-        open={editState !== null}
-        onClose={() => setEditState(null)}
-        title={editDialogTitle}
-        onSave={handleEditSave}
-      >
-        {/* Text-based edits (messages, subjects, goals, tasks) */}
-        {editState && editState.type !== "schedule" && (
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {editState.type === "message"
-                ? "Beskjed"
-                : editState.type === "goalSubject" ||
-                    editState.type === "homeworkSubject"
-                  ? "Fagnavn"
-                  : editState.type === "goalItem"
-                    ? "Læringsmål"
-                    : "Oppgave"}
-            </label>
-            {editState.type === "message" ? (
-              <textarea
-                value={editState.value}
-                onChange={(e) =>
-                  setEditState((prev) =>
-                    prev && prev.type !== "schedule"
-                      ? { ...prev, value: e.target.value }
-                      : prev,
-                  )
-                }
-                rows={3}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-              />
-            ) : (
-              <input
-                type="text"
-                value={editState.value}
-                onChange={(e) =>
-                  setEditState((prev) =>
-                    prev && prev.type !== "schedule"
-                      ? { ...prev, value: e.target.value }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-              />
-            )}
-          </div>
-        )}
+      {/* ── Edit Dialog (ukebrev only) ── */}
+      {data?.documentType === "ukebrev" && (
+        <EditDialog
+          open={editState !== null}
+          onClose={() => setEditState(null)}
+          title={editDialogTitle}
+          onSave={handleEditSave}
+        >
+          {/* Text-based edits (messages, subjects, goals, tasks) */}
+          {editState && editState.type !== "schedule" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                {editState.type === "message"
+                  ? "Beskjed"
+                  : editState.type === "goalSubject" ||
+                      editState.type === "homeworkSubject"
+                    ? "Fagnavn"
+                    : editState.type === "goalItem"
+                      ? "Læringsmål"
+                      : "Oppgave"}
+              </label>
+              {editState.type === "message" ? (
+                <textarea
+                  value={editState.value}
+                  onChange={(e) =>
+                    setEditState((prev) =>
+                      prev && prev.type !== "schedule"
+                        ? { ...prev, value: e.target.value }
+                        : prev,
+                    )
+                  }
+                  rows={3}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={editState.value}
+                  onChange={(e) =>
+                    setEditState((prev) =>
+                      prev && prev.type !== "schedule"
+                        ? { ...prev, value: e.target.value }
+                        : prev,
+                    )
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                />
+              )}
+            </div>
+          )}
 
-        {/* Schedule entry edit */}
-        {editState?.type === "schedule" && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Fag
-              </label>
-              <input
-                type="text"
-                value={editState.entry.subjectName}
-                onChange={(e) =>
-                  setEditState((prev) =>
-                    prev?.type === "schedule"
-                      ? {
-                          ...prev,
-                          entry: { ...prev.entry, subjectName: e.target.value },
-                        }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Klasse
-              </label>
-              <input
-                type="text"
-                value={editState.entry.className}
-                onChange={(e) =>
-                  setEditState((prev) =>
-                    prev?.type === "schedule"
-                      ? {
-                          ...prev,
-                          entry: { ...prev.entry, className: e.target.value },
-                        }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Dag
-              </label>
-              <select
-                value={editState.entry.dayOfWeek}
-                onChange={(e) =>
-                  setEditState((prev) =>
-                    prev?.type === "schedule"
-                      ? {
-                          ...prev,
-                          entry: {
-                            ...prev.entry,
-                            dayOfWeek: Number(e.target.value),
-                          },
-                        }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors bg-white"
-              >
-                {DAY_OPTIONS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          {/* Schedule entry edit */}
+          {editState?.type === "schedule" && (
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Starttid
+                  Fag
                 </label>
                 <input
                   type="text"
-                  value={editState.entry.startTime}
+                  value={editState.entry.subjectName}
                   onChange={(e) =>
                     setEditState((prev) =>
                       prev?.type === "schedule"
@@ -772,23 +782,41 @@ export default function UkebrevPage() {
                             ...prev,
                             entry: {
                               ...prev.entry,
-                              startTime: e.target.value,
+                              subjectName: e.target.value,
                             },
                           }
                         : prev,
                     )
                   }
-                  placeholder="08:00"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Sluttid
+                  Klasse
                 </label>
                 <input
                   type="text"
-                  value={editState.entry.endTime}
+                  value={editState.entry.className}
+                  onChange={(e) =>
+                    setEditState((prev) =>
+                      prev?.type === "schedule"
+                        ? {
+                            ...prev,
+                            entry: { ...prev.entry, className: e.target.value },
+                          }
+                        : prev,
+                    )
+                  }
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Dag
+                </label>
+                <select
+                  value={editState.entry.dayOfWeek}
                   onChange={(e) =>
                     setEditState((prev) =>
                       prev?.type === "schedule"
@@ -796,20 +824,75 @@ export default function UkebrevPage() {
                             ...prev,
                             entry: {
                               ...prev.entry,
-                              endTime: e.target.value,
+                              dayOfWeek: Number(e.target.value),
                             },
                           }
                         : prev,
                     )
                   }
-                  placeholder="09:00"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                />
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors bg-white"
+                >
+                  {DAY_OPTIONS.map((d) => (
+                    <option key={d.value} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Starttid
+                  </label>
+                  <input
+                    type="text"
+                    value={editState.entry.startTime}
+                    onChange={(e) =>
+                      setEditState((prev) =>
+                        prev?.type === "schedule"
+                          ? {
+                              ...prev,
+                              entry: {
+                                ...prev.entry,
+                                startTime: e.target.value,
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                    placeholder="08:00"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    Sluttid
+                  </label>
+                  <input
+                    type="text"
+                    value={editState.entry.endTime}
+                    onChange={(e) =>
+                      setEditState((prev) =>
+                        prev?.type === "schedule"
+                          ? {
+                              ...prev,
+                              entry: {
+                                ...prev.entry,
+                                endTime: e.target.value,
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                    placeholder="09:00"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </EditDialog>
+          )}
+        </EditDialog>
+      )}
 
       {/* ── Missing Data Confirmation Dialog ── */}
       <AlertDialog

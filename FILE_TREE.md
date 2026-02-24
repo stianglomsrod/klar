@@ -88,7 +88,9 @@ klar/
 │   │   │   ├── student-actions.ts
 │   │   │   ├── manage-subjects.ts
 │   │   │   ├── parse-weekly-plan.ts
-│   │   │   └── save-weekly-plan.ts
+│   │   │   ├── save-lesson-plan.ts
+│   │   │   ├── save-weekly-plan.ts
+│   │   │   └── shared-normalization.ts
 │   │   │
 │   │   ├── api/
 │   │   │   └── seed/
@@ -142,6 +144,7 @@ klar/
 │   │   │   ├── CreateTaskModal.tsx
 │   │   │   ├── EditStudentSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
+│   │   │   ├── PreviewLessonPlan.tsx
 │   │   │   ├── PreviewScheduleGrid.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── TeacherSidebar.tsx

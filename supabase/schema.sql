@@ -397,7 +397,7 @@ CREATE TABLE public.tasks (
   CONSTRAINT tasks_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
   CONSTRAINT tasks_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
   CONSTRAINT tasks_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES public.subjects(id),
-  CONSTRAINT tasks_task_library_id_fkey FOREIGN KEY (task_library_id) REFERENCES public.task_library(id) ON DELETE SET NULL
+  CONSTRAINT tasks_task_library_id_fkey FOREIGN KEY (task_library_id) REFERENCES public.task_library(id)
 );
 
 CREATE TABLE public.teacher_active_sessions (

@@ -23,7 +23,9 @@ export type ScheduleEntry = {
   subjectName: string;
 };
 
+/** Ukebrev = parent-facing weekly newsletter */
 export type WeeklyPlanData = {
+  documentType: "ukebrev";
   weekNumber: number;
   generalMessages: string[];
   learningGoals: LearningGoal[];
@@ -31,25 +33,72 @@ export type WeeklyPlanData = {
   schedule: ScheduleEntry[];
 };
 
+/** A single task extracted from a teacher lesson planner */
+export type LessonPlanTask = {
+  subjectName: string;
+  sessionNumber: number;
+  title: string;
+  description: string;
+  goals: string[];
+  targetClasses: string[];
+};
+
+/** Ukeplanlegger = teacher-facing lesson planner */
+export type LessonPlanData = {
+  documentType: "ukeplanlegger";
+  weekNumber: number;
+  tasks: LessonPlanTask[];
+};
+
+/** Discriminated union — result of AI classification + extraction */
+export type ParsedDocument = WeeklyPlanData | LessonPlanData;
+
 export type ParseWeeklyPlanResult =
-  | { success: true; data: WeeklyPlanData }
+  | { success: true; data: ParsedDocument }
   | { success: false; error: string };
 
 // ── Constants ────────────────────────────────────────
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-const SYSTEM_PROMPT = `Du er en ekspert norsk lærerassistent. Din oppgave er å analysere en norsk ukeplan (weekly plan) og trekke ut strukturert informasjon.
+const SYSTEM_PROMPT = `Du er en ekspert norsk lærerassistent. Din oppgave er å analysere dokumenter fra norske skoler og trekke ut strukturert informasjon.
 
-Du vil motta råtekst fra et Word-dokument som inneholder en ukeplan for en norsk barneskole eller ungdomsskole.
+Du vil motta råtekst fra et Word-dokument. Dokumentet er enten:
+A) Et **UKEBREV** (ukeplan til foresatte) — inneholder beskjeder til foreldre, lekser, læringsmål, og en timeplan med klokkeslett.
+B) En **UKEPLANLEGGER** (lærers undervisningsplan) — inneholder fagøkter med øktnummer (f.eks. "Matte 1", "Norsk 2"), læringsmål per økt, aktiviteter, og progresjonsplaner.
 
-Analyser teksten nøye og returner et JSON-objekt med følgende struktur:
+═══════════════════════════════════════════
+FASE 1: KLASSIFISER DOKUMENTET
+═══════════════════════════════════════════
+
+Analyser teksten og avgjør dokumenttype basert på disse signalene:
+
+UKEBREV-signaler:
+- Inneholder "Kjære foresatte", "Til foreldre", "Til hjemmet", "Informasjon til hjemmet"
+- Har en timeplan med klokkeslett (f.eks. "08:30-09:15 Norsk")
+- Inneholder seksjoner som "Lekser", "Hjemmearbeid", "Beskjeder"
+- Generelle påminnelser om arrangementer, turdager, praktisk info
+- Fokusert på hva foreldre trenger å vite
+
+UKEPLANLEGGER-signaler:
+- Inneholder nummererte fagøkter som "Matte 1", "Matte 2", "Norsk 1"
+- Har "Mål for timen", "Læringsmål", "Kompetansemål" per økt
+- Inneholder "Aktivitet", "Oppgaver", "Materiell", "Vurdering" per økt
+- Strukturert per fag med flere økter
+- Fokusert på hva læreren skal gjøre i timen
+
+═══════════════════════════════════════════
+FASE 2: TREKK UT DATA BASERT PÅ TYPE
+═══════════════════════════════════════════
+
+▸ Hvis UKEBREV, returner dette JSON-formatet:
 
 {
+  "documentType": "ukebrev",
   "weekNumber": <number — ukenummeret, f.eks. 5>,
   "generalMessages": [<streng-array med beskjeder/informasjon til foresatte>],
   "learningGoals": [
-    { "subject": "<fagnavn>", "goals": [<streng-array med læringsmål/fokusområder>] }
+    { "subject": "<fagnavn>", "goals": [<streng-array med læringsmål>] }
   ],
   "homework": [
     { "subject": "<fagnavn>", "tasks": [<streng-array med lekseinstruksjoner>] }
@@ -57,15 +106,15 @@ Analyser teksten nøye og returner et JSON-objekt med følgende struktur:
   "schedule": [
     {
       "className": "<klassenavn, f.eks. '7A', '7B', eller 'Alle' hvis ikke spesifisert>",
-      "dayOfWeek": <nummer 1-5 der 1=mandag, 2=tirsdag, 3=onsdag, 4=torsdag, 5=fredag>,
+      "dayOfWeek": <nummer 1-5 der 1=mandag, 5=fredag>,
       "startTime": "<HH:MM format>",
       "endTime": "<HH:MM format>",
-      "subjectName": "<fagnavn, f.eks. 'Norsk', 'Matte', 'Matte/K&H'>"
+      "subjectName": "<fagnavn>"
     }
   ]
 }
 
-VIKTIGE REGLER:
+UKEBREV-REGLER:
 1. Ukenummeret finnes vanligvis i tittelen eller overskriften (f.eks. "Uke 5", "Ukeplan uke 12").
 2. Generelle beskjeder inkluderer info om arrangementer, påminnelser, praktisk informasjon til foreldre/foresatte, osv.
 3. Læringsmål er hva elevene skal lære eller fokusere på den uken, gruppert etter fag.
@@ -78,7 +127,37 @@ VIKTIGE REGLER:
 10. Tider skal alltid være i HH:MM-format (f.eks. "08:30", "14:00").
 11. Vær nøyaktig med dagsnummerering: mandag=1, tirsdag=2, onsdag=3, torsdag=4, fredag=5.
 
-KORREKTURLESING (SVÆRT VIKTIG):
+▸ Hvis UKEPLANLEGGER, returner dette JSON-formatet:
+
+{
+  "documentType": "ukeplanlegger",
+  "weekNumber": <number — ukenummeret>,
+  "tasks": [
+    {
+      "subjectName": "<fagnavn, f.eks. 'Matematikk', 'Norsk'>",
+      "sessionNumber": <number — øktnummer, f.eks. 1 for 'Matte 1', 2 for 'Matte 2'>,
+      "title": "<kort tittel for økten, f.eks. 'Brøkregning med liknevner'>",
+      "description": "<beskrivelse av aktiviteter og innhold i økten>",
+      "goals": [<streng-array med læringsmål for denne økten>],
+      "targetClasses": [<streng-array med klassenavn, f.eks. ['7A', '7B'], eller ['Alle'] hvis ikke spesifisert>]
+    }
+  ]
+}
+
+UKEPLANLEGGER-REGLER:
+1. Ukenummeret finnes vanligvis i tittelen (f.eks. "Undervisningsplan uke 8", "Ukeplan for lærer uke 12").
+2. Øktnummeret (sessionNumber) utledes fra teksten: "Matte 1" → 1, "Matte 2" → 2, "Norsk 3" → 3. Hvis det ikke er nummerert eksplisitt, nummerer kronologisk per fag (første matteøkt = 1, andre = 2, osv.).
+3. Tittelen skal være en kort, beskrivende oppsummering av øktens hovedtema.
+4. Beskrivelsen skal inkludere aktiviteter, oppgaver, materiell, og arbeidsmetoder nevnt for økten.
+5. Læringsmål (goals) er konkrete mål for akkurat den økten — ikke generelle ukersmål.
+6. Målklasser (targetClasses) finnes ofte i overskriften av dokumentet (f.eks. "Plan for 6. trinn", "7A og 7B"). Bruk klassenavnet slik det står ("6A", "7. trinn", "Alle").
+7. Hvis et fag opptrer med forskjellige planer for forskjellige klasser, opprett separate task-objekter med riktige targetClasses.
+8. Bruk norske fagnavn som de står i dokumentet.
+
+═══════════════════════════════════════════
+KORREKTURLESING (GJELDER BEGGE TYPER)
+═══════════════════════════════════════════
+
 Du fungerer også som korrekturleser. Teksten du trekker ut vil ofte mangle mellomrom etter punktum og komma (f.eks. "dagen.Onsdag: 7B" skal bli "dagen. Onsdag: 7B"), eller ha ord som er mest sammen på grunn av linjeskift i Word-filen. Du MÅ rydde opp i dette:
 - Legg til manglende mellomrom etter punktum, komma, kolon og semikolon.
 - Fiks åpenbare skrivefeil og sammenskrevne ord som skyldes formatering.
@@ -144,16 +223,17 @@ export async function parseWeeklyPlan(
     });
 
     const result = await model.generateContent(
-      `Her er teksten fra ukeplanen:\n\n---\n${rawText}\n---\n\nAnalyser teksten og returner strukturert JSON.`,
+      `Her er teksten fra dokumentet:\n\n---\n${rawText}\n---\n\nKlassifiser dokumentet (ukebrev eller ukeplanlegger) og returner strukturert JSON.`,
     );
 
     const response = result.response;
     const jsonText = response.text();
 
     // ── 5. Parse and validate the JSON response ──
-    let parsed: WeeklyPlanData;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let raw: any;
     try {
-      parsed = JSON.parse(jsonText);
+      raw = JSON.parse(jsonText);
     } catch {
       return {
         success: false,
@@ -161,16 +241,15 @@ export async function parseWeeklyPlan(
       };
     }
 
-    // Basic shape validation
+    // ── 5a. Validate weekNumber (common to both types) ──
     if (
-      typeof parsed.weekNumber !== "number" ||
-      parsed.weekNumber < 1 ||
-      parsed.weekNumber > 53
+      typeof raw.weekNumber !== "number" ||
+      raw.weekNumber < 1 ||
+      raw.weekNumber > 53
     ) {
-      // Try to coerce if it's a string number
-      const coerced = Number(parsed.weekNumber);
+      const coerced = Number(raw.weekNumber);
       if (!isNaN(coerced) && coerced >= 1 && coerced <= 53) {
-        parsed.weekNumber = coerced;
+        raw.weekNumber = coerced;
       } else {
         return {
           success: false,
@@ -180,28 +259,77 @@ export async function parseWeeklyPlan(
       }
     }
 
-    // Ensure arrays exist
-    parsed.generalMessages = Array.isArray(parsed.generalMessages)
-      ? parsed.generalMessages
-      : [];
-    parsed.learningGoals = Array.isArray(parsed.learningGoals)
-      ? parsed.learningGoals
-      : [];
-    parsed.homework = Array.isArray(parsed.homework) ? parsed.homework : [];
-    parsed.schedule = Array.isArray(parsed.schedule) ? parsed.schedule : [];
+    // ── 5b. Branch on documentType ──
+    const docType = raw.documentType;
 
-    // Validate schedule entries
-    parsed.schedule = parsed.schedule.filter((entry) => {
-      return (
-        typeof entry.className === "string" &&
-        typeof entry.dayOfWeek === "number" &&
-        entry.dayOfWeek >= 1 &&
-        entry.dayOfWeek <= 7 &&
-        typeof entry.startTime === "string" &&
-        typeof entry.endTime === "string" &&
-        typeof entry.subjectName === "string"
-      );
-    });
+    if (docType === "ukeplanlegger") {
+      // Validate & sanitize LessonPlanData
+      const tasks: LessonPlanTask[] = Array.isArray(raw.tasks)
+        ? raw.tasks
+            .filter(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (t: any) =>
+                typeof t.subjectName === "string" &&
+                typeof t.sessionNumber === "number" &&
+                t.sessionNumber >= 1 &&
+                typeof t.title === "string",
+            )
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((t: any) => ({
+              subjectName: t.subjectName,
+              sessionNumber: t.sessionNumber,
+              title: t.title,
+              description:
+                typeof t.description === "string" ? t.description : "",
+              goals: Array.isArray(t.goals)
+                ? t.goals.filter((g: unknown) => typeof g === "string")
+                : [],
+              targetClasses: Array.isArray(t.targetClasses)
+                ? t.targetClasses.filter((c: unknown) => typeof c === "string")
+                : ["Alle"],
+            }))
+        : [];
+
+      const parsed: LessonPlanData = {
+        documentType: "ukeplanlegger",
+        weekNumber: raw.weekNumber,
+        tasks,
+      };
+
+      return { success: true, data: parsed };
+    }
+
+    // ── 5c. Default: Ukebrev ──
+    // Ensure arrays exist
+    const generalMessages = Array.isArray(raw.generalMessages)
+      ? raw.generalMessages
+      : [];
+    const learningGoals = Array.isArray(raw.learningGoals)
+      ? raw.learningGoals
+      : [];
+    const homework = Array.isArray(raw.homework) ? raw.homework : [];
+    const schedule: ScheduleEntry[] = Array.isArray(raw.schedule)
+      ? raw.schedule.filter(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (entry: any) =>
+            typeof entry.className === "string" &&
+            typeof entry.dayOfWeek === "number" &&
+            entry.dayOfWeek >= 1 &&
+            entry.dayOfWeek <= 7 &&
+            typeof entry.startTime === "string" &&
+            typeof entry.endTime === "string" &&
+            typeof entry.subjectName === "string",
+        )
+      : [];
+
+    const parsed: WeeklyPlanData = {
+      documentType: "ukebrev",
+      weekNumber: raw.weekNumber,
+      generalMessages,
+      learningGoals,
+      homework,
+      schedule,
+    };
 
     return { success: true, data: parsed };
   } catch (error) {
@@ -209,7 +337,7 @@ export async function parseWeeklyPlan(
     const message =
       error instanceof Error
         ? error.message
-        : "Ukjent feil ved parsing av ukeplan.";
+        : "Ukjent feil ved parsing av dokument.";
     return { success: false, error: message };
   }
 }
