@@ -16,12 +16,14 @@ import {
   Save,
   CheckCircle2,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
   ScheduleEntry,
   WeeklyPlanData,
 } from "@/app/actions/parse-weekly-plan";
+import { normalizeClassName } from "@/app/actions/shared-normalization";
 import { saveWeeklyPlan } from "@/app/actions/save-weekly-plan";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";
 import { EditDialog } from "@/components/ui/edit-dialog";
@@ -96,6 +98,20 @@ export default function TimeplanPage() {
   type ScheduleEditState = { index: number; entry: ScheduleEntry } | null;
   const [scheduleEditState, setScheduleEditState] =
     useState<ScheduleEditState>(null);
+
+  // ── Interactive missing-data edit state ──
+  const [subjectEdits, setSubjectEdits] = useState<Record<string, string>>({});
+  const [deletedSubjects, setDeletedSubjects] = useState<string[]>([]);
+
+  // ── Import masterplan toggle ──
+  const [alsoSaveAsMasterplan, setAlsoSaveAsMasterplan] = useState(false);
+
+  // ── Class mapping dialog state ──
+  const [classMapInfo, setClassMapInfo] = useState<{
+    documentClasses: string[];
+    rawSchedule: ScheduleEntry[];
+    rawWeeklyData: WeeklyPlanData;
+  } | null>(null);
 
   const DAY_OPTIONS = [
     { value: 1, label: "Mandag" },
@@ -328,6 +344,31 @@ export default function TimeplanPage() {
     [],
   );
 
+  /** Filter schedule to a single class and remap className → selectedClassName */
+  const applyClassFilter = useCallback(
+    (
+      schedule: ScheduleEntry[],
+      weeklyData: WeeklyPlanData,
+      docClassName: string,
+    ) => {
+      const normalizedFilter = normalizeClassName(docClassName);
+      const filtered = schedule.filter(
+        (e) =>
+          !e.className ||
+          e.className === "Alle" ||
+          normalizeClassName(e.className) === normalizedFilter,
+      );
+      const remapped = filtered.map((e) => ({
+        ...e,
+        className: selectedClassName || e.className,
+      }));
+      setUploadedSchedule(remapped);
+      setUploadWeeklyData({ ...weeklyData, schedule: remapped });
+      setClassMapInfo(null);
+    },
+    [selectedClassName],
+  );
+
   const handleUploadFile = useCallback(
     async (file: File) => {
       if (file.size === 0) {
@@ -366,16 +407,8 @@ export default function TimeplanPage() {
           return;
         }
 
-        // Override class names and week number with page selections
-        const overridden = schedule.map((e) => ({
-          ...e,
-          className: selectedClassName || e.className,
-        }));
-
-        setUploadedSchedule(overridden);
-
-        // Build full WeeklyPlanData for save — use selected week, empty non-schedule fields
-        const weeklyData: WeeklyPlanData = {
+        // Build base WeeklyPlanData (schedule retains original classNames)
+        const weeklyDataBase: WeeklyPlanData = {
           documentType: "ukebrev",
           weekNumber: mode === "master" ? 0 : selectedWeek,
           generalMessages:
@@ -388,9 +421,41 @@ export default function TimeplanPage() {
               : [],
           homework:
             result.data.documentType === "ukebrev" ? result.data.homework : [],
-          schedule: overridden,
+          schedule,
         };
-        setUploadWeeklyData(weeklyData);
+
+        // ── Smart class matching ──
+        const docClassNames = [
+          ...new Set(
+            schedule.map((e) => e.className).filter((n) => n && n !== "Alle"),
+          ),
+        ];
+        const normalizedSelected = normalizeClassName(selectedClassName || "");
+
+        // Find which doc class matches the selected class
+        const matchedDocClass = docClassNames.find(
+          (dc) => normalizeClassName(dc) === normalizedSelected,
+        );
+
+        if (docClassNames.length === 0 || matchedDocClass) {
+          // Exact match (or "Alle" only) → filter & remap to selected class
+          const filterName = matchedDocClass || "Alle";
+          applyClassFilter(schedule, weeklyDataBase, filterName);
+        } else if (docClassNames.length === 1) {
+          // Only one class in doc, no match → auto-select it but ask first
+          setClassMapInfo({
+            documentClasses: docClassNames,
+            rawSchedule: schedule,
+            rawWeeklyData: weeklyDataBase,
+          });
+        } else {
+          // Multiple classes, none match → show mapping dialog
+          setClassMapInfo({
+            documentClasses: docClassNames,
+            rawSchedule: schedule,
+            rawWeeklyData: weeklyDataBase,
+          });
+        }
       } catch {
         setUploadError("Noe gikk galt ved parsing. Prøv igjen.");
       } finally {
@@ -398,7 +463,7 @@ export default function TimeplanPage() {
         if (uploadInputRef.current) uploadInputRef.current.value = "";
       }
     },
-    [selectedClassName, selectedWeek, mode, showToast],
+    [selectedClassName, selectedWeek, mode, showToast, applyClassFilter],
   );
 
   const handleUploadReset = useCallback(() => {
@@ -406,7 +471,20 @@ export default function TimeplanPage() {
     setUploadWeeklyData(null);
     setUploadError(null);
     setScheduleEditState(null);
+    setClassMapInfo(null);
   }, []);
+
+  const handleClassMapSelect = useCallback(
+    (docClassName: string) => {
+      if (!classMapInfo) return;
+      applyClassFilter(
+        classMapInfo.rawSchedule,
+        classMapInfo.rawWeeklyData,
+        docClassName,
+      );
+    },
+    [classMapInfo, applyClassFilter],
+  );
 
   const updateScheduleEntry = useCallback(
     (index: number, entry: ScheduleEntry) => {
@@ -437,13 +515,38 @@ export default function TimeplanPage() {
       if (!uploadWeeklyData || isSaving) return;
       setIsSaving(true);
       try {
-        const result = await saveWeeklyPlan(uploadWeeklyData, forceCreate);
+        // Apply subject edits and deletions before saving
+        let dataToSave = uploadWeeklyData;
+        if (
+          forceCreate &&
+          (deletedSubjects.length > 0 || Object.keys(subjectEdits).length > 0)
+        ) {
+          dataToSave = {
+            ...uploadWeeklyData,
+            schedule: uploadWeeklyData.schedule
+              .filter((e) => !deletedSubjects.includes(e.subjectName))
+              .map((e) => {
+                const newName = subjectEdits[e.subjectName];
+                if (newName && newName.trim())
+                  return { ...e, subjectName: newName.trim() };
+                return e;
+              }),
+          };
+        }
+
+        const result = await saveWeeklyPlan(
+          dataToSave,
+          forceCreate,
+          alsoSaveAsMasterplan,
+        );
         if (result.success) {
           showToast(
             `Timeplan lagret! ${result.stats.scheduleEntries} timer opprettet.`,
           );
           handleUploadReset();
           setMissingData(null);
+          setSubjectEdits({});
+          setDeletedSubjects([]);
           // Bump key to force WeeklyScheduleEditor to re-fetch
           setEditorRefreshKey((k) => k + 1);
         } else if ("missingClasses" in result) {
@@ -451,6 +554,8 @@ export default function TimeplanPage() {
             classes: result.missingClasses,
             subjects: result.missingSubjects,
           });
+          setSubjectEdits({});
+          setDeletedSubjects([]);
         } else {
           showToast(result.error, "error");
         }
@@ -460,7 +565,15 @@ export default function TimeplanPage() {
         setIsSaving(false);
       }
     },
-    [uploadWeeklyData, isSaving, showToast, handleUploadReset],
+    [
+      uploadWeeklyData,
+      isSaving,
+      showToast,
+      handleUploadReset,
+      deletedSubjects,
+      subjectEdits,
+      alsoSaveAsMasterplan,
+    ],
   );
 
   if (loading) {
@@ -751,26 +864,39 @@ export default function TimeplanPage() {
             }
           />
 
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => handleSaveSchedule()}
-              disabled={isSaving}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Save className="h-5 w-5" />
-              )}
-              {isSaving ? "Lagrer..." : "Lagre timeplan"}
-            </button>
-            <button
-              onClick={handleUploadReset}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors font-medium"
-            >
-              <X className="h-5 w-5" />
-              Forkast
-            </button>
+          <div className="space-y-3">
+            {mode === "weekly" && (
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={alsoSaveAsMasterplan}
+                  onChange={(e) => setAlsoSaveAsMasterplan(e.target.checked)}
+                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                />
+                Lagre også som fast timeplan
+              </label>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={() => handleSaveSchedule()}
+                disabled={isSaving}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSaving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5" />
+                )}
+                {isSaving ? "Lagrer..." : "Lagre timeplan"}
+              </button>
+              <button
+                onClick={handleUploadReset}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 border border-slate-300 rounded-xl hover:bg-slate-50 transition-colors font-medium"
+              >
+                <X className="h-5 w-5" />
+                Forkast
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -897,24 +1023,70 @@ export default function TimeplanPage() {
         )}
       </EditDialog>
 
-      {/* ── Missing Data Dialog ── */}
+      {/* ── Class Mapping Dialog ── */}
+      <AlertDialog
+        open={!!classMapInfo}
+        onOpenChange={(open) => {
+          if (!open) setClassMapInfo(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Velg klasse fra dokumentet</AlertDialogTitle>
+            <AlertDialogDescription>
+              Fant ikke{" "}
+              <span className="font-semibold text-slate-900">
+                {selectedClassName}
+              </span>{" "}
+              i dokumentet. Følgende planer ble funnet:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="mt-1 space-y-2">
+            {classMapInfo?.documentClasses.map((dc) => (
+              <button
+                key={dc}
+                type="button"
+                onClick={() => handleClassMapSelect(dc)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 bg-white hover:bg-indigo-50 hover:border-indigo-300 transition-colors text-sm font-medium text-slate-800"
+              >
+                <span>{dc}</span>
+                <span className="text-xs text-slate-500">
+                  Importer til {selectedClassName}
+                </span>
+              </button>
+            ))}
+          </div>
+          <AlertDialogFooter className="mt-3">
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Missing Data Dialog (interactive) ── */}
       <AlertDialog
         open={!!missingData}
         onOpenChange={(open) => {
-          if (!open) setMissingData(null);
+          if (!open) {
+            setMissingData(null);
+            setSubjectEdits({});
+            setDeletedSubjects([]);
+          }
         }}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Manglende data i databasen</AlertDialogTitle>
             <AlertDialogDescription>
-              Følgende finnes ikke i systemet ennå:
+              Følgende finnes ikke i systemet ennå. Du kan redigere fagnavnene
+              eller fjerne fag du ikke trenger før de opprettes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="mt-3 space-y-3 text-sm overflow-y-auto flex-1 min-h-0">
             {missingData && missingData.classes.length > 0 && (
               <div>
-                <p className="font-semibold text-slate-800">Klasser:</p>
+                <p className="font-semibold text-slate-800">
+                  Klasser (opprettes automatisk):
+                </p>
                 <ul className="list-disc list-inside ml-1 mt-0.5">
                   {missingData.classes.map((c) => (
                     <li key={c} className="text-slate-700">
@@ -924,21 +1096,50 @@ export default function TimeplanPage() {
                 </ul>
               </div>
             )}
-            {missingData && missingData.subjects.length > 0 && (
-              <div>
-                <p className="font-semibold text-slate-800">Fag:</p>
-                <ul className="list-disc list-inside ml-1 mt-0.5">
-                  {missingData.subjects.map((s) => (
-                    <li key={s} className="text-slate-700">
-                      {s}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <p className="text-slate-600">
-              Vil du at systemet skal opprette disse for deg nå?
-            </p>
+            {missingData &&
+              missingData.subjects.filter((s) => !deletedSubjects.includes(s))
+                .length > 0 && (
+                <div>
+                  <p className="font-semibold text-slate-800 mb-1">Fag:</p>
+                  <div className="space-y-2">
+                    {missingData.subjects
+                      .filter((s) => !deletedSubjects.includes(s))
+                      .map((s) => (
+                        <div key={s} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={subjectEdits[s] ?? s}
+                            onChange={(e) =>
+                              setSubjectEdits((prev) => ({
+                                ...prev,
+                                [s]: e.target.value,
+                              }))
+                            }
+                            className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDeletedSubjects((prev) => [...prev, s])
+                            }
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            title="Fjern fag"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            {missingData &&
+              deletedSubjects.length > 0 &&
+              deletedSubjects.length < missingData.subjects.length && (
+                <p className="text-xs text-slate-500">
+                  {deletedSubjects.length} fag fjernet — tilhørende timer
+                  droppes.
+                </p>
+              )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Avbryt</AlertDialogCancel>

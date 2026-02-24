@@ -46,7 +46,7 @@ const navigationItems = [
     icon: MessageSquare,
   },
   {
-    name: "Ukebrev",
+    name: "Ukebrev & Planlegging",
     href: "/teacher/ukebrev",
     icon: Mail,
   },

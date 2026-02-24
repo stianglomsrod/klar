@@ -59,13 +59,6 @@ type ClassInfo = {
   grade: number | null;
 };
 
-type SlotTemplate = {
-  start: string;
-  end: string;
-  type: "lesson" | "break";
-  title: string;
-};
-
 const DAYS_OF_WEEK = [
   { number: 1, name: "Mandag" },
   { number: 2, name: "Tirsdag" },
@@ -75,30 +68,6 @@ const DAYS_OF_WEEK = [
 ];
 
 const SCHEDULE_TYPES = ["lesson", "break", "activity"];
-
-const BASE_SLOTS: SlotTemplate[] = [
-  { start: "08:30", end: "09:15", type: "lesson", title: "1. time" },
-  { start: "09:15", end: "10:00", type: "lesson", title: "2. time" },
-  { start: "10:00", end: "10:10", type: "break", title: "Friminutt" },
-  { start: "10:10", end: "10:55", type: "lesson", title: "3. time" },
-  { start: "10:55", end: "11:15", type: "break", title: "Lunsj" },
-  { start: "11:15", end: "11:45", type: "break", title: "Friminutt" },
-  { start: "11:45", end: "12:30", type: "lesson", title: "4. time" },
-  { start: "12:30", end: "12:40", type: "break", title: "Friminutt" },
-  { start: "12:40", end: "13:25", type: "lesson", title: "5. time" },
-];
-
-const EXTRA_SLOT_6TH: SlotTemplate = {
-  start: "13:25",
-  end: "14:10",
-  type: "lesson",
-  title: "6. time",
-};
-
-const shouldIncludeSixth = (grade: number | null, day: number) => {
-  if (!grade) return false;
-  return grade >= 5 && grade <= 7 && day >= 1 && day <= 3;
-};
 
 const parseGradeFromClassName = (name: string | null): number | null => {
   if (!name) return null;
@@ -138,7 +107,6 @@ export default function WeeklyScheduleEditor({
     name: null,
     grade: null,
   });
-  const [isGenerating, setIsGenerating] = useState(false);
   const [alsoSaveAsMasterplan, setAlsoSaveAsMasterplan] = useState(false);
   const [isMakingMasterplan, setIsMakingMasterplan] = useState(false);
 
@@ -365,10 +333,22 @@ export default function WeeklyScheduleEditor({
       const targetWeek = selectedWeekNumber;
 
       if (editingEntry) {
-        // Edit mode — single entry, use first selected day
-        const entryData = {
+        // Edit mode — supports multi-day selection
+        const editingIsClassSlot = !editingEntry.student_id;
+        const targetIsStudent = !!desiredStudentId;
+        const isSameWeek =
+          (editingEntry.week_number ?? 0) === (targetWeek ?? 0);
+        const editingCameFromFallback = (editingEntry as MergedEntry)
+          .isFallback;
+        const switchingTarget = editingIsClassSlot && targetIsStudent;
+        const isMultiDay = formData.selected_days.length > 1;
+        const dayChanged =
+          !isMultiDay && formData.selected_days[0] !== editingEntry.day_of_week;
+
+        // Build rows for all selected days
+        const rows = formData.selected_days.map((day) => ({
           subject_id: formData.subject_id || null,
-          day_of_week: formData.selected_days[0],
+          day_of_week: day,
           start_time: formData.start_time,
           end_time: formData.end_time,
           type: formData.type,
@@ -376,33 +356,37 @@ export default function WeeklyScheduleEditor({
           class_id: classId,
           student_id: desiredStudentId,
           week_number: targetWeek,
-        };
+        }));
 
-        const editingIsClassSlot = !editingEntry.student_id;
-        const targetIsStudent = !!desiredStudentId;
-        const isSameWeek =
-          (editingEntry.week_number ?? 0) === (targetWeek ?? 0);
-        const editingCameFromFallback = (editingEntry as MergedEntry)
-          .isFallback;
+        if (switchingTarget || isMultiDay || dayChanged) {
+          // Delete the original entry only if we own it and aren't switching target
+          if (!switchingTarget && !editingCameFromFallback && isSameWeek) {
+            const { error: delError } = await supabase
+              .from("schedule_entries")
+              .delete()
+              .eq("id", editingEntry.id);
+            if (delError) throw delError;
+          }
 
-        const shouldInsertNew = !isSameWeek || editingCameFromFallback;
-
-        if (editingIsClassSlot && targetIsStudent) {
           const { error } = await supabase
             .from("schedule_entries")
-            .insert(entryData);
-          if (error) throw error;
-        } else if (shouldInsertNew) {
-          const { error } = await supabase
-            .from("schedule_entries")
-            .insert(entryData);
+            .insert(rows);
           if (error) throw error;
         } else {
-          const { error } = await supabase
-            .from("schedule_entries")
-            .update(entryData)
-            .eq("id", editingEntry.id);
-          if (error) throw error;
+          // Single day, same day, same target type
+          const shouldInsertNew = !isSameWeek || editingCameFromFallback;
+          if (shouldInsertNew) {
+            const { error } = await supabase
+              .from("schedule_entries")
+              .insert(rows[0]);
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from("schedule_entries")
+              .update(rows[0])
+              .eq("id", editingEntry.id);
+            if (error) throw error;
+          }
         }
       } else {
         // Create mode — batch insert across all selected days
@@ -424,32 +408,70 @@ export default function WeeklyScheduleEditor({
 
       // Duplicate to masterplan (week 0) if toggled and we're NOT already on week 0
       if (alsoSaveAsMasterplan && targetWeek !== 0) {
-        if (editingEntry) {
-          const masterRow = {
-            subject_id: formData.subject_id || null,
-            day_of_week: formData.selected_days[0],
-            start_time: formData.start_time,
-            end_time: formData.end_time,
-            type: formData.type,
-            custom_title: formData.custom_title || null,
-            class_id: classId,
-            student_id: desiredStudentId,
-            week_number: 0,
-          };
-          await supabase.from("schedule_entries").insert(masterRow);
+        const masterRows = formData.selected_days.map((day) => ({
+          subject_id: formData.subject_id || null,
+          day_of_week: day,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          type: formData.type,
+          custom_title: formData.custom_title || null,
+          class_id: classId,
+          student_id: desiredStudentId,
+          week_number: 0,
+        }));
+
+        // 1. Delete existing masterplan entries for these slots (deduplication)
+        if (desiredStudentId) {
+          await supabase
+            .from("schedule_entries")
+            .delete()
+            .eq("class_id", classId)
+            .eq("week_number", 0)
+            .in("day_of_week", formData.selected_days)
+            .eq("start_time", formData.start_time)
+            .eq("end_time", formData.end_time)
+            .eq("student_id", desiredStudentId);
         } else {
-          const masterRows = formData.selected_days.map((day) => ({
-            subject_id: formData.subject_id || null,
-            day_of_week: day,
-            start_time: formData.start_time,
-            end_time: formData.end_time,
-            type: formData.type,
-            custom_title: formData.custom_title || null,
-            class_id: classId,
-            student_id: desiredStudentId,
-            week_number: 0,
-          }));
-          await supabase.from("schedule_entries").insert(masterRows);
+          await supabase
+            .from("schedule_entries")
+            .delete()
+            .eq("class_id", classId)
+            .eq("week_number", 0)
+            .in("day_of_week", formData.selected_days)
+            .eq("start_time", formData.start_time)
+            .eq("end_time", formData.end_time)
+            .is("student_id", null);
+        }
+
+        // 2. Insert new masterplan entries
+        const { error: masterError } = await supabase
+          .from("schedule_entries")
+          .insert(masterRows);
+        if (masterError)
+          console.error("Masterplan insert failed:", masterError);
+
+        // 3. Clean up explicit week overrides so the UI falls back to masterplan
+        //    (removes the "Endret" badge)
+        if (desiredStudentId) {
+          await supabase
+            .from("schedule_entries")
+            .delete()
+            .eq("class_id", classId)
+            .eq("week_number", targetWeek)
+            .in("day_of_week", formData.selected_days)
+            .eq("start_time", formData.start_time)
+            .eq("end_time", formData.end_time)
+            .eq("student_id", desiredStudentId);
+        } else {
+          await supabase
+            .from("schedule_entries")
+            .delete()
+            .eq("class_id", classId)
+            .eq("week_number", targetWeek)
+            .in("day_of_week", formData.selected_days)
+            .eq("start_time", formData.start_time)
+            .eq("end_time", formData.end_time)
+            .is("student_id", null);
         }
       }
 
@@ -464,15 +486,30 @@ export default function WeeklyScheduleEditor({
 
   const handleClearSlot = async (entry: MergedEntry) => {
     try {
-      const { error } = await supabase
-        .from("schedule_entries")
-        .update({
+      if (entry.isFallback && selectedWeekNumber > 0) {
+        // Don't modify the masterplan row — create a week-specific override with cleared content
+        const { error } = await supabase.from("schedule_entries").insert({
+          class_id: entry.class_id,
+          student_id: entry.student_id,
           subject_id: null,
+          day_of_week: entry.day_of_week,
+          start_time: entry.start_time,
+          end_time: entry.end_time,
+          type: entry.type,
           custom_title: null,
-        })
-        .eq("id", entry.id);
-
-      if (error) throw error;
+          week_number: selectedWeekNumber,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("schedule_entries")
+          .update({
+            subject_id: null,
+            custom_title: null,
+          })
+          .eq("id", entry.id);
+        if (error) throw error;
+      }
       await fetchData();
     } catch (error) {
       console.error("Error clearing schedule entry:", error);
@@ -607,61 +644,6 @@ export default function WeeklyScheduleEditor({
     }
   };
 
-  const handleGenerateWeek = async () => {
-    if (studentId) return;
-    if (!classId) return;
-    if (scheduleEntries.length > 0) return;
-
-    setIsGenerating(true);
-    try {
-      const grade = classInfo.grade;
-      const days = [1, 2, 3, 4, 5];
-      const entriesToInsert = days.flatMap((day) => {
-        const base = BASE_SLOTS.map((slot) => ({
-          class_id: classId,
-          student_id: null,
-          subject_id: null,
-          day_of_week: day,
-          start_time: slot.start,
-          end_time: slot.end,
-          type: slot.type,
-          custom_title: slot.title,
-          week_number: selectedWeekNumber,
-        }));
-
-        const extra = shouldIncludeSixth(grade, day)
-          ? [
-              {
-                class_id: classId,
-                student_id: null,
-                subject_id: null,
-                day_of_week: day,
-                start_time: EXTRA_SLOT_6TH.start,
-                end_time: EXTRA_SLOT_6TH.end,
-                type: EXTRA_SLOT_6TH.type,
-                custom_title: EXTRA_SLOT_6TH.title,
-                week_number: selectedWeekNumber,
-              },
-            ]
-          : [];
-
-        return [...base, ...extra];
-      });
-
-      const { error } = await supabase
-        .from("schedule_entries")
-        .insert(entriesToInsert);
-
-      if (error) throw error;
-      await fetchData();
-    } catch (error) {
-      console.error("Error generating weekly schedule:", error);
-      alert("Kunne ikke generere ukeplan. Prøv igjen.");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -752,28 +734,6 @@ export default function WeeklyScheduleEditor({
           </button>
         </div>
       </div>
-
-      {!studentId && !loading && scheduleEntries.length === 0 && (
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-lg">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold text-slate-900">
-              Ingen timer enda
-            </div>
-            <div className="text-sm text-slate-600">
-              Generer en full ukeplan med riktige pauser og timer for{" "}
-              {classInfo.name || "klassen"}. 6. time legges kun til for 5.-7.
-              trinn mandag–onsdag.
-            </div>
-          </div>
-          <button
-            onClick={handleGenerateWeek}
-            disabled={isGenerating}
-            className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-          >
-            {isGenerating ? "Genererer..." : "Generer ukeplan"}
-          </button>
-        </div>
-      )}
 
       {/* Weekly Grid */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -964,7 +924,10 @@ export default function WeeklyScheduleEditor({
         createPortal(
           <div
             className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setIsModalOpen(false)}
+            onClick={() => {
+              setIsModalOpen(false);
+              setAlsoSaveAsMasterplan(false);
+            }}
           >
             <div
               className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
@@ -1062,7 +1025,7 @@ export default function WeeklyScheduleEditor({
               {/* Day Selection — multi-select toggle buttons */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-900">
-                  {editingEntry ? "Dag:" : "Dager:"}
+                  Dager:
                 </label>
                 <div className="flex gap-2">
                   {DAYS_OF_WEEK.map((day) => {
@@ -1073,17 +1036,7 @@ export default function WeeklyScheduleEditor({
                       <button
                         key={day.number}
                         type="button"
-                        onClick={() => {
-                          if (editingEntry) {
-                            // In edit mode, single-select only
-                            setFormData({
-                              ...formData,
-                              selected_days: [day.number],
-                            });
-                          } else {
-                            toggleDay(day.number);
-                          }
-                        }}
+                        onClick={() => toggleDay(day.number)}
                         className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
                           isSelected
                             ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
@@ -1095,32 +1048,30 @@ export default function WeeklyScheduleEditor({
                     );
                   })}
                 </div>
-                {!editingEntry && (
-                  <div className="flex gap-2 mt-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          selected_days: [1, 2, 3, 4, 5],
-                        })
-                      }
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                    >
-                      Alle dager
-                    </button>
-                    <span className="text-slate-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData({ ...formData, selected_days: [] })
-                      }
-                      className="text-xs text-slate-500 hover:text-slate-700 font-medium"
-                    >
-                      Ingen
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-2 mt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        selected_days: [1, 2, 3, 4, 5],
+                      })
+                    }
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    Alle dager
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({ ...formData, selected_days: [] })
+                    }
+                    className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                  >
+                    Ingen
+                  </button>
+                </div>
               </div>
 
               {/* Time Selection */}

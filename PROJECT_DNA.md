@@ -350,6 +350,17 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - Any future changes to the Persistent Rules (this section 6) **MUST** be immediately updated in this file (`PROJECT_DNA.md`).
 - Whenever `PROJECT_DNA.md` is modified, the exact changes must be clearly detailed in the end-of-turn summary so the user is fully aware of updated operating parameters.
 
+### 6.10 Migration File Policy
+
+- **Never run migrations directly.** Only create migration files in `supabase/migrations/` for the user to run manually.
+- If a migration file is created, **always flag it in the end-of-turn summary** with a clear reminder (e.g., "⚠️ Migration pending — run `20260224XXXXXX_description.sql` manually").
+- The "Tech Lead" AI must be prompted to remind the user to apply pending migrations.
+
+### 6.11 Tech Lead Schema Communication
+
+- When migration files are created, the end-of-turn summary must include enough detail about the schema change (table/column/RPC affected, old vs new behavior) so the "Tech Lead" AI can update its own shadow database reference in persistent memory.
+- Include the full SQL in the summary block so the Tech Lead AI has a self-contained reference.
+
 ---
 
 ## 7. Component Inventory — Quick Reference

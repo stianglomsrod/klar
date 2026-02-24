@@ -28,6 +28,7 @@ type SaveStats = {
 export async function saveWeeklyPlan(
   data: WeeklyPlanData,
   forceCreate?: boolean,
+  alsoSaveAsMasterplan?: boolean,
 ): Promise<SaveWeeklyPlanResult> {
   const supabase = await createClient();
 
@@ -295,42 +296,67 @@ export async function saveWeeklyPlan(
         };
       });
 
-      // ── 6a. Auto-create masterplan (week_number = 0) if none exists ──
-      // Without a masterplan, WeeklyScheduleEditor marks every entry as "Endret".
+      // ── 6a. Masterplan handling (week_number = 0) ──
 
       if (data.weekNumber > 0) {
-        // Collect unique class_ids present in this import
         const classIdsInImport = [
           ...new Set(rows.map((r) => r.class_id).filter(Boolean)),
         ] as string[];
 
         if (classIdsInImport.length > 0) {
-          // Check which of those classes already have a masterplan
-          const { data: existingMasterplans } = await supabase
-            .from("schedule_entries")
-            .select("class_id")
-            .in("class_id", classIdsInImport)
-            .eq("week_number", 0);
-
-          const classesWithMasterplan = new Set(
-            (existingMasterplans ?? []).map((e) => e.class_id),
-          );
-
-          // Build masterplan rows for classes that lack week_number=0
-          const masterplanRows = rows
-            .filter((r) => r.class_id && !classesWithMasterplan.has(r.class_id))
-            .map((r) => ({ ...r, week_number: 0 }));
-
-          if (masterplanRows.length > 0) {
-            const { error: mpError } = await supabase
+          if (alsoSaveAsMasterplan) {
+            // User toggled "save as masterplan" → replace existing masterplan
+            await supabase
               .from("schedule_entries")
-              .insert(masterplanRows);
+              .delete()
+              .in("class_id", classIdsInImport)
+              .eq("week_number", 0);
 
-            if (mpError) {
-              console.warn(
-                "Masterplan auto-creation failed (non-blocking):",
-                mpError.message,
-              );
+            const masterplanRows = rows
+              .filter((r) => r.class_id)
+              .map((r) => ({ ...r, week_number: 0 }));
+
+            if (masterplanRows.length > 0) {
+              const { error: mpError } = await supabase
+                .from("schedule_entries")
+                .insert(masterplanRows);
+
+              if (mpError) {
+                console.warn(
+                  "Masterplan save failed (non-blocking):",
+                  mpError.message,
+                );
+              }
+            }
+          } else {
+            // Auto-create masterplan only if none exists (prevents "Endret" badges)
+            const { data: existingMasterplans } = await supabase
+              .from("schedule_entries")
+              .select("class_id")
+              .in("class_id", classIdsInImport)
+              .eq("week_number", 0);
+
+            const classesWithMasterplan = new Set(
+              (existingMasterplans ?? []).map((e) => e.class_id),
+            );
+
+            const masterplanRows = rows
+              .filter(
+                (r) => r.class_id && !classesWithMasterplan.has(r.class_id),
+              )
+              .map((r) => ({ ...r, week_number: 0 }));
+
+            if (masterplanRows.length > 0) {
+              const { error: mpError } = await supabase
+                .from("schedule_entries")
+                .insert(masterplanRows);
+
+              if (mpError) {
+                console.warn(
+                  "Masterplan auto-creation failed (non-blocking):",
+                  mpError.message,
+                );
+              }
             }
           }
         }
