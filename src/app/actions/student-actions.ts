@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@supabase/supabase-js";
+import { normalizeClassName } from "./shared-normalization";
 
 // ── Types ────────────────────────────────────────────
 type CreateStudentInput = {
@@ -147,11 +148,12 @@ export async function createStudent(
       }
 
       // 4. Link student to class structure (creates grade/class if needed)
+      const normalizedClass = normalizeClassName(input.className);
       const { error: rpcError } = await supabase.rpc(
         "link_student_to_class_structure",
         {
           p_student_id: userId,
-          p_class_name: input.className,
+          p_class_name: normalizedClass,
           p_grade_name: input.gradeName,
         },
       );
@@ -300,11 +302,12 @@ export async function updateStudentClass(
   }
 
   try {
+    const normalizedClass = normalizeClassName(className);
     const { error: rpcError } = await supabase.rpc(
       "link_student_to_class_structure",
       {
         p_student_id: studentId,
-        p_class_name: className,
+        p_class_name: normalizedClass,
         p_grade_name: gradeName,
       },
     );

@@ -13,6 +13,8 @@ import {
   RotateCcw,
   Eraser,
   Trash2,
+  Copy,
+  Loader2,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -137,6 +139,8 @@ export default function WeeklyScheduleEditor({
     grade: null,
   });
   const [isGenerating, setIsGenerating] = useState(false);
+  const [alsoSaveAsMasterplan, setAlsoSaveAsMasterplan] = useState(false);
+  const [isMakingMasterplan, setIsMakingMasterplan] = useState(false);
 
   const getISOWeekNumber = (date: Date): number => {
     const d = new Date(
@@ -154,7 +158,7 @@ export default function WeeklyScheduleEditor({
 
   const [formData, setFormData] = useState({
     subject_id: "",
-    day_of_week: 1,
+    selected_days: [1] as number[],
     start_time: "09:00",
     end_time: "10:00",
     type: "lesson",
@@ -309,7 +313,7 @@ export default function WeeklyScheduleEditor({
           : "";
       setFormData({
         subject_id: entry.subject_id || "",
-        day_of_week: entry.day_of_week,
+        selected_days: [entry.day_of_week],
         start_time: entry.start_time,
         end_time: entry.end_time,
         type: entry.type,
@@ -320,7 +324,7 @@ export default function WeeklyScheduleEditor({
       setEditingEntry(null);
       setFormData({
         subject_id: "",
-        day_of_week: 1,
+        selected_days: [1, 2, 3, 4, 5],
         start_time: "09:00",
         end_time: "10:00",
         type: "lesson",
@@ -329,6 +333,15 @@ export default function WeeklyScheduleEditor({
       });
     }
     setIsModalOpen(true);
+  };
+
+  const toggleDay = (day: number) => {
+    setFormData((prev) => {
+      const days = prev.selected_days.includes(day)
+        ? prev.selected_days.filter((d) => d !== day)
+        : [...prev.selected_days, day].sort((a, b) => a - b);
+      return { ...prev, selected_days: days };
+    });
   };
 
   const handleSave = async () => {
@@ -342,22 +355,29 @@ export default function WeeklyScheduleEditor({
       return;
     }
 
+    if (formData.selected_days.length === 0) {
+      alert("Velg minst én dag");
+      return;
+    }
+
     try {
       const desiredStudentId = formData.target === "student" ? studentId : null;
       const targetWeek = selectedWeekNumber;
-      const entryData = {
-        subject_id: formData.subject_id || null,
-        day_of_week: formData.day_of_week,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        type: formData.type,
-        custom_title: formData.custom_title || null,
-        class_id: classId,
-        student_id: desiredStudentId,
-        week_number: targetWeek,
-      };
 
       if (editingEntry) {
+        // Edit mode — single entry, use first selected day
+        const entryData = {
+          subject_id: formData.subject_id || null,
+          day_of_week: formData.selected_days[0],
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          type: formData.type,
+          custom_title: formData.custom_title || null,
+          class_id: classId,
+          student_id: desiredStudentId,
+          week_number: targetWeek,
+        };
+
         const editingIsClassSlot = !editingEntry.student_id;
         const targetIsStudent = !!desiredStudentId;
         const isSameWeek =
@@ -368,13 +388,11 @@ export default function WeeklyScheduleEditor({
         const shouldInsertNew = !isSameWeek || editingCameFromFallback;
 
         if (editingIsClassSlot && targetIsStudent) {
-          // Create a new override without altering the class slot
           const { error } = await supabase
             .from("schedule_entries")
             .insert(entryData);
           if (error) throw error;
         } else if (shouldInsertNew) {
-          // When editing a fallback/template week or moving to another week, insert a new row
           const { error } = await supabase
             .from("schedule_entries")
             .insert(entryData);
@@ -384,19 +402,60 @@ export default function WeeklyScheduleEditor({
             .from("schedule_entries")
             .update(entryData)
             .eq("id", editingEntry.id);
-
           if (error) throw error;
         }
       } else {
-        const { error } = await supabase
-          .from("schedule_entries")
-          .insert(entryData);
+        // Create mode — batch insert across all selected days
+        const rows = formData.selected_days.map((day) => ({
+          subject_id: formData.subject_id || null,
+          day_of_week: day,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          type: formData.type,
+          custom_title: formData.custom_title || null,
+          class_id: classId,
+          student_id: desiredStudentId,
+          week_number: targetWeek,
+        }));
 
+        const { error } = await supabase.from("schedule_entries").insert(rows);
         if (error) throw error;
+      }
+
+      // Duplicate to masterplan (week 0) if toggled and we're NOT already on week 0
+      if (alsoSaveAsMasterplan && targetWeek !== 0) {
+        if (editingEntry) {
+          const masterRow = {
+            subject_id: formData.subject_id || null,
+            day_of_week: formData.selected_days[0],
+            start_time: formData.start_time,
+            end_time: formData.end_time,
+            type: formData.type,
+            custom_title: formData.custom_title || null,
+            class_id: classId,
+            student_id: desiredStudentId,
+            week_number: 0,
+          };
+          await supabase.from("schedule_entries").insert(masterRow);
+        } else {
+          const masterRows = formData.selected_days.map((day) => ({
+            subject_id: formData.subject_id || null,
+            day_of_week: day,
+            start_time: formData.start_time,
+            end_time: formData.end_time,
+            type: formData.type,
+            custom_title: formData.custom_title || null,
+            class_id: classId,
+            student_id: desiredStudentId,
+            week_number: 0,
+          }));
+          await supabase.from("schedule_entries").insert(masterRows);
+        }
       }
 
       await fetchData();
       setIsModalOpen(false);
+      setAlsoSaveAsMasterplan(false);
     } catch (error) {
       console.error("Error saving schedule entry:", error);
       alert("Kunne ikke lagre timeplanen. Prøv igjen.");
@@ -505,6 +564,49 @@ export default function WeeklyScheduleEditor({
       .sort((a, b) => a.start_time.localeCompare(b.start_time));
   };
 
+  const handleMakeMasterplan = async () => {
+    if (selectedWeekNumber === 0 || isMakingMasterplan) return;
+    setIsMakingMasterplan(true);
+    try {
+      // 1. Delete existing week 0 entries for this class (class-level only)
+      const deleteQuery = supabase
+        .from("schedule_entries")
+        .delete()
+        .eq("class_id", classId)
+        .eq("week_number", 0)
+        .is("student_id", null);
+      const { error: delError } = await deleteQuery;
+      if (delError) throw delError;
+
+      // 2. Copy current week entries → week 0
+      const classEntries = scheduleEntries.filter((e) => !e.student_id);
+      if (classEntries.length > 0) {
+        const rows = classEntries.map((e) => ({
+          class_id: classId,
+          student_id: null,
+          subject_id: e.subject_id,
+          day_of_week: e.day_of_week,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          type: e.type,
+          custom_title: e.custom_title,
+          week_number: 0,
+        }));
+        const { error: insError } = await supabase
+          .from("schedule_entries")
+          .insert(rows);
+        if (insError) throw insError;
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error("Error making masterplan:", error);
+      alert("Kunne ikke sette som fast timeplan. Prøv igjen.");
+    } finally {
+      setIsMakingMasterplan(false);
+    }
+  };
+
   const handleGenerateWeek = async () => {
     if (studentId) return;
     if (!classId) return;
@@ -600,6 +702,47 @@ export default function WeeklyScheduleEditor({
               </div>
             </div>
           )}
+          {/* Make masterplan — only shown when viewing a specific week with entries */}
+          {selectedWeekNumber > 0 &&
+            scheduleEntries.length > 0 &&
+            !studentId && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm">
+                    <Copy size={16} />
+                    Sett som fast timeplan
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Sett uke {selectedWeekNumber} som fast timeplan?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Dette vil overskrive klassens nåværende faste timeplan med
+                      innholdet fra uke {selectedWeekNumber}. Alle fremtidige
+                      uker uten egne endringer vil bruke denne som utgangspunkt.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleMakeMasterplan}
+                      disabled={isMakingMasterplan}
+                    >
+                      {isMakingMasterplan ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin mr-1" />
+                          Kopierer...
+                        </>
+                      ) : (
+                        "Ja, sett som fast"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           <button
             onClick={() => handleOpenModal()}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
@@ -916,27 +1059,68 @@ export default function WeeklyScheduleEditor({
                 />
               </div>
 
-              {/* Day Selection */}
+              {/* Day Selection — multi-select toggle buttons */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-900">
-                  Dag:
+                  {editingEntry ? "Dag:" : "Dager:"}
                 </label>
-                <select
-                  value={formData.day_of_week}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      day_of_week: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {DAYS_OF_WEEK.map((day) => (
-                    <option key={day.number} value={day.number}>
-                      {day.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-2">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const isSelected = formData.selected_days.includes(
+                      day.number,
+                    );
+                    return (
+                      <button
+                        key={day.number}
+                        type="button"
+                        onClick={() => {
+                          if (editingEntry) {
+                            // In edit mode, single-select only
+                            setFormData({
+                              ...formData,
+                              selected_days: [day.number],
+                            });
+                          } else {
+                            toggleDay(day.number);
+                          }
+                        }}
+                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
+                          isSelected
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                            : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
+                        }`}
+                      >
+                        {day.name.slice(0, 3)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {!editingEntry && (
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          selected_days: [1, 2, 3, 4, 5],
+                        })
+                      }
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Alle dager
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFormData({ ...formData, selected_days: [] })
+                      }
+                      className="text-xs text-slate-500 hover:text-slate-700 font-medium"
+                    >
+                      Ingen
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Time Selection */}
@@ -991,10 +1175,41 @@ export default function WeeklyScheduleEditor({
                 </select>
               </div>
 
+              {/* Masterplan toggle — only when saving to a specific week (not week 0) */}
+              {selectedWeekNumber > 0 && (
+                <label className="flex items-center gap-3 pt-1 cursor-pointer">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={alsoSaveAsMasterplan}
+                    onClick={() =>
+                      setAlsoSaveAsMasterplan(!alsoSaveAsMasterplan)
+                    }
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                      alsoSaveAsMasterplan ? "bg-indigo-600" : "bg-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                        alsoSaveAsMasterplan
+                          ? "translate-x-[18px]"
+                          : "translate-x-[3px]"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-sm text-slate-700">
+                    Lagre også som fast timeplan
+                  </span>
+                </label>
+              )}
+
               {/* Actions */}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setAlsoSaveAsMasterplan(false);
+                  }}
                   className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors font-medium"
                 >
                   Avbryt

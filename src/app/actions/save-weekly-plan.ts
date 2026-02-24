@@ -5,6 +5,7 @@ import type { WeeklyPlanData } from "./parse-weekly-plan";
 import {
   normalizeClassName,
   splitAndNormalizeSubject,
+  extractGradeNumber,
 } from "./shared-normalization";
 
 // ── Types ────────────────────────────────────────────
@@ -154,7 +155,39 @@ export async function saveWeeklyPlan(
     // ── 4. Auto-create missing entities if forceCreate ──
 
     if (missingClasses.length > 0) {
-      const rows = missingClasses.map((norm) => ({ name: norm }));
+      // Resolve grade_id for each class so new rows are linked properly
+      const gradeCache = new Map<string, string>(); // gradeNumber → grade_id
+      const rows: { name: string; grade_id?: string }[] = [];
+
+      for (const norm of missingClasses) {
+        const gradeNum = extractGradeNumber(norm) ?? norm.match(/^(\d+)/)?.[1];
+        let gradeId: string | undefined;
+
+        if (gradeNum && !gradeCache.has(gradeNum)) {
+          const gradeName = `${gradeNum}. Trinn`;
+          const { data: existing } = await supabase
+            .from("grades")
+            .select("id")
+            .ilike("name", gradeName)
+            .limit(1)
+            .single();
+
+          if (existing) {
+            gradeCache.set(gradeNum, existing.id);
+          } else {
+            const { data: created } = await supabase
+              .from("grades")
+              .insert({ name: gradeName })
+              .select("id")
+              .single();
+            if (created) gradeCache.set(gradeNum, created.id);
+          }
+        }
+
+        if (gradeNum) gradeId = gradeCache.get(gradeNum);
+        rows.push(gradeId ? { name: norm, grade_id: gradeId } : { name: norm });
+      }
+
       const { data: created, error: createError } = await supabase
         .from("classes")
         .insert(rows)

@@ -273,6 +273,8 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_student_daily_announcement(uuid) TO authenticated, service_role;
 
 -- Function to link a student to a class structure (creates grade/class if needed)
+-- Fixed: case-insensitive lookup + two-pass class match (grade-scoped → any) to
+-- prevent duplicate classes when grade_id was previously NULL.
 CREATE OR REPLACE FUNCTION public.link_student_to_class_structure(
   p_student_id uuid,
   p_class_name text,
@@ -287,34 +289,53 @@ DECLARE
   v_grade_id uuid;
   v_class_id uuid;
 BEGIN
-  -- 1. Håndter TRINN (Grade)
-  -- Prøv å finne trinnet først
-  SELECT id INTO v_grade_id FROM public.grades WHERE name = p_grade_name LIMIT 1;
-  
-  -- Hvis trinnet ikke finnes, opprett det
+  -- 1. Håndter TRINN (Grade) — case-insensitive lookup
+  SELECT id INTO v_grade_id
+    FROM public.grades
+   WHERE LOWER(name) = LOWER(p_grade_name)
+   LIMIT 1;
+
   IF v_grade_id IS NULL THEN
     INSERT INTO public.grades (name) VALUES (p_grade_name)
     RETURNING id INTO v_grade_id;
   END IF;
 
-  -- 2. Håndter KLASSE (Class)
-  -- Prøv å finne klassen (koblet til riktig trinn)
-  SELECT id INTO v_class_id FROM public.classes 
-  WHERE name = p_class_name AND grade_id = v_grade_id LIMIT 1;
+  -- 2. Håndter KLASSE (Class) — two-pass lookup
+  --    Pass A: exact grade match (case-insensitive name)
+  SELECT id INTO v_class_id
+    FROM public.classes
+   WHERE LOWER(name) = LOWER(p_class_name)
+     AND grade_id = v_grade_id
+   LIMIT 1;
 
-  -- Hvis klassen ikke finnes, opprett den
+  --    Pass B: fallback — any grade (including NULL)
   IF v_class_id IS NULL THEN
-    INSERT INTO public.classes (name, grade_id, is_queue_open) 
+    SELECT id INTO v_class_id
+      FROM public.classes
+     WHERE LOWER(name) = LOWER(p_class_name)
+     LIMIT 1;
+
+    -- Auto-heal: if found with NULL or wrong grade_id, update it
+    IF v_class_id IS NOT NULL THEN
+      UPDATE public.classes
+         SET grade_id = v_grade_id
+       WHERE id = v_class_id
+         AND (grade_id IS NULL OR grade_id IS DISTINCT FROM v_grade_id);
+    END IF;
+  END IF;
+
+  --    Pass C: create only when truly not found
+  IF v_class_id IS NULL THEN
+    INSERT INTO public.classes (name, grade_id, is_queue_open)
     VALUES (p_class_name, v_grade_id, false)
     RETURNING id INTO v_class_id;
   END IF;
 
-  -- 3. Oppdater ELEVEN (student_profiles)
-  -- Nå som vi garantert har en class_id, kobler vi eleven til den
+  -- 3. Koble eleven til klassen
   UPDATE public.student_profiles
-  SET class_id = v_class_id,
-      level = CAST(SUBSTRING(p_grade_name FROM '^[0-9]+') AS INTEGER)
-  WHERE id = p_student_id;
+     SET class_id = v_class_id,
+         level = CAST(SUBSTRING(p_grade_name FROM '^[0-9]+') AS INTEGER)
+   WHERE id = p_student_id;
 END;
 $$;
 

@@ -207,7 +207,39 @@ export async function saveLessonPlan(
     // ── 4. Auto-create missing entities ──
 
     if (actualMissingClasses.length > 0) {
-      const rows = actualMissingClasses.map((norm) => ({ name: norm }));
+      // Resolve grade_id for each class so new rows are linked properly
+      const gradeCache = new Map<string, string>(); // gradeNumber → grade_id
+      const rows: { name: string; grade_id?: string }[] = [];
+
+      for (const norm of actualMissingClasses) {
+        const gradeNum = extractGradeNumber(norm) ?? norm.match(/^(\d+)/)?.[1];
+        let gradeId: string | undefined;
+
+        if (gradeNum && !gradeCache.has(gradeNum)) {
+          const gradeName = `${gradeNum}. Trinn`;
+          const { data: existing } = await supabase
+            .from("grades")
+            .select("id")
+            .ilike("name", gradeName)
+            .limit(1)
+            .single();
+
+          if (existing) {
+            gradeCache.set(gradeNum, existing.id);
+          } else {
+            const { data: created } = await supabase
+              .from("grades")
+              .insert({ name: gradeName })
+              .select("id")
+              .single();
+            if (created) gradeCache.set(gradeNum, created.id);
+          }
+        }
+
+        if (gradeNum) gradeId = gradeCache.get(gradeNum);
+        rows.push(gradeId ? { name: norm, grade_id: gradeId } : { name: norm });
+      }
+
       const { data: created, error: createError } = await supabase
         .from("classes")
         .insert(rows)
@@ -237,7 +269,32 @@ export async function saveLessonPlan(
           .filter(Boolean);
         if (names.length === 0) continue;
 
-        const rows = names.map((n) => ({ name: normalizeClassName(n) }));
+        // Resolve grade_id for this grade number
+        let gradeId: string | undefined;
+        const gradeName = `${grade}. Trinn`;
+        const { data: existingGrade } = await supabase
+          .from("grades")
+          .select("id")
+          .ilike("name", gradeName)
+          .limit(1)
+          .single();
+        if (existingGrade) {
+          gradeId = existingGrade.id;
+        } else {
+          const { data: newGrade } = await supabase
+            .from("grades")
+            .insert({ name: gradeName })
+            .select("id")
+            .single();
+          if (newGrade) gradeId = newGrade.id;
+        }
+
+        const rows = names.map((n) => {
+          const normalized = normalizeClassName(n);
+          return gradeId
+            ? { name: normalized, grade_id: gradeId }
+            : { name: normalized };
+        });
         const { data: created, error: createError } = await supabase
           .from("classes")
           .insert(rows)
