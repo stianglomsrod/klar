@@ -22,9 +22,9 @@
 
 ### Teacher vs. Student Epics
 
-| Epic | Route Prefix | Layout | Key Pages |
-|------|-------------|--------|-----------|
-| **Teacher** | `/teacher/*` | Fixed sidebar (264px desktop), hamburger drawer (mobile) | Dashboard, Classes, Tasks, Timeplan (schedule editor), Ukebrev/Planer (doc upload), Rewards, Messages, Students/[id] |
+| Epic        | Route Prefix                                         | Layout                                                           | Key Pages                                                                                                                                                        |
+| ----------- | ---------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Teacher** | `/teacher/*`                                         | Fixed sidebar (264px desktop), hamburger drawer (mobile)         | Dashboard, Classes, Tasks, Timeplan (schedule editor), Ukebrev/Planer (doc upload), Rewards, Messages, Students/[id]                                             |
 | **Student** | `/student/*` + `/` + `/belonninger/*` + `/subject/*` | Top nav (`Navigation.tsx`) + bottom footer (`StudentFooter.tsx`) | Daily dashboard (`/`), Subject library (`/student/fag`), Weekly timeplan (`/student/timeplan`), Lesson detail (`/student/lesson/[id]`), Rewards (`/belonninger`) |
 
 ### Routing & Component Reuse
@@ -95,11 +95,13 @@ saveWeeklyPlan() [Server Action]
 ### 4.1 Critical Bugs
 
 #### BUG: `getLessonState()` uses `new Date()` instead of `currentTime` state
+
 - **Files:** `src/app/(dashboard)/student/timeplan/page.tsx` (line 27–40), `src/app/(dashboard)/student/page.tsx` (line 218–228)
 - **Impact:** The component state `currentTime` updates every 30s and drives re-renders, but `getLessonState()` creates its own `new Date()` on each call. At lesson-transition boundaries, `getLessonState` and `getLessonProgressPercent` can briefly disagree — progress may show 100% while state is still `"active"` (or vice versa) because they operate on different timestamps.
 - **Fix:** Pass `currentTime` (or a `now` parameter) to `getLessonState()`, matching how `getLessonProgressPercent()` already works in the timeplan page.
 
 #### BUG: `useTimeTracker` does NOT filter by `week_number`
+
 - **File:** `src/hooks/useTimeTracker.ts` (line 82–86)
 - **Impact:** Queries `schedule_entries` with only `day_of_week` and `class_id`/`student_id` — no `week_number` filter. Returns ALL entries ever created for today's weekday across all weeks (masterplan week 0 + every weekly override). Students may see wrong/duplicate lessons in the time tracker widget.
 - **Additional:** Also queries the raw `schedule_entries` table instead of the `get_student_schedule` RPC, bypassing any server-side schedule resolution logic.
@@ -108,16 +110,19 @@ saveWeeklyPlan() [Server Action]
 ### 4.2 High-Severity Issues
 
 #### Past days show as "upcoming" instead of "finished"
+
 - **File:** `src/app/(dashboard)/student/timeplan/page.tsx` (line 340–345 in `DayScheduleList`)
 - **Impact:** Non-today lessons are forced to `state = "upcoming"` (the guard is `isToday ? getLessonState(...) : "upcoming"`). This means Monday's lessons still show dashed circles and no line-through when viewing on Tuesday+. Past days look like they haven't happened.
 - **Fix:** Determine if the viewed day is in the past (check `dayIndex < todayDayIndex`) and force `"finished"` for past days, `"upcoming"` for future days, computed for today. Same applies to `DesktopWeekGrid`.
 
 #### Weekend behavior — all lessons appear "upcoming"
+
 - **File:** `src/app/(dashboard)/student/timeplan/page.tsx` (line 74)
 - **Impact:** On Saturday/Sunday, `todayDayIndex` = 5 or 6, which gets clamped to Friday (index 4) for `selectedDay`. But `isToday(idx)` checks `dayIdx === todayDayIndex` — which never matches any tab (0–4), so NO day gets the "I dag" badge and all lessons show as `"upcoming"` (no finished states shown).
 - **Fix:** Detect weekends explicitly; either force all Mon–Fri to `"finished"` or show a "God helg!" banner.
 
 #### Schedule fetched once on mount with no refresh
+
 - **Files:** `src/app/(dashboard)/student/timeplan/page.tsx`, `src/app/(dashboard)/student/page.tsx`
 - **Impact:** Both pages use `useEffect(() => { ... }, [])` (empty deps, eslint-disable). If a teacher changes the schedule mid-day, the student sees stale data until page reload. No Supabase realtime subscription or polling.
 - **Fix:** Add periodic refetch (e.g., 5-minute interval) or subscribe to `schedule_entries` changes via Supabase realtime.
@@ -125,48 +130,58 @@ saveWeeklyPlan() [Server Action]
 ### 4.3 Medium-Severity Issues
 
 #### `getLessonProgressPercent` has different API signatures
+
 - **Dashboard:** `getLessonProgressPercent(start, end)` — captures `currentTime` from closure.
 - **Timeplan:** `getLessonProgressPercent(start, end, now)` — pure function with explicit `now` parameter.
 - **Fix:** Extract to a shared utility in `src/utils/` with the pure signature.
 
 #### `getISOWeekNumber()` duplicated in teacher pages
+
 - **Files:** `src/app/(dashboard)/teacher/timeplan/page.tsx`, `src/components/teacher/WeeklyScheduleEditor.tsx`
 - **Impact:** Both define `getISOWeekNumber()` identically. The shared utility `src/utils/week-number.ts` exists but isn't imported.
 - **Fix:** Replace duplicates with `import { getISOWeekNumber } from "@/utils/week-number"`.
 
 #### Verbose debug console.error in student dashboard
+
 - **File:** `src/app/(dashboard)/student/page.tsx` (line 88–96)
 - **Impact:** Four consecutive `console.error` calls dump the full RPC error structure. Not harmful but exposes implementation details in the browser console.
 
 #### `save-weekly-plan.ts` — no deduplication on insert
+
 - **File:** `src/app/actions/save-weekly-plan.ts`
 - **Impact:** Uploading the same week twice creates duplicate `schedule_entries` and `weekly_updates` rows. No `DELETE` of existing week data before insert, no UPSERT logic.
 - **Fix:** Delete existing entries for the target `week_number` + `class_id` before inserting.
 
 #### Masterplan save failures are silently swallowed
+
 - **File:** `src/app/actions/save-weekly-plan.ts`
 - **Impact:** If the auto-create of week_number=0 masterplan entries fails, it's only logged via `console.warn` — no error surfaced to the teacher.
 
 ### 4.4 Low-Severity Issues
 
 #### Unused props in Timeplan sub-components
+
 - `TimeplanCard` and `DesktopLessonRow` declare `isToday: boolean` in their props type but never use it.
 - `DesktopWeekGrid` accepts `selectedDay` and `onSelectDay` props but never uses them.
 - Harmless but confusing; clean up to match actual usage.
 
 #### `selectedDay` won't auto-update at midnight
+
 - `selectedDay` is initialized once via `useState`. If a student leaves the tab open past midnight, the "I dag" badge moves to the new day but the view stays on the old day.
 
 #### Stale console.log statements
+
 - `StudentFooter.tsx`: `console.log` in render JSX (line ~150)
 - `useStudentProfile.ts`: `console.log` during profile auto-creation
 - `useTaskCompletion.ts`: `console.log` in audio play catch handler
 - Remove for production.
 
 #### `window.__refreshStudentProfile` global hack
+
 - `Navigation.tsx` exposes `window.__refreshStudentProfile = refresh` — brittle cross-component communication. Should use context or custom event.
 
 #### `useTaskCompletion.ts` — TODO comment
+
 - Line 238: `// TODO: Implement reward claim logic` — reward purchasing not yet wired up.
 
 ### 4.5 Security & Tech Debt (Active)
@@ -188,36 +203,36 @@ Documented in `TECH_DEBT.md`:
 
 ### Created During Recent Refactoring
 
-| File | Purpose | Lines |
-|------|---------|-------|
-| `src/utils/format-time.ts` | `formatTime()` — trims "HH:MM:SS" → "HH:MM" | 16 |
-| `src/utils/week-number.ts` | `getISOWeekNumber()`, `getISODayOfWeek()` — ISO 8601 helpers | 29 |
-| `src/components/student/ScheduleCard.tsx` | Fisheye lesson card for daily dashboard | ~165 |
-| `src/components/student/MissionChip.tsx` | Task completion pill ("2/4"), green when all done | ~55 |
-| `src/components/student/LessonProgress.tsx` | 44px SVG circular progress ring | ~55 |
-| `src/app/(dashboard)/student/timeplan/page.tsx` | Full weekly schedule page (swipe + grid) | 629 |
+| File                                            | Purpose                                                      | Lines |
+| ----------------------------------------------- | ------------------------------------------------------------ | ----- |
+| `src/utils/format-time.ts`                      | `formatTime()` — trims "HH:MM:SS" → "HH:MM"                  | 16    |
+| `src/utils/week-number.ts`                      | `getISOWeekNumber()`, `getISODayOfWeek()` — ISO 8601 helpers | 29    |
+| `src/components/student/ScheduleCard.tsx`       | Fisheye lesson card for daily dashboard                      | ~165  |
+| `src/components/student/MissionChip.tsx`        | Task completion pill ("2/4"), green when all done            | ~55   |
+| `src/components/student/LessonProgress.tsx`     | 44px SVG circular progress ring                              | ~55   |
+| `src/app/(dashboard)/student/timeplan/page.tsx` | Full weekly schedule page (swipe + grid)                     | 629   |
 
 ### Recently Modified
 
-| File | Changes |
-|------|---------|
-| `src/utils/subject-colors.ts` | Added `borderAccent` and `shadowRgb` to `ColorClasses` interface + all 22 COLOR_MAP entries |
-| `src/app/(dashboard)/student/page.tsx` | Refactored 727 → 462 lines; imports extracted components |
-| `src/app/(dashboard)/student/lesson/[id]/page.tsx` | `.slice(0,5)` → `formatTime()` |
-| `src/components/Sidebar.tsx` | Removed unused `Mail` import; updated nav to 4 clean links |
-| `src/components/StudentFooterWrapper.tsx` | Removed debug console.logs |
-| `PROJECT_DNA.md` | Added §6.12 (autonomous discretion), timeplan route, gotchas #15–16 |
+| File                                               | Changes                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/utils/subject-colors.ts`                      | Added `borderAccent` and `shadowRgb` to `ColorClasses` interface + all 22 COLOR_MAP entries |
+| `src/app/(dashboard)/student/page.tsx`             | Refactored 727 → 462 lines; imports extracted components                                    |
+| `src/app/(dashboard)/student/lesson/[id]/page.tsx` | `.slice(0,5)` → `formatTime()`                                                              |
+| `src/components/Sidebar.tsx`                       | Removed unused `Mail` import; updated nav to 4 clean links                                  |
+| `src/components/StudentFooterWrapper.tsx`          | Removed debug console.logs                                                                  |
+| `PROJECT_DNA.md`                                   | Added §6.12 (autonomous discretion), timeplan route, gotchas #15–16                         |
 
 ### Large/Complex Files (potential refactor targets)
 
-| File | Lines | Notes |
-|------|-------|-------|
-| `src/app/(dashboard)/teacher/timeplan/page.tsx` | ~1,177 | Schedule management; contains duplicated `getISOWeekNumber()` |
-| `src/app/(dashboard)/teacher/ukebrev/page.tsx` | ~1,187 | Planer page; handles both doc types |
-| `src/components/teacher/WeeklyScheduleEditor.tsx` | ~1,183 | Full schedule grid editor; duplicated week number calc |
-| `src/app/subject/[id]/page.tsx` | ~746 | Global subject library (Container A) |
-| `src/app/(dashboard)/student/timeplan/page.tsx` | 629 | Weekly schedule (just created) |
-| `src/components/teacher/ActivityDetailSheet.tsx` | ~554 | Teacher grading panel |
+| File                                              | Lines  | Notes                                                         |
+| ------------------------------------------------- | ------ | ------------------------------------------------------------- |
+| `src/app/(dashboard)/teacher/timeplan/page.tsx`   | ~1,177 | Schedule management; contains duplicated `getISOWeekNumber()` |
+| `src/app/(dashboard)/teacher/ukebrev/page.tsx`    | ~1,187 | Planer page; handles both doc types                           |
+| `src/components/teacher/WeeklyScheduleEditor.tsx` | ~1,183 | Full schedule grid editor; duplicated week number calc        |
+| `src/app/subject/[id]/page.tsx`                   | ~746   | Global subject library (Container A)                          |
+| `src/app/(dashboard)/student/timeplan/page.tsx`   | 629    | Weekly schedule (just created)                                |
+| `src/components/teacher/ActivityDetailSheet.tsx`  | ~554   | Teacher grading panel                                         |
 
 ---
 
@@ -307,17 +322,17 @@ Flowers + petals + levels → can be spent in reward shop
 
 ## 8. Environment & Tooling
 
-| Item | Value |
-|------|-------|
-| **Node/Next.js** | Next.js 16.1.1, React 19.2.3, TypeScript ^5 |
-| **CSS** | Tailwind 3.4.17 — STRICT: no dynamic template literals |
-| **Animation** | Framer Motion ^12.23.26 |
-| **Backend** | Supabase (Auth, Postgres, Storage, Realtime) |
-| **AI** | Google Generative AI (Gemini 2.5 Flash) via `@google/generative-ai` |
-| **Doc Parsing** | Mammoth ^1.11.0 (`.docx` → raw text) |
-| **All UI text** | Norwegian Bokmål (lang="nb") |
-| **Dev Scripts** | `npm run dev`, `npm run build`, `npm run lint` |
-| **Env vars** | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY` |
+| Item             | Value                                                                         |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **Node/Next.js** | Next.js 16.1.1, React 19.2.3, TypeScript ^5                                   |
+| **CSS**          | Tailwind 3.4.17 — STRICT: no dynamic template literals                        |
+| **Animation**    | Framer Motion ^12.23.26                                                       |
+| **Backend**      | Supabase (Auth, Postgres, Storage, Realtime)                                  |
+| **AI**           | Google Generative AI (Gemini 2.5 Flash) via `@google/generative-ai`           |
+| **Doc Parsing**  | Mammoth ^1.11.0 (`.docx` → raw text)                                          |
+| **All UI text**  | Norwegian Bokmål (lang="nb")                                                  |
+| **Dev Scripts**  | `npm run dev`, `npm run build`, `npm run lint`                                |
+| **Env vars**     | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `GEMINI_API_KEY` |
 
 ---
 
@@ -336,4 +351,4 @@ Flowers + petals + levels → can be spent in reward shop
 
 ---
 
-*End of handover. All information derived from direct codebase exploration on 2026-02-25.*
+_End of handover. All information derived from direct codebase exploration on 2026-02-25._

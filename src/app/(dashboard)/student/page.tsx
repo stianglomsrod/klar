@@ -7,7 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 import WelcomeOverlay from "@/components/WelcomeOverlay";
 import ScheduleCard from "@/components/student/ScheduleCard";
-import type { ScheduleEntry, LessonState } from "@/components/student/ScheduleCard";
+import type {
+  ScheduleEntry,
+  LessonState,
+} from "@/components/student/ScheduleCard";
 import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
 
 export default function StudentQuestLogPage() {
@@ -29,7 +32,7 @@ export default function StudentQuestLogPage() {
   const [scrollPosition, setScrollPosition] = useState(0);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [cardDistances, setCardDistances] = useState<Map<string, number>>(
-    new Map()
+    new Map(),
   );
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -80,7 +83,7 @@ export default function StudentQuestLogPage() {
           {
             p_student_id: user.id,
             p_current_week_number: weekNumber,
-          }
+          },
         );
 
         if (error) {
@@ -182,7 +185,7 @@ export default function StudentQuestLogPage() {
 
           if (firstUpcoming) {
             const element = document.querySelector(
-              `[data-id="${firstUpcoming.id}"]`
+              `[data-id="${firstUpcoming.id}"]`,
             );
             element?.scrollIntoView({
               behavior: "smooth",
@@ -233,7 +236,7 @@ export default function StudentQuestLogPage() {
 
   const getLessonProgressPercent = (
     startTime: string,
-    endTime: string
+    endTime: string,
   ): number => {
     const now = currentTime;
     const [startHour, startMin] = startTime.split(":").map(Number);
@@ -278,8 +281,8 @@ export default function StudentQuestLogPage() {
         0,
         ((now.getTime() - dayStart.getTime()) /
           (dayEnd.getTime() - dayStart.getTime())) *
-          100
-      )
+          100,
+      ),
     );
     return Math.round(progress);
   };
@@ -415,14 +418,14 @@ export default function StudentQuestLogPage() {
                 {schedule.map((entry, index) => {
                   const state = getLessonState(
                     entry.start_time,
-                    entry.end_time
+                    entry.end_time,
                   ) as LessonState;
                   const isLiveLesson = state === "active";
                   const distance = cardDistances.get(entry.id) || 999;
                   const isCentered = distance < 100;
                   const lessonProgress = getLessonProgressPercent(
                     entry.start_time,
-                    entry.end_time
+                    entry.end_time,
                   );
 
                   return (

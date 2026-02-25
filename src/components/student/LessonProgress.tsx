@@ -11,7 +11,10 @@ export type LessonProgressProps = {
  * Circular SVG progress ring for active lessons.
  * Shows real-time lesson progress on the student dashboard and schedule cards.
  */
-export default function LessonProgress({ progress, color }: LessonProgressProps) {
+export default function LessonProgress({
+  progress,
+  color,
+}: LessonProgressProps) {
   const size = 44;
   const strokeWidth = 6;
   const radius = (size - strokeWidth) / 2;

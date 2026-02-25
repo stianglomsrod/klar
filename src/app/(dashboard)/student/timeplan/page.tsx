@@ -4,7 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, PanInfo } from "framer-motion";
-import { Loader2, ChevronLeft, ChevronRight, CheckCircle2, Calendar } from "lucide-react";
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  Calendar,
+} from "lucide-react";
 import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
 import { formatTime } from "@/utils/format-time";
 import { getSubjectTheme } from "@/utils/subject-colors";
@@ -38,7 +44,11 @@ function getLessonState(startTime: string, endTime: string): LessonState {
   return "finished";
 }
 
-function getLessonProgressPercent(startTime: string, endTime: string, now: Date): number {
+function getLessonProgressPercent(
+  startTime: string,
+  endTime: string,
+  now: Date,
+): number {
   const [startHour, startMin] = startTime.split(":").map(Number);
   const [endHour, endMin] = endTime.split(":").map(Number);
 
@@ -94,19 +104,21 @@ export default function StudentTimeplanPage() {
           {
             p_student_id: user.id,
             p_current_week_number: weekNumber,
-          }
+          },
         );
 
         if (error) {
           console.error("Failed to fetch schedule:", error);
           setSchedule([]);
         } else {
-          const entries = (scheduleData || []).map((entry: Record<string, unknown>) => ({
-            ...entry,
-            tasks_total: entry.tasks_total ?? 0,
-            tasks_completed: entry.tasks_completed ?? 0,
-            subject_color: entry.subject_color ?? "gray",
-          }));
+          const entries = (scheduleData || []).map(
+            (entry: Record<string, unknown>) => ({
+              ...entry,
+              tasks_total: entry.tasks_total ?? 0,
+              tasks_completed: entry.tasks_completed ?? 0,
+              subject_color: entry.subject_color ?? "gray",
+            }),
+          );
           setSchedule(entries);
         }
       } catch (err) {
@@ -142,7 +154,10 @@ export default function StudentTimeplanPage() {
     }
   };
 
-  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+  const handleDragEnd = (
+    _: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo,
+  ) => {
     if (info.offset.x < -SWIPE_THRESHOLD) handleSwipe("left");
     else if (info.offset.x > SWIPE_THRESHOLD) handleSwipe("right");
   };
@@ -163,8 +178,12 @@ export default function StudentTimeplanPage() {
   /* ── Today's progress stats ──────────────────────────── */
   const todayEntries = scheduleByDay[todayDayIndex + 1] || [];
   const todayTotalTasks = todayEntries.reduce((s, e) => s + e.tasks_total, 0);
-  const todayCompletedTasks = todayEntries.reduce((s, e) => s + e.tasks_completed, 0);
-  const todayAllDone = todayTotalTasks > 0 && todayCompletedTasks >= todayTotalTasks;
+  const todayCompletedTasks = todayEntries.reduce(
+    (s, e) => s + e.tasks_completed,
+    0,
+  );
+  const todayAllDone =
+    todayTotalTasks > 0 && todayCompletedTasks >= todayTotalTasks;
 
   /* ── Render ──────────────────────────────────────────── */
 
@@ -207,7 +226,9 @@ export default function StudentTimeplanPage() {
             const dayEntries = scheduleByDay[dayNum] || [];
             const allCompleted =
               dayEntries.length > 0 &&
-              dayEntries.every((e) => e.tasks_total > 0 && e.tasks_completed >= e.tasks_total);
+              dayEntries.every(
+                (e) => e.tasks_total > 0 && e.tasks_completed >= e.tasks_total,
+              );
 
             return (
               <button
@@ -288,7 +309,8 @@ export default function StudentTimeplanPage() {
             )}
             {selectedDay < 4 ? (
               <span className="flex items-center gap-1">
-                {DAY_NAMES[selectedDay + 1]} <ChevronRight className="h-3 w-3" />
+                {DAY_NAMES[selectedDay + 1]}{" "}
+                <ChevronRight className="h-3 w-3" />
               </span>
             ) : (
               <span />
@@ -303,10 +325,18 @@ export default function StudentTimeplanPage() {
 /* ── Sub-components ────────────────────────────────────── */
 
 /** Section header showing full day name */
-function DayHeader({ dayIndex, isToday }: { dayIndex: number; isToday: boolean }) {
+function DayHeader({
+  dayIndex,
+  isToday,
+}: {
+  dayIndex: number;
+  isToday: boolean;
+}) {
   return (
     <div className="flex items-center gap-2 mb-4">
-      <h2 className="text-lg font-bold text-slate-800">{DAY_NAMES[dayIndex]}</h2>
+      <h2 className="text-lg font-bold text-slate-800">
+        {DAY_NAMES[dayIndex]}
+      </h2>
       {isToday && (
         <span className="text-xs font-semibold bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
           I dag
@@ -344,7 +374,11 @@ function DayScheduleList({
           ? getLessonState(entry.start_time, entry.end_time)
           : "upcoming";
         const progress = isToday
-          ? getLessonProgressPercent(entry.start_time, entry.end_time, currentTime)
+          ? getLessonProgressPercent(
+              entry.start_time,
+              entry.end_time,
+              currentTime,
+            )
           : 0;
 
         return (
@@ -413,7 +447,9 @@ function TimeplanCard({
         }`}
       >
         {/* Emoji */}
-        <span className={`text-2xl flex-shrink-0 ${isFinished ? "opacity-50" : ""}`}>
+        <span
+          className={`text-2xl flex-shrink-0 ${isFinished ? "opacity-50" : ""}`}
+        >
           {entry.emoji}
         </span>
 
@@ -453,7 +489,10 @@ function TimeplanCard({
           {isFinished ? (
             <CheckCircle2 className="w-6 h-6 text-emerald-400" />
           ) : isLiveLesson ? (
-            <LiveIndicator progress={lessonProgress} color={`rgb(${accentRgb})`} />
+            <LiveIndicator
+              progress={lessonProgress}
+              color={`rgb(${accentRgb})`}
+            />
           ) : (
             <div className="w-6 h-6 rounded-full border-2 border-dashed border-slate-200" />
           )}
@@ -464,12 +503,20 @@ function TimeplanCard({
 }
 
 /** Small live-lesson ring indicator for the Timeplan cards */
-function LiveIndicator({ progress, color }: { progress: number; color: string }) {
+function LiveIndicator({
+  progress,
+  color,
+}: {
+  progress: number;
+  color: string;
+}) {
   const size = 28;
   const strokeWidth = 3;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const dashOffset = circumference - (Math.min(100, Math.max(0, progress)) / 100) * circumference;
+  const dashOffset =
+    circumference -
+    (Math.min(100, Math.max(0, progress)) / 100) * circumference;
 
   return (
     <div className="relative">
@@ -495,7 +542,10 @@ function LiveIndicator({ progress, color }: { progress: number; color: string })
         />
       </svg>
       <span className="absolute inset-0 flex items-center justify-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" style={{ color }} />
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"
+          style={{ color }}
+        />
       </span>
     </div>
   );
@@ -533,7 +583,9 @@ function DesktopWeekGrid({
             }`}
           >
             <div className="flex items-center justify-between mb-3 px-1">
-              <h3 className={`text-sm font-bold ${isTodayCol ? "text-indigo-700" : "text-slate-600"}`}>
+              <h3
+                className={`text-sm font-bold ${isTodayCol ? "text-indigo-700" : "text-slate-600"}`}
+              >
                 {name}
               </h3>
               {isTodayCol && (
@@ -544,7 +596,9 @@ function DesktopWeekGrid({
             </div>
 
             {entries.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">Ingen timer</p>
+              <p className="text-xs text-slate-400 text-center py-6">
+                Ingen timer
+              </p>
             ) : (
               <div className="space-y-2">
                 {entries.map((entry) => {
@@ -552,7 +606,11 @@ function DesktopWeekGrid({
                     ? getLessonState(entry.start_time, entry.end_time)
                     : "upcoming";
                   const progress = isTodayCol
-                    ? getLessonProgressPercent(entry.start_time, entry.end_time, currentTime)
+                    ? getLessonProgressPercent(
+                        entry.start_time,
+                        entry.end_time,
+                        currentTime,
+                      )
                     : 0;
 
                   return (
@@ -605,7 +663,9 @@ function DesktopLessonRow({
     >
       <span className="text-lg flex-shrink-0">{entry.emoji}</span>
       <div className="flex-1 min-w-0">
-        <p className={`text-xs font-bold truncate ${isFinished ? "text-slate-400 line-through" : "text-slate-700"}`}>
+        <p
+          className={`text-xs font-bold truncate ${isFinished ? "text-slate-400 line-through" : "text-slate-700"}`}
+        >
           {entry.subject_title || "Time"}
         </p>
         <p className="text-[10px] text-slate-400">
@@ -616,7 +676,10 @@ function DesktopLessonRow({
         {isFinished ? (
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
         ) : isLive ? (
-          <LiveIndicator progress={progress} color={`rgb(${theme.shadowRgb})`} />
+          <LiveIndicator
+            progress={progress}
+            color={`rgb(${theme.shadowRgb})`}
+          />
         ) : entry.tasks_total > 0 ? (
           <span className="text-[10px] font-bold text-slate-400">
             {entry.tasks_completed}/{entry.tasks_total}
