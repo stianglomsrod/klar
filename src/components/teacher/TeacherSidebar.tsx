@@ -9,7 +9,7 @@ import {
   Gift,
   MessageSquare,
   CalendarDays,
-  Mail,
+  ClipboardList,
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -46,9 +46,9 @@ const navigationItems = [
     icon: MessageSquare,
   },
   {
-    name: "Ukebrev & Planlegging",
+    name: "Planer",
     href: "/teacher/ukebrev",
-    icon: Mail,
+    icon: ClipboardList,
   },
 ];
 

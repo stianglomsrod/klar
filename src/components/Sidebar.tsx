@@ -51,7 +51,7 @@ export default function Sidebar({
     { name: "Dagen i dag", icon: Home, href: "/" },
     { name: "Fag & Oppgaver", icon: BookOpen, href: "/student/fag" },
     { name: "Timeplan", icon: Calendar, href: "/timeplan" },
-    { name: "Ukebrev & Planlegging", icon: Mail, href: "/ukebrev" },
+    { name: "Planer", icon: Mail, href: "/ukebrev" },
     { name: "Belønninger", icon: Trophy, href: "/belonninger" },
   ];
 

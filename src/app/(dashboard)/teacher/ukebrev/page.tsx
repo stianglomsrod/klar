@@ -16,6 +16,12 @@ import {
   AlertCircle,
   Pencil,
   Trash2,
+  ChevronDown,
+  Sparkles,
+  ShieldCheck,
+  Rocket,
+  Search,
+  FileCheck,
 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
@@ -67,6 +73,7 @@ export default function UkebrevPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [toastVariant, setToastVariant] = useState<"success" | "error">(
     "success",
   );
@@ -468,7 +475,7 @@ export default function UkebrevPage() {
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
       {/* ── Header ── */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Planlegging</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Planer</h1>
         <p className="text-slate-500 mt-1">
           Last opp et ukebrev eller undervisningsplan (.docx) — AI-en
           klassifiserer og analyserer automatisk
@@ -477,46 +484,144 @@ export default function UkebrevPage() {
 
       {/* ── Upload Section ── */}
       {!data && !isLoading && (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center bg-white transition-colors ${
-            isDragOver
-              ? "border-indigo-500 bg-indigo-50/50"
-              : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30"
-          }`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={handleFileChange}
-            className="hidden"
-            id="docx-upload"
-          />
-          <label
-            htmlFor="docx-upload"
-            className="cursor-pointer flex flex-col items-center gap-4"
+        <>
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center bg-white transition-colors ${
+              isDragOver
+                ? "border-indigo-500 bg-indigo-50/50"
+                : "border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/30"
+            }`}
           >
-            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
-              <Upload className="h-8 w-8 text-indigo-600" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-slate-800">
-                Last opp dokument
-              </p>
-              <p className="text-sm text-slate-500 mt-1">
-                Dra og slipp eller klikk for å velge en .docx-fil (ukebrev eller
-                undervisningsplan)
-              </p>
-            </div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
-              <FileText className="h-4 w-4" />
-              Velg fil
-            </div>
-          </label>
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleFileChange}
+              className="hidden"
+              id="docx-upload"
+            />
+            <label
+              htmlFor="docx-upload"
+              className="cursor-pointer flex flex-col items-center gap-4"
+            >
+              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+                <Upload className="h-8 w-8 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-slate-800">
+                  Last opp dokument
+                </p>
+                <p className="text-sm text-slate-500 mt-1">
+                  Dra og slipp eller klikk for å velge en .docx-fil (ukebrev
+                  eller undervisningsplan)
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+                <FileText className="h-4 w-4" />
+                Velg fil
+              </div>
+            </label>
+          </div>
+
+          {/* ── Onboarding Guide ── */}
+          <div className="mt-6">
+            <button
+              onClick={() => setShowGuide((prev) => !prev)}
+              className="flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 transition-colors group"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Slik fungerer AI-planleggeren</span>
+              <ChevronDown
+                className={`h-4 w-4 transition-transform duration-200 ${showGuide ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {showGuide && (
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                {/* Card 1 — Two document types */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
+                      <FileCheck className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <h3 className="font-semibold text-slate-800 text-sm">
+                      To dokumenttyper
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    AI-en gjenkjenner automatisk om filen er et{" "}
+                    <strong>ukebrev</strong> (med beskjeder, læringsmål, lekser
+                    og timeplan) eller en <strong>undervisningsplan</strong>{" "}
+                    (med økter, oppgaver og mål per fag). Du trenger bare å
+                    laste opp — resten ordner vi.
+                  </p>
+                </div>
+
+                {/* Card 2 — What the AI extracts */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 bg-indigo-100 rounded-lg flex items-center justify-center">
+                      <Search className="h-5 w-5 text-indigo-600" />
+                    </div>
+                    <h3 className="font-semibold text-slate-800 text-sm">
+                      Hva AI-en ser etter
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    AI-en leser dokumentet og henter ut{" "}
+                    <strong>ukedager</strong>, <strong>fag</strong>,{" "}
+                    <strong>klokkeslett</strong>, <strong>oppgaver</strong> og{" "}
+                    <strong>beskjeder</strong>. Den forstår også forkortelser
+                    som «nor», «matte» og «k&h», og håndterer kombinasjonsfag
+                    som «Nor/Bib» automatisk.
+                  </p>
+                </div>
+
+                {/* Card 3 — Smart filtering */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <ShieldCheck className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <h3 className="font-semibold text-slate-800 text-sm">
+                      Smart filtrering
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Dokumentet trenger <strong>ikke</strong> å være perfekt
+                    formatert. Inneholder det ekstra tekst, overskrifter, bilder
+                    eller annen informasjon som ikke er relevant, filtrerer
+                    AI-en bort støyen og trekker kun ut det som er nødvendig.
+                    Bare last opp som det er!
+                  </p>
+                </div>
+
+                {/* Card 4 — What happens on save */}
+                <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 bg-violet-100 rounded-lg flex items-center justify-center">
+                      <Rocket className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <h3 className="font-semibold text-slate-800 text-sm">
+                      Hva skjer når du lagrer?
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    For <strong>ukebrev</strong>: Timeplaner oppdateres for
+                    valgte klasser, og beskjeder lagres som ukens informasjon.
+                    For <strong>undervisningsplaner</strong>: Oppgaver opprettes
+                    automatisk for hver elev og kobles til riktig time i
+                    timeplanen. Du får alltid se en forhåndsvisning og kan
+                    redigere før du lagrer.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* ── Error State ── */}
