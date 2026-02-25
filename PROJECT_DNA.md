@@ -59,8 +59,9 @@ src/app/
 │   └── login/page.tsx
 │
 ├── (dashboard)/        # Dashboard route group
-│   ├── student/        # Student dashboard (layout, page, fag/)
-│   │   └── lesson/[id]/page.tsx   # Container B — session-scoped tasks
+│   ├── student/        # Student dashboard (layout, page, fag/, timeplan/)
+│   │   ├── lesson/[id]/page.tsx   # Container B — session-scoped tasks
+│   │   └── timeplan/page.tsx      # Weekly schedule view (swipeable days / 5-col grid)
 │   └── teacher/        # Teacher dashboard (layout, page, classes/, messages/,
 │                       #   rewards/, students/[id]/, tasks/, timeplan/, ukebrev/)
 │
@@ -361,6 +362,11 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - When migration files are created, the end-of-turn summary must include enough detail about the schema change (table/column/RPC affected, old vs new behavior) so the "Tech Lead" AI can update its own shadow database reference in persistent memory.
 - Include the full SQL in the summary block so the Tech Lead AI has a self-contained reference.
 
+### 6.12 Autonomous Discretion & Reporting
+
+- The agent is empowered to make autonomous architectural, structural, or implementation decisions if it discovers a better approach than what is strictly prompted (since the agent possesses the actual codebase context).
+- However, any deviation from the prompt or significant autonomous decision **MUST** be thoroughly documented and justified in a dedicated section of the output summary.
+
 ---
 
 ## 7. Component Inventory — Quick Reference
@@ -378,6 +384,9 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `SubjectCard.tsx` — subject grid cards on student dashboard
 - `TaskCard.tsx` — individual task cards (TTS, points badge, quiz/standard button). Used by both Container A & B.
 - `SubjectProgress.tsx` — reusable progress pill (X/Y with color-themed fill). Used by both Container A & B.
+- `ScheduleCard.tsx` — reusable lesson card for fisheye dashboard (emoji, title, time, MissionChip, progress ring)
+- `MissionChip.tsx` — task-completion pill (e.g. "2/4"), green when all complete
+- `LessonProgress.tsx` — circular SVG progress ring for active lessons
 - `CompletionModal.tsx` — task submission confirmation
 - `LevelUpModal.tsx` — level-up celebration overlay
 - `WelcomeOverlay.tsx` — welcome screen with daily announcement
@@ -476,3 +485,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 13. **Class & subject normalization** — `save-weekly-plan.ts` normalizes both class names (`normalizeClassName`: strip non-alphanumeric → uppercase, e.g. "7 a" → "7A") and subject names (`splitAndNormalizeSubject`: alias dictionary + `/`/`og` splitting, e.g. "Nor/bib" → ["Norsk","Bibliotek"]). Hybrid subjects use the first part's `subject_id` and store the full joined name in `custom_title`. If missing classes or subjects are found, the frontend shows an AlertDialog offering to auto-create them before retrying.
 
 14. **Masterplan auto-creation (week_number=0)** — `WeeklyScheduleEditor` fetches `week_number=0` as fallback and `week_number=N` as primary. Entries from the primary query that don't exist in the fallback get `isFallback=false` → displayed with an "Endret" badge. To prevent false badges on first import, `save-weekly-plan.ts` section 6a auto-creates `week_number=0` duplicates for any class that lacks masterplan entries. This is non-blocking — if the masterplan insert fails, the week entries are still saved.
+
+15. **Three student schedule views** — The daily dashboard (`/student`) uses fisheye scroll with `ScheduleCard`. The weekly Timeplan page (`/student/timeplan`) reuses the same `get_student_schedule` RPC but shows all 5 weekdays (swipeable on mobile, 5-col grid on desktop). Both use `formatTime()` and `getSubjectTheme()` from centralized utilities. Lesson clicks route to `/student/lesson/[id]` in both views.
+
+16. **Centralized color system** — `subject-colors.ts` exports `ColorClasses` (12 properties incl. `borderAccent`, `shadowRgb`), `getSubjectTheme()`, and `COLOR_MAP` with 22 Tailwind themes. All schedule cards, progress rings, and glow effects derive colors from this single map. Never duplicate color lookups.

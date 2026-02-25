@@ -4,157 +4,11 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  CheckCircle2,
-  ChevronUp,
-  ChevronDown,
-  Loader2,
-  ListTodo,
-} from "lucide-react";
+import { ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 import WelcomeOverlay from "@/components/WelcomeOverlay";
-
-type ScheduleEntry = {
-  id: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  subject_id: string;
-  subject_title: string;
-  emoji: string;
-  subject_color: string;
-  entry_has_tasks: boolean;
-  subject_has_tasks: boolean;
-  custom_title: string | null;
-  tasks_total: number;
-  tasks_completed: number;
-};
-
-const colorVariants: Record<string, string> = {
-  amber: "border-amber-500",
-  blue: "border-blue-500",
-  emerald: "border-emerald-500",
-  gray: "border-gray-500",
-  green: "border-green-500",
-  indigo: "border-indigo-500",
-  orange: "border-orange-500",
-  pink: "border-pink-500",
-  purple: "border-purple-500",
-  red: "border-red-500",
-  rose: "border-rose-500",
-  teal: "border-teal-500",
-  violet: "border-violet-500",
-  yellow: "border-yellow-500",
-  default: "border-gray-300",
-};
-
-const shadowRgbValues: Record<string, string> = {
-  amber: "245, 158, 11",
-  blue: "59, 130, 246",
-  emerald: "16, 185, 129",
-  gray: "107, 114, 128",
-  green: "34, 197, 94",
-  indigo: "99, 102, 241",
-  orange: "249, 115, 22",
-  pink: "236, 72, 153",
-  purple: "168, 85, 247",
-  red: "239, 68, 68",
-  rose: "244, 63, 94",
-  teal: "20, 184, 166",
-  violet: "139, 92, 246",
-  yellow: "234, 179, 8",
-};
-
-const LessonProgress = ({
-  progress,
-  color,
-}: {
-  progress: number;
-  color: string;
-}) => {
-  const size = 44;
-  const strokeWidth = 6;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(100, progress));
-  const dashOffset = circumference - (clamped / 100) * circumference;
-
-  return (
-    <div className="w-12 h-12 flex items-center justify-center">
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90 drop-shadow-sm"
-        role="presentation"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#e5e7eb"
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeLinecap="round"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={dashOffset}
-          fill="none"
-          strokeLinecap="round"
-        />
-      </svg>
-    </div>
-  );
-};
-
-const MissionChip = ({
-  completed,
-  total,
-  color,
-  isActive,
-}: {
-  completed: number;
-  total: number;
-  color: string;
-  isActive: boolean;
-}) => {
-  // Status-based color logic: Green if all tasks completed, Gray if incomplete
-  const isAllTasksCompleted = completed >= total;
-
-  // Determine colors based on completion status and active state
-  const bgClass = isAllTasksCompleted
-    ? isActive
-      ? "bg-emerald-500"
-      : "bg-emerald-100"
-    : isActive
-      ? "bg-gray-600"
-      : "bg-gray-100";
-
-  const textClass = isAllTasksCompleted
-    ? isActive
-      ? "text-white"
-      : "text-emerald-700"
-    : isActive
-      ? "text-white"
-      : "text-gray-600";
-
-  return (
-    <div
-      className={`ml-3 flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${bgClass} ${textClass} ${
-        isActive ? "shadow-sm" : ""
-      }`}
-    >
-      <ListTodo className="h-3.5 w-3.5" />
-      <span>
-        {completed}/{total}
-      </span>
-    </div>
-  );
-};
+import ScheduleCard from "@/components/student/ScheduleCard";
+import type { ScheduleEntry, LessonState } from "@/components/student/ScheduleCard";
+import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
 
 export default function StudentQuestLogPage() {
   const router = useRouter();
@@ -218,19 +72,7 @@ export default function StudentQuestLogPage() {
         }
 
         // Get current week number
-        const d = new Date(
-          Date.UTC(
-            currentTime.getFullYear(),
-            currentTime.getMonth(),
-            currentTime.getDate()
-          )
-        );
-        const dayNum = d.getUTCDay() || 7;
-        d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        const weekNumber = Math.ceil(
-          ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
-        );
+        const weekNumber = getISOWeekNumber(currentTime);
 
         // Call RPC function to get schedule
         const { data: scheduleData, error } = await supabase.rpc(
@@ -264,8 +106,7 @@ export default function StudentQuestLogPage() {
           }, 3000);
         } else {
           // Filter to today's lessons only
-          const today = currentTime.getDay();
-          const todayNum = today === 0 ? 7 : today; // Convert Sunday from 0 to 7
+          const todayNum = getISODayOfWeek(currentTime);
 
           const todaysLessons = (scheduleData || [])
             .filter((entry: any) => entry.day_of_week === todayNum)
@@ -575,131 +416,26 @@ export default function StudentQuestLogPage() {
                   const state = getLessonState(
                     entry.start_time,
                     entry.end_time
-                  );
-                  const hasQuests =
-                    entry.entry_has_tasks || entry.subject_has_tasks;
-                  const isLiveLesson = state === "active"; // Actual current lesson based on time
-                  const isFinished = state === "finished";
-                  const isUpcoming = state === "upcoming";
-
-                  // Visual emphasis and color mapping
+                  ) as LessonState;
+                  const isLiveLesson = state === "active";
                   const distance = cardDistances.get(entry.id) || 999;
                   const isCentered = distance < 100;
-                  const scale = isCentered ? 1.1 : 0.9;
-                  const opacity = isCentered ? 1 : 0.5;
-                  const blur = 0;
-
-                  const borderColor =
-                    colorVariants[entry.subject_color] || colorVariants.default;
-                  const subjectColorKey = entry.subject_color || "gray";
-                  const shadowRgb =
-                    shadowRgbValues[subjectColorKey] || shadowRgbValues.gray;
-                  const accentColor = `rgb(${shadowRgb})`;
-                  const subjectTitle = entry.subject_title || "Time";
-                  const secondaryLabel = entry.custom_title
-                    ? entry.custom_title
-                    : `${index + 1}. time`;
                   const lessonProgress = getLessonProgressPercent(
                     entry.start_time,
                     entry.end_time
                   );
 
-                  const glowStyle = isLiveLesson
-                    ? {
-                        boxShadow: `0 20px 25px -5px rgba(${shadowRgb}, 0.4), 0 8px 10px -6px rgba(${shadowRgb}, 0.2)`,
-                      }
-                    : undefined;
-
                   return (
-                    <motion.button
+                    <ScheduleCard
                       key={entry.id}
-                      ref={isLiveLesson ? activeLessonRef : null}
-                      data-card
-                      data-id={entry.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05, duration: 0.3 }}
+                      entry={entry}
+                      state={state}
+                      isCentered={isCentered}
+                      index={index}
                       onClick={() => handleLessonClick(entry, state)}
-                      style={{
-                        transform: `scale(${scale})`,
-                        opacity: opacity,
-                        filter: `blur(${blur}px)`,
-                      }}
-                      className={`group relative w-full text-left transition-all duration-300 ease-out snap-center cursor-pointer ${
-                        isCentered ? "z-10" : "z-0"
-                      } ${
-                        !isCentered ? "hover:opacity-100 hover:scale-95" : ""
-                      }`}
-                    >
-                      <div
-                        style={glowStyle}
-                        className={`relative flex items-center gap-4 p-6 rounded-3xl border-l-8 ${borderColor} transition-all duration-300 ${
-                          isCentered
-                            ? "bg-white shadow-2xl"
-                            : isFinished
-                              ? "bg-gray-200/60"
-                              : "bg-white/70"
-                        } ${isLiveLesson ? "animate-float" : ""}`}
-                      >
-                        {/* Left: Large Emoji */}
-                        <div className="flex-shrink-0">
-                          <span
-                            className={`transition-all duration-300 ${
-                              isCentered ? "text-6xl" : "text-3xl"
-                            }`}
-                          >
-                            {entry.emoji}
-                          </span>
-                        </div>
-
-                        {/* Middle: Subject Title + Time */}
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-0">
-                            <h3
-                              className={`font-bold leading-tight truncate transition-all duration-300 ${
-                                isCentered
-                                  ? "text-3xl text-slate-900"
-                                  : "text-lg text-slate-700"
-                              } ${isFinished ? "text-slate-500" : ""}`}
-                            >
-                              {subjectTitle}
-                            </h3>
-                            {entry.tasks_total > 0 && (
-                              <MissionChip
-                                completed={entry.tasks_completed}
-                                total={entry.tasks_total}
-                                color={entry.subject_color}
-                                isActive={isCentered}
-                              />
-                            )}
-                          </div>
-
-                          <p className="text-sm text-slate-500 truncate">
-                            {secondaryLabel}
-                          </p>
-
-                          <p className="text-xs text-slate-500 font-medium">
-                            {entry.start_time} - {entry.end_time}
-                          </p>
-                        </div>
-
-                        {/* Right: Status indicator */}
-                        <div className="flex-shrink-0 flex items-center justify-center">
-                          {isFinished ? (
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-sm bg-green-50">
-                              <CheckCircle2 className="w-7 h-7 text-green-500" />
-                            </div>
-                          ) : isLiveLesson ? (
-                            <LessonProgress
-                              progress={lessonProgress}
-                              color={accentColor}
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 flex items-center justify-center opacity-70" />
-                          )}
-                        </div>
-                      </div>
-                    </motion.button>
+                      lessonProgress={lessonProgress}
+                      activeRef={isLiveLesson ? activeLessonRef : undefined}
+                    />
                   );
                 })}
               </AnimatePresence>

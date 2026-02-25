@@ -17,6 +17,7 @@ import { ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import { formatTime } from "@/utils/format-time";
 import MediaUploadToolbar, {
   type MediaUploadToolbarHandle,
 } from "@/components/ui/MediaUploadToolbar";
@@ -178,11 +179,11 @@ export default function LessonDetailPage() {
           custom_title: entryData.custom_title,
           start_time:
             typeof entryData.start_time === "string"
-              ? entryData.start_time.slice(0, 5)
+              ? formatTime(entryData.start_time)
               : entryData.start_time,
           end_time:
             typeof entryData.end_time === "string"
-              ? entryData.end_time.slice(0, 5)
+              ? formatTime(entryData.end_time)
               : entryData.end_time,
         };
         setMeta(entryMeta);

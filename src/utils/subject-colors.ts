@@ -41,6 +41,8 @@ export interface ColorClasses {
   badge: string; // Badge background (bg-red-100 text-red-700)
   hover: string; // Hover state (hover:bg-red-700)
   progress: string; // Progress bar fill (bg-red-500)
+  borderAccent: string; // Thick accent border (border-red-500) — schedule cards
+  shadowRgb: string; // RGB triplet for box-shadow glow (e.g. "239, 68, 68")
 }
 
 /**
@@ -76,6 +78,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-slate-100 text-slate-700",
     hover: "hover:bg-slate-700",
     progress: "bg-slate-500",
+    borderAccent: "border-slate-500",
+    shadowRgb: "100, 116, 139",
   },
   gray: {
     base: "bg-gray-600",
@@ -88,6 +92,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-gray-100 text-gray-700",
     hover: "hover:bg-gray-700",
     progress: "bg-gray-500",
+    borderAccent: "border-gray-500",
+    shadowRgb: "107, 114, 128",
   },
   zinc: {
     base: "bg-zinc-600",
@@ -100,6 +106,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-zinc-100 text-zinc-700",
     hover: "hover:bg-zinc-700",
     progress: "bg-zinc-500",
+    borderAccent: "border-zinc-500",
+    shadowRgb: "113, 113, 122",
   },
   neutral: {
     base: "bg-neutral-600",
@@ -112,6 +120,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-neutral-100 text-neutral-700",
     hover: "hover:bg-neutral-700",
     progress: "bg-neutral-500",
+    borderAccent: "border-neutral-500",
+    shadowRgb: "115, 115, 115",
   },
   stone: {
     base: "bg-stone-600",
@@ -124,6 +134,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-stone-100 text-stone-700",
     hover: "hover:bg-stone-700",
     progress: "bg-stone-500",
+    borderAccent: "border-stone-500",
+    shadowRgb: "120, 113, 108",
   },
 
   // Reds
@@ -138,6 +150,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-red-100 text-red-700",
     hover: "hover:bg-red-700",
     progress: "bg-red-500",
+    borderAccent: "border-red-500",
+    shadowRgb: "239, 68, 68",
   },
   orange: {
     base: "bg-orange-600",
@@ -150,6 +164,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-orange-100 text-orange-700",
     hover: "hover:bg-orange-700",
     progress: "bg-orange-500",
+    borderAccent: "border-orange-500",
+    shadowRgb: "249, 115, 22",
   },
   amber: {
     base: "bg-amber-500",
@@ -162,6 +178,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-amber-100 text-amber-800",
     hover: "hover:bg-amber-600",
     progress: "bg-amber-500",
+    borderAccent: "border-amber-500",
+    shadowRgb: "245, 158, 11",
   },
   yellow: {
     base: "bg-yellow-500",
@@ -174,6 +192,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-yellow-100 text-yellow-800",
     hover: "hover:bg-yellow-600",
     progress: "bg-yellow-500",
+    borderAccent: "border-yellow-500",
+    shadowRgb: "234, 179, 8",
   },
 
   // Greens
@@ -188,6 +208,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-lime-100 text-lime-700",
     hover: "hover:bg-lime-700",
     progress: "bg-lime-500",
+    borderAccent: "border-lime-500",
+    shadowRgb: "132, 204, 22",
   },
   green: {
     base: "bg-green-600",
@@ -200,6 +222,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-green-100 text-green-700",
     hover: "hover:bg-green-700",
     progress: "bg-green-500",
+    borderAccent: "border-green-500",
+    shadowRgb: "34, 197, 94",
   },
   emerald: {
     base: "bg-emerald-600",
@@ -212,6 +236,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-emerald-100 text-emerald-700",
     hover: "hover:bg-emerald-700",
     progress: "bg-emerald-500",
+    borderAccent: "border-emerald-500",
+    shadowRgb: "16, 185, 129",
   },
   teal: {
     base: "bg-teal-600",
@@ -224,6 +250,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-teal-100 text-teal-700",
     hover: "hover:bg-teal-700",
     progress: "bg-teal-500",
+    borderAccent: "border-teal-500",
+    shadowRgb: "20, 184, 166",
   },
   cyan: {
     base: "bg-cyan-600",
@@ -236,6 +264,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-cyan-100 text-cyan-700",
     hover: "hover:bg-cyan-700",
     progress: "bg-cyan-500",
+    borderAccent: "border-cyan-500",
+    shadowRgb: "6, 182, 212",
   },
   sky: {
     base: "bg-sky-600",
@@ -248,6 +278,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-sky-100 text-sky-700",
     hover: "hover:bg-sky-700",
     progress: "bg-sky-500",
+    borderAccent: "border-sky-500",
+    shadowRgb: "14, 165, 233",
   },
   blue: {
     base: "bg-blue-600",
@@ -260,6 +292,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-blue-100 text-blue-700",
     hover: "hover:bg-blue-700",
     progress: "bg-blue-500",
+    borderAccent: "border-blue-500",
+    shadowRgb: "59, 130, 246",
   },
 
   // Purples
@@ -274,6 +308,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-indigo-100 text-indigo-700",
     hover: "hover:bg-indigo-700",
     progress: "bg-indigo-500",
+    borderAccent: "border-indigo-500",
+    shadowRgb: "99, 102, 241",
   },
   violet: {
     base: "bg-violet-600",
@@ -286,6 +322,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-violet-100 text-violet-700",
     hover: "hover:bg-violet-700",
     progress: "bg-violet-500",
+    borderAccent: "border-violet-500",
+    shadowRgb: "139, 92, 246",
   },
   purple: {
     base: "bg-purple-600",
@@ -298,6 +336,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-purple-100 text-purple-700",
     hover: "hover:bg-purple-700",
     progress: "bg-purple-500",
+    borderAccent: "border-purple-500",
+    shadowRgb: "168, 85, 247",
   },
   fuchsia: {
     base: "bg-fuchsia-600",
@@ -310,6 +350,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-fuchsia-100 text-fuchsia-700",
     hover: "hover:bg-fuchsia-700",
     progress: "bg-fuchsia-500",
+    borderAccent: "border-fuchsia-500",
+    shadowRgb: "217, 70, 239",
   },
 
   // Pinks
@@ -324,6 +366,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-pink-100 text-pink-700",
     hover: "hover:bg-pink-700",
     progress: "bg-pink-500",
+    borderAccent: "border-pink-500",
+    shadowRgb: "236, 72, 153",
   },
   rose: {
     base: "bg-rose-600",
@@ -336,6 +380,8 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
     badge: "bg-rose-100 text-rose-700",
     hover: "hover:bg-rose-700",
     progress: "bg-rose-500",
+    borderAccent: "border-rose-500",
+    shadowRgb: "244, 63, 94",
   },
 };
 

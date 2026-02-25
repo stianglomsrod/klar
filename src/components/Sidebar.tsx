@@ -9,7 +9,6 @@ import {
   Calendar,
   Home,
   Trophy,
-  Mail,
   LogOut,
   BookOpen,
 } from "lucide-react";
@@ -50,8 +49,7 @@ export default function Sidebar({
   const menuItems = [
     { name: "Dagen i dag", icon: Home, href: "/" },
     { name: "Fag & Oppgaver", icon: BookOpen, href: "/student/fag" },
-    { name: "Timeplan", icon: Calendar, href: "/timeplan" },
-    { name: "Planer", icon: Mail, href: "/ukebrev" },
+    { name: "Timeplan", icon: Calendar, href: "/student/timeplan" },
     { name: "Belønninger", icon: Trophy, href: "/belonninger" },
   ];
 
