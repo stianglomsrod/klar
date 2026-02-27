@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { DEFAULT_PETAL_COLOR } from "@/utils/constants";
 
 // ── Types ────────────────────────────────────────────
 
@@ -35,11 +36,9 @@ export function useTaskCompletion() {
   const playSuccessSound = useCallback(() => {
     const audio = new Audio("/sounds/pling.mp3");
     audio.volume = 0.5;
-    audio
-      .play()
-      .catch((e: unknown) =>
-        console.log("Audio play failed (user interaction needed first):", e),
-      );
+    audio.play().catch(() => {
+      /* Expected: autoplay blocked until user interaction */
+    });
   }, []);
 
   // ── Complete a task ──────────────────────────────
@@ -108,9 +107,7 @@ export function useTaskCompletion() {
         playSuccessSound();
 
         return { shouldLevelUp, isNewHighLevel, newLevel };
-      } catch (error) {
-        console.error("Feil ved fullføring av oppgave:", error);
-        alert("Noe gikk galt. Prøv igjen.");
+      } catch {
         return null;
       } finally {
         setIsCompleting(false);
@@ -176,9 +173,7 @@ export function useTaskCompletion() {
 
         await refreshProfile();
         return true;
-      } catch (error) {
-        console.error("Feil ved angring av oppgave:", error);
-        alert("Noe gikk galt. Prøv igjen.");
+      } catch {
         return false;
       }
     },
@@ -202,7 +197,7 @@ export function useTaskCompletion() {
           const currentColors = profile.petal_colors || [];
           const normalizedColors = Array.from(
             { length: 5 },
-            (_, i) => currentColors[i] || "#E0E0E0",
+            (_, i) => currentColors[i] || DEFAULT_PETAL_COLOR,
           );
           const targetIndex =
             typeof petalIndex === "number" && petalIndex >= 0 && petalIndex < 5
@@ -212,7 +207,7 @@ export function useTaskCompletion() {
           normalizedColors[targetIndex] = payload;
 
           const newPetalsProgress = normalizedColors.filter(
-            (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0",
+            (c) => c && c.trim().length > 0 && c.trim() !== DEFAULT_PETAL_COLOR,
           ).length;
 
           const isFlowerComplete = newPetalsProgress >= 5;
@@ -239,9 +234,7 @@ export function useTaskCompletion() {
         }
 
         return true;
-      } catch (error) {
-        console.error("Feil ved valg av belønning:", error);
-        alert("Noe gikk galt. Prøv igjen.");
+      } catch {
         return false;
       }
     },

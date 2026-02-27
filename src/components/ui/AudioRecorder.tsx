@@ -95,9 +95,8 @@ const AudioRecorder = forwardRef(function AudioRecorder(
       timerRef.current = setInterval(() => {
         setElapsed((prev) => prev + 1);
       }, 1000);
-    } catch (err) {
-      console.error("Microphone access denied:", err);
-      alert("Kunne ikke starte opptak. Sjekk at mikrofon er tilgjengelig.");
+    } catch {
+      // Mic permission denied — browser shows its own permission dialog
     }
   }, [onRecorded]);
 

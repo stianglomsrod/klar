@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Trash2, Plus } from "lucide-react";
+import ConfirmDialog, {
+  type ConfirmDialogState,
+} from "@/components/ui/ConfirmDialog";
 import {
   RecipientSelector,
   type Recipient,
@@ -55,7 +58,7 @@ export default function TeacherMessagesPage() {
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [messageContent, setMessageContent] = useState("");
   const [formDate, setFormDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
+    new Date().toISOString().split("T")[0],
   );
 
   // UI state
@@ -66,6 +69,7 @@ export default function TeacherMessagesPage() {
     type: "success" | "error";
     visible: boolean;
   }>({ message: "", type: "success", visible: false });
+  const [confirmState, setConfirmState] = useState<ConfirmDialogState>(null);
 
   // Fetch reference data
   useEffect(() => {
@@ -84,10 +88,6 @@ export default function TeacherMessagesPage() {
         if (gradesRes.error) throw gradesRes.error;
         if (classesRes.error) throw classesRes.error;
         if (studentsRes.error) throw studentsRes.error;
-
-        console.log("Fetched grades:", gradesRes.data);
-        console.log("Fetched classes:", classesRes.data);
-        console.log("Fetched students:", studentsRes.data);
 
         setGrades(gradesRes.data || []);
         setClasses(classesRes.data || []);
@@ -109,9 +109,7 @@ export default function TeacherMessagesPage() {
           .sort((a, b) => a.name.localeCompare(b.name, "no"));
 
         setAllStudents(formattedStudents);
-        console.log("Formatted students:", formattedStudents);
-      } catch (err) {
-        console.error("Error fetching reference data:", err);
+      } catch {
         showToast("Kunne ikke laste data", "error");
       } finally {
         setIsLoading(false);
@@ -132,8 +130,8 @@ export default function TeacherMessagesPage() {
 
         if (error) throw error;
         setAnnouncements(data || []);
-      } catch (err) {
-        console.error("Error fetching announcements:", err);
+      } catch {
+        // Silent – announcements list stays empty
       }
     };
 
@@ -189,7 +187,7 @@ export default function TeacherMessagesPage() {
           target_type: recipient.type,
           target_id: recipient.id,
           created_by: user.user?.id,
-        })
+        }),
       );
 
       const results = await Promise.all(promises);
@@ -214,33 +212,35 @@ export default function TeacherMessagesPage() {
 
       showToast(
         `Melding lagret til ${recipients.length} mottaker(e)!`,
-        "success"
+        "success",
       );
-    } catch (err) {
-      console.error("Error creating announcement:", err);
+    } catch {
       showToast("Kunne ikke lagre melding", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Slett denne meldingen?")) return;
+  const handleDelete = (id: string) => {
+    setConfirmState({
+      title: "Slett melding",
+      description: "Slett denne meldingen?",
+      action: async () => {
+        try {
+          const { error } = await supabase
+            .from("daily_announcements")
+            .delete()
+            .eq("id", id);
 
-    try {
-      const { error } = await supabase
-        .from("daily_announcements")
-        .delete()
-        .eq("id", id);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      setAnnouncements((prev) => prev.filter((a) => a.id !== id));
-      showToast("Melding slettet", "success");
-    } catch (err) {
-      console.error("Error deleting announcement:", err);
-      showToast("Kunne ikke slette melding", "error");
-    }
+          setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+          showToast("Melding slettet", "success");
+        } catch {
+          showToast("Kunne ikke slette melding", "error");
+        }
+      },
+    });
   };
 
   const dateAnnouncements = getSelectedDateAnnouncements();
@@ -306,8 +306,8 @@ export default function TeacherMessagesPage() {
                               {target.type === "grade"
                                 ? "Trinn"
                                 : target.type === "class"
-                                ? "Klasse"
-                                : "Elev"}
+                                  ? "Klasse"
+                                  : "Elev"}
                             </p>
                             <p className="text-sm font-medium text-slate-900">
                               {target.name}
@@ -409,6 +409,10 @@ export default function TeacherMessagesPage() {
           {toast.message}
         </div>
       )}
+      <ConfirmDialog
+        state={confirmState}
+        onClose={() => setConfirmState(null)}
+      />
     </div>
   );
 }

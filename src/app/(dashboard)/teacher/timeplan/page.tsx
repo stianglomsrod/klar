@@ -14,9 +14,7 @@ import {
   Loader2,
   FileText,
   Save,
-  CheckCircle2,
   Pencil,
-  Trash2,
 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
@@ -26,7 +24,6 @@ import type {
 import { normalizeClassName } from "@/app/actions/shared-normalization";
 import { saveWeeklyPlan } from "@/app/actions/save-weekly-plan";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";
-import { EditDialog } from "@/components/ui/edit-dialog";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -35,8 +32,12 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
-  AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { getISOWeekNumber } from "@/utils/week-number";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
+import MissingDataDialog from "@/components/teacher/MissingDataDialog";
+import ScheduleEntryEditDialog from "@/components/teacher/ScheduleEntryEditDialog";
 
 type Class = {
   id: string;
@@ -51,16 +52,6 @@ type Student = {
 };
 
 export default function TimeplanPage() {
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-    );
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  };
-
   const currentWeek = getISOWeekNumber(new Date());
 
   const [classes, setClasses] = useState<Class[]>([]);
@@ -82,10 +73,7 @@ export default function TimeplanPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastVariant, setToastVariant] = useState<"success" | "error">(
-    "success",
-  );
+  const { toast, showToast, hideToast } = useToast();
   const [editorRefreshKey, setEditorRefreshKey] = useState(0);
   const [missingData, setMissingData] = useState<{
     classes: string[];
@@ -112,14 +100,6 @@ export default function TimeplanPage() {
     rawSchedule: ScheduleEntry[];
     rawWeeklyData: WeeklyPlanData;
   } | null>(null);
-
-  const DAY_OPTIONS = [
-    { value: 1, label: "Mandag" },
-    { value: 2, label: "Tirsdag" },
-    { value: 3, label: "Onsdag" },
-    { value: 4, label: "Torsdag" },
-    { value: 5, label: "Fredag" },
-  ];
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -287,8 +267,8 @@ export default function TimeplanPage() {
       if (error) throw error;
 
       setClasses(data || []);
-    } catch (error) {
-      console.error("Error fetching classes:", error);
+    } catch {
+      // Silent – classes list stays empty
     } finally {
       setLoading(false);
     }
@@ -322,8 +302,8 @@ export default function TimeplanPage() {
 
       // Ensure any class discovered via student_profiles exists in the dropdown options
       mapped.forEach((s) => ensureClassInList(s.class_id, s.class_name));
-    } catch (error) {
-      console.error("Error fetching students:", error);
+    } catch {
+      // Silent – students list stays empty
     }
   };
 
@@ -331,18 +311,6 @@ export default function TimeplanPage() {
 
   const selectedClassName =
     classes.find((c) => c.id === selectedClassId)?.name || "";
-
-  const showToast = useCallback(
-    (message: string, variant: "success" | "error" = "success") => {
-      setToastVariant(variant);
-      setToastMessage(message);
-      setTimeout(
-        () => setToastMessage(null),
-        variant === "error" ? 5000 : 3000,
-      );
-    },
-    [],
-  );
 
   /** Filter schedule to a single class and remap className → selectedClassName */
   const applyClassFilter = useCallback(
@@ -919,109 +887,14 @@ export default function TimeplanPage() {
       )}
 
       {/* ── Edit Dialog for uploaded schedule entries ── */}
-      <EditDialog
-        open={scheduleEditState !== null}
+      <ScheduleEntryEditDialog
+        editState={scheduleEditState}
         onClose={() => setScheduleEditState(null)}
-        title="Rediger timeplanoppføring"
         onSave={handleScheduleEditSave}
-      >
-        {scheduleEditState && (
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Fag
-              </label>
-              <input
-                type="text"
-                value={scheduleEditState.entry.subjectName}
-                onChange={(e) =>
-                  setScheduleEditState((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          entry: { ...prev.entry, subjectName: e.target.value },
-                        }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Dag
-              </label>
-              <select
-                value={scheduleEditState.entry.dayOfWeek}
-                onChange={(e) =>
-                  setScheduleEditState((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          entry: {
-                            ...prev.entry,
-                            dayOfWeek: Number(e.target.value),
-                          },
-                        }
-                      : prev,
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors bg-white"
-              >
-                {DAY_OPTIONS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Starttid
-                </label>
-                <input
-                  type="text"
-                  value={scheduleEditState.entry.startTime}
-                  onChange={(e) =>
-                    setScheduleEditState((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            entry: { ...prev.entry, startTime: e.target.value },
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder="08:00"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Sluttid
-                </label>
-                <input
-                  type="text"
-                  value={scheduleEditState.entry.endTime}
-                  onChange={(e) =>
-                    setScheduleEditState((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            entry: { ...prev.entry, endTime: e.target.value },
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder="09:00"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </EditDialog>
+        onChange={(entry) =>
+          setScheduleEditState((prev) => (prev ? { ...prev, entry } : prev))
+        }
+      />
 
       {/* ── Class Mapping Dialog ── */}
       <AlertDialog
@@ -1063,8 +936,8 @@ export default function TimeplanPage() {
       </AlertDialog>
 
       {/* ── Missing Data Dialog (interactive) ── */}
-      <AlertDialog
-        open={!!missingData}
+      <MissingDataDialog
+        missingData={missingData}
         onOpenChange={(open) => {
           if (!open) {
             setMissingData(null);
@@ -1072,105 +945,16 @@ export default function TimeplanPage() {
             setDeletedSubjects([]);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Manglende data i databasen</AlertDialogTitle>
-            <AlertDialogDescription>
-              Følgende finnes ikke i systemet ennå. Du kan redigere fagnavnene
-              eller fjerne fag du ikke trenger før de opprettes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="mt-3 space-y-3 text-sm overflow-y-auto flex-1 min-h-0">
-            {missingData && missingData.classes.length > 0 && (
-              <div>
-                <p className="font-semibold text-slate-800">
-                  Klasser (opprettes automatisk):
-                </p>
-                <ul className="list-disc list-inside ml-1 mt-0.5">
-                  {missingData.classes.map((c) => (
-                    <li key={c} className="text-slate-700">
-                      {c}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {missingData &&
-              missingData.subjects.filter((s) => !deletedSubjects.includes(s))
-                .length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-800 mb-1">Fag:</p>
-                  <div className="space-y-2">
-                    {missingData.subjects
-                      .filter((s) => !deletedSubjects.includes(s))
-                      .map((s) => (
-                        <div key={s} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={subjectEdits[s] ?? s}
-                            onChange={(e) =>
-                              setSubjectEdits((prev) => ({
-                                ...prev,
-                                [s]: e.target.value,
-                              }))
-                            }
-                            className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeletedSubjects((prev) => [...prev, s])
-                            }
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Fjern fag"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              )}
-            {missingData &&
-              deletedSubjects.length > 0 &&
-              deletedSubjects.length < missingData.subjects.length && (
-                <p className="text-xs text-slate-500">
-                  {deletedSubjects.length} fag fjernet — tilhørende timer
-                  droppes.
-                </p>
-              )}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleSaveSchedule(true)}
-              disabled={isSaving}
-              autoClose={false}
-            >
-              {isSaving ? "Oppretter..." : "Ja, opprett og lagre"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        subjectEdits={subjectEdits}
+        onSubjectEditsChange={setSubjectEdits}
+        deletedSubjects={deletedSubjects}
+        onDeletedSubjectsChange={setDeletedSubjects}
+        onConfirm={() => handleSaveSchedule(true)}
+        isSaving={isSaving}
+      />
 
       {/* ── Toast ── */}
-      {toastMessage && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300 ${
-            toastVariant === "error"
-              ? "bg-red-600 text-white"
-              : "bg-slate-900 text-white"
-          }`}
-        >
-          {toastVariant === "error" ? (
-            <AlertCircle className="h-5 w-5 text-red-200" />
-          ) : (
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-          )}
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      <Toast toast={toast} onClose={hideToast} />
     </div>
   );
 }

@@ -12,16 +12,9 @@ import {
 } from "lucide-react";
 import ClassMonitorToggle from "./ClassMonitorToggle";
 import HelpRequestQueue from "./HelpRequestQueue";
+import type { TeacherStudent } from "@/types/shared";
 
-type Student = {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-  level: number;
-  show_flower_garden: boolean;
-  class_id: string | null;
-  class_name: string | null;
-};
+type Student = TeacherStudent;
 
 type Class = {
   id: string;
@@ -170,8 +163,8 @@ export default function ClassesAccordion({
       );
 
       setTrinnGroups(trinnGroups);
-    } catch (error) {
-      console.error("Error fetching class structure:", error);
+    } catch {
+      // Silent — class structure fetch failure handled by empty UI
     } finally {
       setLoading(false);
     }
@@ -218,19 +211,19 @@ export default function ClassesAccordion({
 
     switch (action) {
       case "add-class":
-        console.log("Add class to trinn", id);
+        // TODO: Implement add class
         break;
       case "edit-trinn":
-        console.log("Edit trinn", id);
+        // TODO: Implement edit grade
         break;
       case "add-student":
-        console.log("Add student to class", id);
+        // TODO: Implement add student
         break;
       case "message-class":
-        console.log("Message class", id);
+        // TODO: Implement message class
         break;
       case "edit-class":
-        console.log("Edit class name", id);
+        // TODO: Implement edit class name
         break;
       case "view-profile":
         router.push(`/teacher/students/${id}`);
@@ -241,10 +234,10 @@ export default function ClassesAccordion({
         }
         break;
       case "move-student":
-        console.log("Move student", id);
+        // TODO: Implement move student
         break;
       case "remove-student":
-        console.log("Remove student", id);
+        // TODO: Implement remove student
         break;
     }
   };
@@ -522,13 +515,13 @@ export default function ClassesAccordion({
                 onClick={() => handleMenuAction("add-class", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Add Class
+                Legg til klasse
               </button>
               <button
                 onClick={() => handleMenuAction("edit-trinn", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Edit Trinn
+                Rediger trinn
               </button>
             </>
           )}
@@ -539,19 +532,19 @@ export default function ClassesAccordion({
                 onClick={() => handleMenuAction("add-student", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Add Student
+                Legg til elev
               </button>
               <button
                 onClick={() => handleMenuAction("message-class", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Message Class
+                Send melding til klasse
               </button>
               <button
                 onClick={() => handleMenuAction("edit-class", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Edit Class Name
+                Rediger klassenavn
               </button>
             </>
           )}
@@ -562,7 +555,7 @@ export default function ClassesAccordion({
                 onClick={() => handleMenuAction("view-profile", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                View Profile
+                Se profil
               </button>
               <button
                 onClick={() =>
@@ -580,14 +573,14 @@ export default function ClassesAccordion({
                 onClick={() => handleMenuAction("move-student", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Move Student
+                Flytt elev
               </button>
               <div className="border-t border-slate-200 my-1" />
               <button
                 onClick={() => handleMenuAction("remove-student", openMenu.id)}
                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
-                Remove Student
+                Fjern elev
               </button>
             </>
           )}

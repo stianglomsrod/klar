@@ -11,17 +11,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import type { TeacherStudent } from "@/types/shared";
 
-type Student = {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-  level: number;
-  class_name: string | null;
-  class_id: string | null;
-  show_flower_garden: boolean;
-  custom_welcome_message: string | null;
-};
+type Student = TeacherStudent;
 
 type StudentTableProps = {
   students: Student[];
@@ -53,7 +45,7 @@ export default function StudentTable({
         position: { x: rect.right - 180, y: rect.bottom + 5 },
       });
     },
-    []
+    [],
   );
 
   const handleMenuAction = useCallback(
@@ -65,17 +57,17 @@ export default function StudentTable({
           onEditStudent(student);
           break;
         case "view-profile":
-          console.log("View student profile", student.id);
+          // TODO: Implement view profile
           break;
         case "move-student":
-          console.log("Move student", student.id);
+          // TODO: Implement move student
           break;
         case "remove-student":
-          console.log("Remove student", student.id);
+          // TODO: Implement remove student
           break;
       }
     },
-    [onEditStudent]
+    [onEditStudent],
   );
 
   // Define columns
@@ -227,7 +219,7 @@ export default function StudentTable({
         },
       },
     ],
-    [handleMenuClick]
+    [handleMenuClick],
   );
 
   const table = useReactTable({
@@ -276,7 +268,7 @@ export default function StudentTable({
                       ? null
                       : flexRender(
                           header.column.columnDef.header,
-                          header.getContext()
+                          header.getContext(),
                         )}
                   </th>
                 ))}
@@ -326,20 +318,20 @@ export default function StudentTable({
                   onClick={() => handleMenuAction("view-profile", student)}
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  View Profile
+                  Se profil
                 </button>
                 <button
                   onClick={() => handleMenuAction("move-student", student)}
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
                 >
-                  Move Student
+                  Flytt elev
                 </button>
                 <div className="border-t border-slate-200 my-1" />
                 <button
                   onClick={() => handleMenuAction("remove-student", student)}
                   className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  Remove Student
+                  Fjern elev
                 </button>
               </>
             );

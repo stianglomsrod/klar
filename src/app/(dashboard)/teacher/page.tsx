@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
 import {
   useTeacherProfile,
   getDisplayName,
@@ -14,26 +16,12 @@ import ActivityDetailSheet, {
 import RecentStudents from "@/components/teacher/RecentStudents";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 import AddStudentModal from "@/components/teacher/AddStudentModal";
+import { timeAgo } from "@/utils/format-time";
 
 // ── Types ──────────────────────────────────────────────
 type ActivityItem = ActivityDetail;
 
 // ── Helpers ────────────────────────────────────────────
-function timeAgo(dateStr: string): string {
-  if (!dateStr || isNaN(new Date(dateStr).getTime())) return "Nylig";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "akkurat nå";
-  if (mins < 60) return `${mins} min siden`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ${hrs === 1 ? "time" : "timer"} siden`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days} ${days === 1 ? "dag" : "dager"} siden`;
-  return new Date(dateStr).toLocaleDateString("nb-NO", {
-    day: "numeric",
-    month: "short",
-  });
-}
 
 export default function TeacherDashboard() {
   const supabase = createClient();
@@ -49,6 +37,7 @@ export default function TeacherDashboard() {
   // Feedback / Return
   const [savingFeedback, setSavingFeedback] = useState(false);
   const [returningId, setReturningId] = useState<string | null>(null);
+  const { toast, showToast, hideToast } = useToast();
 
   // Detail sheet
   const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(
@@ -114,8 +103,8 @@ export default function TeacherDashboard() {
       }));
 
       setActivities(items);
-    } catch (err) {
-      console.error("Error fetching activities:", err);
+    } catch {
+      // Silent – activities list stays empty
     } finally {
       setLoadingActivities(false);
     }
@@ -179,9 +168,8 @@ export default function TeacherDashboard() {
             : a,
         ),
       );
-    } catch (err) {
-      console.error("Error saving feedback:", err);
-      alert("Kunne ikke lagre tilbakemelding. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke lagre tilbakemelding. Prøv igjen.", "error");
     } finally {
       setSavingFeedback(false);
     }
@@ -242,9 +230,8 @@ export default function TeacherDashboard() {
 
       // 3. Remove from feed
       setActivities((prev) => prev.filter((a) => a.id !== taskId));
-    } catch (err) {
-      console.error("Error returning task:", err);
-      alert("Kunne ikke sende i retur. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke sende i retur. Prøv igjen.", "error");
     } finally {
       setReturningId(null);
     }
@@ -496,6 +483,7 @@ export default function TeacherDashboard() {
         onClose={() => setAddStudentOpen(false)}
         onSuccess={() => setAddStudentOpen(false)}
       />{" "}
+      <Toast toast={toast} onClose={hideToast} />
     </div>
   );
 }

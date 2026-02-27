@@ -110,8 +110,8 @@ export function useTimeTracker(
           const { data: masterEntries } = await buildQuery(0);
           setScheduleEntries(masterEntries || []);
         }
-      } catch (error) {
-        console.error("Error fetching schedule:", error);
+      } catch {
+        // Silent — schedule fetch failure is non-critical
       } finally {
         setLoading(false);
       }

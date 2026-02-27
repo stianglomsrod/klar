@@ -17,6 +17,8 @@ import { getSubjectTheme } from "@/utils/subject-colors";
 import MissionChip from "@/components/student/MissionChip";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { ScheduleEntry } from "@/components/student/ScheduleCard";
+import { getLessonState, getLessonProgressPercent } from "@/utils/lesson-time";
+import type { LessonState } from "@/utils/lesson-time";
 
 /* ── Constants ─────────────────────────────────────────── */
 
@@ -26,48 +28,7 @@ const SWIPE_THRESHOLD = 50; // px to count as a swipe
 
 /* ── Helpers ───────────────────────────────────────────── */
 
-type LessonState = "upcoming" | "active" | "finished";
 type DayRelation = "past" | "today" | "future";
-
-function getLessonState(
-  startTime: string,
-  endTime: string,
-  now: Date,
-): LessonState {
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
-
-  const startDate = new Date(now);
-  startDate.setHours(startHour, startMin, 0, 0);
-
-  const endDate = new Date(now);
-  endDate.setHours(endHour, endMin, 0, 0);
-
-  if (now < startDate) return "upcoming";
-  if (now >= startDate && now < endDate) return "active";
-  return "finished";
-}
-
-function getLessonProgressPercent(
-  startTime: string,
-  endTime: string,
-  now: Date,
-): number {
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
-
-  const startDate = new Date(now);
-  startDate.setHours(startHour, startMin, 0, 0);
-
-  const endDate = new Date(now);
-  endDate.setHours(endHour, endMin, 0, 0);
-
-  const total = endDate.getTime() - startDate.getTime();
-  if (total <= 0) return 0;
-
-  const elapsed = now.getTime() - startDate.getTime();
-  return Math.max(0, Math.min(100, (elapsed / total) * 100));
-}
 
 /* ── Page Component ────────────────────────────────────── */
 
@@ -122,7 +83,6 @@ export default function StudentTimeplanPage() {
         );
 
         if (error) {
-          console.error("Failed to fetch schedule:", error);
           setSchedule([]);
         } else {
           const entries = (scheduleData || []).map(
@@ -135,8 +95,8 @@ export default function StudentTimeplanPage() {
           );
           setSchedule(entries);
         }
-      } catch (err) {
-        console.error("Error in fetchSchedule:", err);
+      } catch {
+        // Silent — fetchSchedule error leaves empty UI
       } finally {
         setLoading(false);
       }
@@ -304,8 +264,6 @@ export default function StudentTimeplanPage() {
           currentTime={currentTime}
           todayDayIndex={todayDayIndex}
           isWeekend={isWeekend}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
           onLessonClick={handleLessonClick}
         />
       ) : (
@@ -424,7 +382,6 @@ function DayScheduleList({
             state={state}
             lessonProgress={progress}
             index={index}
-            isToday={dayRelation === "today"}
             onClick={() => onLessonClick(entry)}
           />
         );
@@ -445,7 +402,6 @@ function TimeplanCard({
   state: LessonState;
   lessonProgress: number;
   index: number;
-  isToday: boolean;
   onClick: () => void;
 }) {
   const isLiveLesson = state === "active";
@@ -600,8 +556,6 @@ function DesktopWeekGrid({
   currentTime: Date;
   todayDayIndex: number;
   isWeekend: boolean;
-  selectedDay: number;
-  onSelectDay: (d: number) => void;
   onLessonClick: (entry: ScheduleEntry) => void;
 }) {
   const getDayRelation = (dayIdx: number): DayRelation => {
@@ -673,7 +627,6 @@ function DesktopWeekGrid({
                       entry={entry}
                       state={state}
                       progress={progress}
-                      isToday={isTodayCol}
                       onClick={() => onLessonClick(entry)}
                     />
                   );
@@ -697,7 +650,6 @@ function DesktopLessonRow({
   entry: ScheduleEntry;
   state: LessonState;
   progress: number;
-  isToday: boolean;
   onClick: () => void;
 }) {
   const isLive = state === "active";

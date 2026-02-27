@@ -52,7 +52,6 @@ export default function LoginPage() {
         .single();
 
       if (profileError) {
-        console.error("Error fetching user profile:", profileError);
         setError("Kunne ikke hente brukerprofil. Prøv igjen.");
         setLoading(false);
         return;
@@ -70,12 +69,10 @@ export default function LoginPage() {
       } else if (profile.role === "student") {
         router.push("/student");
       } else {
-        console.warn("Unknown role:", profile.role);
         setError("Ukjent brukerrolle. Kontakt administrator.");
         setLoading(false);
       }
-    } catch (err) {
-      console.error("Login error:", err);
+    } catch {
       setError("En feil oppstod. Prøv igjen senere.");
       setLoading(false);
     }

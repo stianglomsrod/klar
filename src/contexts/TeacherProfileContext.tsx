@@ -61,7 +61,6 @@ export function TeacherProfileProvider({ children }: { children: ReactNode }) {
         role: data.role,
       });
     } catch (err) {
-      console.error("Error fetching teacher profile:", err);
       setError(err instanceof Error ? err : new Error("Unknown error"));
     } finally {
       setLoading(false);

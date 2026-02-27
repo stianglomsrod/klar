@@ -11,11 +11,7 @@ import {
 } from "@/components/ui/popover";
 
 // ── Types ────────────────────────────────────────────
-type ClassOption = {
-  id: string;
-  name: string;
-  grade_name: string | null;
-};
+import type { ClassOption } from "@/types/shared";
 
 type SuccessData = {
   fullName: string;

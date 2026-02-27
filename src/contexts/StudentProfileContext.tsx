@@ -8,6 +8,7 @@ import {
   ReactNode,
 } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { DEFAULT_PETAL_COLORS } from "@/utils/constants";
 
 export type StudentProfile = {
   id: string;
@@ -93,13 +94,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             current_xp: 0,
             petals_progress: 0,
             flowers_collected: 0,
-            petal_colors: [
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-            ],
+            petal_colors: [...DEFAULT_PETAL_COLORS],
             show_flower_garden: true,
             max_level_reached: 1,
           });
@@ -140,13 +135,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         current_xp: studentData?.current_xp ?? 0,
         petals_progress: studentData?.petals_progress ?? 0,
         flowers_collected: studentData?.flowers_collected ?? 0,
-        petal_colors: studentData?.petal_colors ?? [
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-        ],
+        petal_colors: studentData?.petal_colors ?? [...DEFAULT_PETAL_COLORS],
         show_flower_garden: studentData?.show_flower_garden ?? true,
         custom_welcome_message: studentData?.custom_welcome_message || null,
         class_id: studentData?.class_id ?? null,

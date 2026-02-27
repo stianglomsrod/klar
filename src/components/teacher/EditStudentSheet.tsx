@@ -3,16 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import type { TeacherStudent } from "@/types/shared";
 
-type Student = {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-  level: number;
-  class_name: string | null;
-  show_flower_garden: boolean;
-  custom_welcome_message: string | null;
-};
+type Student = TeacherStudent;
 
 type EditStudentSheetProps = {
   student: Student;
@@ -23,7 +16,7 @@ type EditStudentSheetProps = {
     updates: {
       show_flower_garden: boolean;
       custom_welcome_message: string | null;
-    }
+    },
   ) => Promise<void>;
 };
 
@@ -34,10 +27,10 @@ export default function EditStudentSheet({
   onSave,
 }: EditStudentSheetProps) {
   const [showFlowerGarden, setShowFlowerGarden] = useState(
-    student.show_flower_garden
+    student.show_flower_garden,
   );
   const [welcomeMessage, setWelcomeMessage] = useState(
-    student.custom_welcome_message || ""
+    student.custom_welcome_message || "",
   );
   const [isSaving, setIsSaving] = useState(false);
 

@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Pencil,
-  Trash2,
   ChevronDown,
   Sparkles,
   ShieldCheck,
@@ -34,16 +33,10 @@ import { saveLessonPlan } from "@/app/actions/save-lesson-plan";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";
 import PreviewLessonPlan from "@/components/teacher/PreviewLessonPlan";
 import { EditDialog } from "@/components/ui/edit-dialog";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
+import MissingDataDialog from "@/components/teacher/MissingDataDialog";
+import ScheduleEntryEditDialog from "@/components/teacher/ScheduleEntryEditDialog";
 
 // ── Types ────────────────────────────────────────────
 
@@ -56,14 +49,6 @@ type EditState =
   | { type: "schedule"; index: number; entry: ScheduleEntry }
   | null;
 
-const DAY_OPTIONS = [
-  { value: 1, label: "Mandag" },
-  { value: 2, label: "Tirsdag" },
-  { value: 3, label: "Onsdag" },
-  { value: 4, label: "Torsdag" },
-  { value: 5, label: "Fredag" },
-];
-
 // ── Component ────────────────────────────────────────
 
 export default function UkebrevPage() {
@@ -71,12 +56,9 @@ export default function UkebrevPage() {
   const [data, setData] = useState<ParsedDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { toast, showToast, hideToast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
-  const [toastVariant, setToastVariant] = useState<"success" | "error">(
-    "success",
-  );
   const [missingData, setMissingData] = useState<{
     classes: string[];
     subjects: string[];
@@ -126,11 +108,10 @@ export default function UkebrevPage() {
   const handleFile = useCallback(async (file: File) => {
     // Guard: locked or empty file (e.g. open in Word)
     if (file.size === 0) {
-      setToastVariant("error");
-      setToastMessage(
+      showToast(
         "Kunne ikke lese filen. Har du den åpen i Word? Lukk dokumentet og prøv igjen.",
+        "error",
       );
-      setTimeout(() => setToastMessage(null), 5000);
       return;
     }
 
@@ -201,18 +182,6 @@ export default function UkebrevPage() {
   }, []);
 
   // ── Toast handler ──
-  const showToast = useCallback(
-    (message: string, variant: "success" | "error" = "success") => {
-      setToastVariant(variant);
-      setToastMessage(message);
-      setTimeout(
-        () => setToastMessage(null),
-        variant === "error" ? 5000 : 3000,
-      );
-    },
-    [],
-  );
-
   // ── Save handler ──
   const handleSave = useCallback(
     async (forceCreate = false) => {
@@ -272,7 +241,6 @@ export default function UkebrevPage() {
             setSubjectEdits({});
             setDeletedSubjects([]);
           } else {
-            console.error("Lagringsfeil:", result.error);
             showToast(result.error, "error");
           }
         } else {
@@ -289,7 +257,6 @@ export default function UkebrevPage() {
               grades: [],
             });
           } else {
-            console.error("Lagringsfeil:", result.error);
             showToast(result.error, "error");
           }
         }
@@ -866,10 +833,10 @@ export default function UkebrevPage() {
         </div>
       )}
 
-      {/* ── Edit Dialog (ukebrev only) ── */}
+      {/* ── Edit Dialog (ukebrev text edits only) ── */}
       {data?.documentType === "ukebrev" && (
         <EditDialog
-          open={editState !== null}
+          open={editState !== null && editState.type !== "schedule"}
           onClose={() => setEditState(null)}
           title={editDialogTitle}
           onSave={handleEditSave}
@@ -916,139 +883,29 @@ export default function UkebrevPage() {
               )}
             </div>
           )}
-
-          {/* Schedule entry edit */}
-          {editState?.type === "schedule" && (
-            <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Fag
-                </label>
-                <input
-                  type="text"
-                  value={editState.entry.subjectName}
-                  onChange={(e) =>
-                    setEditState((prev) =>
-                      prev?.type === "schedule"
-                        ? {
-                            ...prev,
-                            entry: {
-                              ...prev.entry,
-                              subjectName: e.target.value,
-                            },
-                          }
-                        : prev,
-                    )
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Klasse
-                </label>
-                <input
-                  type="text"
-                  value={editState.entry.className}
-                  onChange={(e) =>
-                    setEditState((prev) =>
-                      prev?.type === "schedule"
-                        ? {
-                            ...prev,
-                            entry: { ...prev.entry, className: e.target.value },
-                          }
-                        : prev,
-                    )
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Dag
-                </label>
-                <select
-                  value={editState.entry.dayOfWeek}
-                  onChange={(e) =>
-                    setEditState((prev) =>
-                      prev?.type === "schedule"
-                        ? {
-                            ...prev,
-                            entry: {
-                              ...prev.entry,
-                              dayOfWeek: Number(e.target.value),
-                            },
-                          }
-                        : prev,
-                    )
-                  }
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors bg-white"
-                >
-                  {DAY_OPTIONS.map((d) => (
-                    <option key={d.value} value={d.value}>
-                      {d.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Starttid
-                  </label>
-                  <input
-                    type="text"
-                    value={editState.entry.startTime}
-                    onChange={(e) =>
-                      setEditState((prev) =>
-                        prev?.type === "schedule"
-                          ? {
-                              ...prev,
-                              entry: {
-                                ...prev.entry,
-                                startTime: e.target.value,
-                              },
-                            }
-                          : prev,
-                      )
-                    }
-                    placeholder="08:00"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Sluttid
-                  </label>
-                  <input
-                    type="text"
-                    value={editState.entry.endTime}
-                    onChange={(e) =>
-                      setEditState((prev) =>
-                        prev?.type === "schedule"
-                          ? {
-                              ...prev,
-                              entry: {
-                                ...prev.entry,
-                                endTime: e.target.value,
-                              },
-                            }
-                          : prev,
-                      )
-                    }
-                    placeholder="09:00"
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </EditDialog>
       )}
 
+      {/* ── Schedule Entry Edit Dialog ── */}
+      <ScheduleEntryEditDialog
+        editState={
+          editState?.type === "schedule"
+            ? { index: editState.index, entry: editState.entry }
+            : null
+        }
+        onClose={() => setEditState(null)}
+        onSave={handleEditSave}
+        onChange={(entry) =>
+          setEditState((prev) =>
+            prev?.type === "schedule" ? { ...prev, entry } : prev,
+          )
+        }
+        showClassName
+      />
+
       {/* ── Missing Data Confirmation Dialog ── */}
-      <AlertDialog
-        open={!!missingData}
+      <MissingDataDialog
+        missingData={missingData}
         onOpenChange={(open) => {
           if (!open) {
             setMissingData(null);
@@ -1057,130 +914,19 @@ export default function UkebrevPage() {
             setDeletedSubjects([]);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Manglende data i databasen</AlertDialogTitle>
-            <AlertDialogDescription>
-              Følgende finnes ikke i systemet ennå:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="mt-3 space-y-3 text-sm overflow-y-auto flex-1 min-h-0">
-            {missingData && missingData.grades.length > 0 && (
-              <div className="space-y-3">
-                <p className="font-semibold text-slate-800">
-                  Trinn uten klasser:
-                </p>
-                {missingData.grades.map((grade) => (
-                  <div key={grade}>
-                    <label className="block text-sm text-slate-700 mb-1">
-                      Vi fant ingen klasser for {grade}. trinn. Hvilke klasser
-                      vil du opprette?
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={`f.eks. ${grade}A, ${grade}B`}
-                      value={customGradeClasses[grade] ?? ""}
-                      onChange={(e) =>
-                        setCustomGradeClasses((prev) => ({
-                          ...prev,
-                          [grade]: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-            {missingData && missingData.classes.length > 0 && (
-              <div>
-                <p className="font-semibold text-slate-800">Klasser:</p>
-                <ul className="list-disc list-inside ml-1 mt-0.5">
-                  {missingData.classes.map((c) => (
-                    <li key={c} className="text-slate-700">
-                      {c}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {missingData &&
-              missingData.subjects.filter((s) => !deletedSubjects.includes(s))
-                .length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-800">
-                    Fag (rediger eller slett feilaktige):
-                  </p>
-                  <div className="mt-1.5 space-y-2">
-                    {missingData.subjects
-                      .filter((s) => !deletedSubjects.includes(s))
-                      .map((s) => (
-                        <div key={s} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={subjectEdits[s] ?? s}
-                            onChange={(e) =>
-                              setSubjectEdits((prev) => ({
-                                ...prev,
-                                [s]: e.target.value,
-                              }))
-                            }
-                            className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-colors"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeletedSubjects((prev) => [...prev, s])
-                            }
-                            className="p-1.5 rounded-md text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            title="Fjern dette faget — oppgavene slettes"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Tips: Slett fag som AI-en har funnet på, eller endre navnet
-                    til riktig fag.
-                  </p>
-                </div>
-              )}
-            <p className="text-slate-600">
-              Vil du at systemet skal opprette disse for deg nå?
-            </p>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleSave(true)}
-              disabled={isSaving}
-              autoClose={false}
-            >
-              {isSaving ? "Oppretter..." : "Ja, opprett og lagre"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        subjectEdits={subjectEdits}
+        onSubjectEditsChange={setSubjectEdits}
+        deletedSubjects={deletedSubjects}
+        onDeletedSubjectsChange={setDeletedSubjects}
+        customGradeClasses={customGradeClasses}
+        onCustomGradeClassesChange={setCustomGradeClasses}
+        onConfirm={() => handleSave(true)}
+        isSaving={isSaving}
+        description="Følgende finnes ikke i systemet ennå:"
+      />
 
-      {/* ── Toast Notification ── */}
-      {toastMessage && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-in fade-in slide-in-from-bottom-4 duration-300 ${
-            toastVariant === "error"
-              ? "bg-red-600 text-white"
-              : "bg-slate-900 text-white"
-          }`}
-        >
-          {toastVariant === "error" ? (
-            <AlertCircle className="h-5 w-5 text-red-200" />
-          ) : (
-            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-          )}
-          <span className="text-sm font-medium">{toastMessage}</span>
-        </div>
-      )}
+      {/* ── Toast ── */}
+      <Toast toast={toast} onClose={hideToast} />
     </div>
   );
 }

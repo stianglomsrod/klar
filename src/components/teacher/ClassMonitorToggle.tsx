@@ -33,8 +33,7 @@ export default function ClassMonitorToggle({
         if (isMounted) {
           setIsActive(Boolean(data?.is_queue_open));
         }
-      } catch (err) {
-        console.error("Error fetching queue status:", err);
+      } catch {
         if (isMounted) setError("Kunne ikke hente køstatus");
       } finally {
         if (isMounted) setIsLoading(false);
@@ -55,7 +54,7 @@ export default function ClassMonitorToggle({
           const next = (payload.new as { is_queue_open?: boolean })
             ?.is_queue_open;
           setIsActive(Boolean(next));
-        }
+        },
       )
       .subscribe();
 
@@ -79,7 +78,6 @@ export default function ClassMonitorToggle({
       .eq("id", classId);
 
     if (updateError) {
-      console.error("Error toggling queue:", updateError);
       setIsActive(previous);
       setError("Kunne ikke oppdatere status");
     }

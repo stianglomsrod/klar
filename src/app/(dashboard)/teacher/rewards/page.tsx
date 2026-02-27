@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
+import ConfirmDialog, {
+  type ConfirmDialogState,
+} from "@/components/ui/ConfirmDialog";
 import {
   Plus,
   Edit2,
@@ -45,6 +50,8 @@ export default function RewardsLibraryPage() {
 
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast, showToast, hideToast } = useToast();
+  const [confirmState, setConfirmState] = useState<ConfirmDialogState>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
@@ -78,8 +85,8 @@ export default function RewardsLibraryPage() {
           full_name: s.full_name || "Ukjent elev",
         })),
       );
-    } catch (error) {
-      console.error("Error fetching students:", error);
+    } catch {
+      // Silent – students list stays empty
     }
   };
 
@@ -109,9 +116,8 @@ export default function RewardsLibraryPage() {
           cost: r.cost_value,
         })),
       );
-    } catch (error) {
-      console.error("Error fetching rewards:", error);
-      alert("Kunne ikke laste belønninger");
+    } catch {
+      showToast("Kunne ikke laste belønninger", "error");
     } finally {
       setLoading(false);
     }
@@ -157,12 +163,12 @@ export default function RewardsLibraryPage() {
 
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
-      alert("Vennligst skriv inn en tittel");
+      showToast("Vennligst skriv inn en tittel", "warning");
       return;
     }
 
     if (!formData.emoji.trim()) {
-      alert("Vennligst velg et ikon");
+      showToast("Vennligst velg et ikon", "warning");
       return;
     }
 
@@ -228,29 +234,35 @@ export default function RewardsLibraryPage() {
       }
 
       handleCloseDialog();
-    } catch (error) {
-      console.error("Error saving reward:", error);
-      alert("Kunne ikke lagre belønning. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke lagre belønning. Prøv igjen.", "error");
     }
   };
 
   const handleDelete = async (rewardId: string) => {
-    if (!confirm("Er du sikker på at du vil slette denne belønningen?")) return;
+    setConfirmState({
+      title: "Slett bel\u00f8nning",
+      description:
+        "Er du sikker p\u00e5 at du vil slette denne bel\u00f8nningen?",
+      action: async () => {
+        try {
+          const { error } = await supabase
+            .from("rewards")
+            .delete()
+            .eq("id", rewardId);
 
-    try {
-      const { error } = await supabase
-        .from("rewards")
-        .delete()
-        .eq("id", rewardId);
+          if (error) throw error;
 
-      if (error) throw error;
-
-      setRewards((prev) => prev.filter((r) => r.id !== rewardId));
-      alert("Belønning slettet!");
-    } catch (error) {
-      console.error("Error deleting reward:", error);
-      alert("Kunne ikke slette belønning. Prøv igjen.");
-    }
+          setRewards((prev) => prev.filter((r) => r.id !== rewardId));
+          showToast("Bel\u00f8nning slettet!", "success");
+        } catch {
+          showToast(
+            "Kunne ikke slette bel\u00f8nning. Pr\u00f8v igjen.",
+            "error",
+          );
+        }
+      },
+    });
   };
 
   const getCostIcon = (costType: string) => {
@@ -616,7 +628,9 @@ export default function RewardsLibraryPage() {
                   <div className="mt-2 flex items-center justify-between">
                     <p className="text-xs text-indigo-600">
                       {formData.selectedStudentIds.length} elev
-                      {formData.selectedStudentIds.length !== 1 ? "er" : ""}{" "}
+                      {formData.selectedStudentIds.length !== 1
+                        ? "er"
+                        : ""}{" "}
                       valgt
                     </p>
                     <button
@@ -660,6 +674,11 @@ export default function RewardsLibraryPage() {
           </div>
         </div>
       )}
+      <Toast toast={toast} onClose={hideToast} />
+      <ConfirmDialog
+        state={confirmState}
+        onClose={() => setConfirmState(null)}
+      />
     </div>
   );
 }

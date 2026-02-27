@@ -20,7 +20,6 @@ export default function Navigation() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       (window as any).__refreshStudentProfile = refresh;
-      console.log("Refresh function registered on window");
     }
     return () => {
       if (typeof window !== "undefined") {

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
+import ConfirmDialog, {
+  type ConfirmDialogState,
+} from "@/components/ui/ConfirmDialog";
 import CouponCard from "@/components/shared/CouponCard";
 import { ChevronDown, ChevronUp, Wallet } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,6 +32,8 @@ export default function KupongerPage() {
   const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
+  const [confirmState, setConfirmState] = useState<ConfirmDialogState>(null);
 
   useEffect(() => {
     fetchRewards();
@@ -58,12 +65,6 @@ export default function KupongerPage() {
         .order("date_earned", { ascending: false });
 
       if (error) {
-        console.error("Database error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
         throw error;
       }
 
@@ -83,8 +84,7 @@ export default function KupongerPage() {
       }));
 
       setRewards(transformedData);
-    } catch (error: any) {
-      console.error("Feil ved henting av kuponger:", error?.message || error);
+    } catch {
       // Don't crash the page, just show empty state
       setRewards([]);
     } finally {
@@ -98,39 +98,43 @@ export default function KupongerPage() {
     // Anti-cheat: block redemption if student's level is below earned_at_level
     const reward = rewards.find((r) => r.id === rewardId);
     if (reward && (profile.level ?? 1) < reward.earned_at_level) {
-      alert(
-        `Du må være level ${reward.earned_at_level} for å bruke denne kupongen. Du er nå level ${profile.level ?? 1}.`,
+      showToast(
+        `Du m\u00e5 v\u00e6re level ${reward.earned_at_level} for \u00e5 bruke denne kupongen. Du er n\u00e5 level ${profile.level ?? 1}.`,
+        "warning",
       );
       return;
     }
 
     // Show confirmation dialog
-    const confirmed = window.confirm(
-      "Er du sikker på at du vil bruke denne kupongen?\n\nDu bør kun trykke her når du er sammen med læreren din for å vise at du bruker premien.",
-    );
+    setConfirmState({
+      title: "Bruk kupong",
+      description:
+        "Er du sikker på at du vil bruke denne kupongen?\n\nDu bør kun trykke her når du er sammen med læreren din for å vise at du bruker premien.",
+      action: async () => {
+        const supabase = createClient();
 
-    if (!confirmed) return;
+        try {
+          const { error } = await supabase
+            .from("student_rewards")
+            .update({ is_redeemed: true })
+            .eq("id", rewardId);
 
-    const supabase = createClient();
+          if (error) throw error;
 
-    try {
-      const { error } = await supabase
-        .from("student_rewards")
-        .update({ is_redeemed: true })
-        .eq("id", rewardId);
+          // Show confetti celebration
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 4000);
 
-      if (error) throw error;
-
-      // Show confetti celebration
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 4000);
-
-      // Refresh rewards list
-      await fetchRewards();
-    } catch (error) {
-      console.error("Feil ved innløsing av kupong:", error);
-      alert("Noe gikk galt ved innløsing av kupongen. Prøv igjen.");
-    }
+          // Refresh rewards list
+          await fetchRewards();
+        } catch {
+          showToast(
+            "Noe gikk galt ved innløsing av kupongen. Prøv igjen.",
+            "error",
+          );
+        }
+      },
+    });
   };
 
   const activeRewards = rewards.filter((r) => !r.is_redeemed);
@@ -289,6 +293,13 @@ export default function KupongerPage() {
           </section>
         )}
       </div>
+      <Toast toast={toast} onClose={hideToast} />
+      <ConfirmDialog
+        state={confirmState}
+        onClose={() => setConfirmState(null)}
+        confirmLabel="Bruk kupong"
+        confirmClassName="bg-indigo-600 text-white hover:bg-indigo-700"
+      />
     </main>
   );
 }

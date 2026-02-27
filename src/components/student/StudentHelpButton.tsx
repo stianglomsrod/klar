@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Hand, Users, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
 
 type StudentHelpButtonProps = {
   studentId: string;
@@ -27,6 +29,7 @@ export default function StudentHelpButton({
   const [queuePosition, setQueuePosition] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showCancelPopover, setShowCancelPopover] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
   const [popoverPosition, setPopoverPosition] = useState({
     bottom: 96,
     right: 32,
@@ -49,8 +52,8 @@ export default function StudentHelpButton({
         if (error) throw error;
         const available = (data || []).length > 0;
         setIsTeacherAvailable(available);
-      } catch (error) {
-        console.error("Error checking teacher availability:", error);
+      } catch {
+        // Silent – defaults to unavailable
       }
     };
 
@@ -70,7 +73,7 @@ export default function StudentHelpButton({
           // Since DELETE events don't include class_id in payload.old,
           // we just refresh on any change and let the query filter by class_id
           checkAvailability();
-        }
+        },
       )
       .subscribe();
 
@@ -93,7 +96,6 @@ export default function StudentHelpButton({
           .maybeSingle();
 
         if (myError) {
-          console.error("Error fetching help request:", myError);
           return;
         }
 
@@ -108,7 +110,6 @@ export default function StudentHelpButton({
             .lt("created_at", myData.created_at);
 
           if (beforeError) {
-            console.error("Error calculating queue position:", beforeError);
             return;
           }
 
@@ -118,8 +119,8 @@ export default function StudentHelpButton({
           setMyRequest(null);
           setQueuePosition(0);
         }
-      } catch (error) {
-        console.error("Error fetching help request:", error);
+      } catch {
+        // Silent – realtime subscription retries
       }
     };
 
@@ -137,7 +138,7 @@ export default function StudentHelpButton({
         },
         () => {
           fetchRequest();
-        }
+        },
       )
       .subscribe();
 
@@ -158,9 +159,8 @@ export default function StudentHelpButton({
 
       if (error) throw error;
       // Real-time subscription will handle updating the UI
-    } catch (error) {
-      console.error("Error requesting help:", error);
-      alert("Kunne ikke be om hjelp. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke be om hjelp. Prøv igjen.", "error");
     } finally {
       setLoading(false);
     }
@@ -181,9 +181,8 @@ export default function StudentHelpButton({
       setMyRequest(null);
       setQueuePosition(0);
       setShowCancelPopover(false);
-    } catch (error) {
-      console.error("Error cancelling help request:", error);
-      alert("Kunne ikke avbryte. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke avbryte. Prøv igjen.", "error");
     } finally {
       setLoading(false);
     }
@@ -311,6 +310,7 @@ export default function StudentHelpButton({
           </AnimatePresence>
         </>
       )}
+      <Toast toast={toast} onClose={hideToast} />
     </>
   );
 }

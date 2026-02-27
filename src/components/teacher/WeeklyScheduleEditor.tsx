@@ -28,44 +28,31 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import TimePicker from "@/components/ui/time-picker";
+import Toast from "@/components/ui/Toast";
+import { getISOWeekNumber } from "@/utils/week-number";
+import { WEEKDAYS } from "@/utils/constants";
+import { useToast } from "@/hooks/useToast";
+import { fetchMergedSchedule } from "@/utils/supabase/schedule-queries";
+import type {
+  TeacherScheduleEntry,
+  Subject as SharedSubject,
+} from "@/types/shared";
 
-type ScheduleEntry = {
-  id: string;
-  class_id: string | null;
-  student_id: string | null;
-  subject_id: string | null;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
-  type: string;
-  custom_title: string | null;
-  week_number?: number | null;
-};
+type ScheduleEntry = TeacherScheduleEntry;
 
 type MergedEntry = ScheduleEntry & {
   isOverride?: boolean;
   isFallback?: boolean;
 };
 
-type Subject = {
-  id: string;
-  title: string;
-  emoji: string;
-  color_theme: string | null;
-};
+type Subject = SharedSubject;
 
 type ClassInfo = {
   name: string | null;
   grade: number | null;
 };
 
-const DAYS_OF_WEEK = [
-  { number: 1, name: "Mandag" },
-  { number: 2, name: "Tirsdag" },
-  { number: 3, name: "Onsdag" },
-  { number: 4, name: "Torsdag" },
-  { number: 5, name: "Fredag" },
-];
+const DAYS_OF_WEEK = WEEKDAYS;
 
 const SCHEDULE_TYPES = ["lesson", "break", "activity"];
 
@@ -102,6 +89,7 @@ export default function WeeklyScheduleEditor({
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
   const [editingEntry, setEditingEntry] = useState<ScheduleEntry | null>(null);
   const [classInfo, setClassInfo] = useState<ClassInfo>({
     name: null,
@@ -109,16 +97,6 @@ export default function WeeklyScheduleEditor({
   });
   const [alsoSaveAsMasterplan, setAlsoSaveAsMasterplan] = useState(false);
   const [isMakingMasterplan, setIsMakingMasterplan] = useState(false);
-
-  const getISOWeekNumber = (date: Date): number => {
-    const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-    );
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  };
 
   const [selectedWeekNumber, setSelectedWeekNumber] = useState<number>(
     () => externalWeekNumber ?? getISOWeekNumber(new Date()),
@@ -173,67 +151,22 @@ export default function WeeklyScheduleEditor({
         .eq("id", classId)
         .single();
 
-      const fetchWithFallback = async (
-        target: { classId: string; studentId?: string | null },
-        week: number,
-      ) => {
-        const base = () =>
-          supabase
-            .from("schedule_entries")
-            .select("*")
-            .eq("class_id", target.classId)
-            .order("day_of_week")
-            .order("start_time");
-
-        const mergeKey = (entry: ScheduleEntry) =>
-          `${entry.day_of_week}-${entry.start_time}-${entry.end_time}-${
-            target.studentId || "class"
-          }`;
-
-        const scoped = (
-          query: ReturnType<typeof base>,
-          studentId?: string | null,
-        ) =>
-          studentId
-            ? query.eq("student_id", studentId)
-            : query.is("student_id", null);
-
-        const { data: primaryData, error: primaryError } = await scoped(
-          base().eq("week_number", week),
-          target.studentId,
-        );
-        if (primaryError) throw primaryError;
-
-        const fallbackData =
-          week === 0
-            ? []
-            : (await scoped(base().eq("week_number", 0), target.studentId))
-                .data || [];
-
-        const merged = new Map<string, MergedEntry>();
-
-        (fallbackData || []).forEach((entry) => {
-          merged.set(mergeKey(entry), { ...entry, isFallback: true });
-        });
-
-        (primaryData || []).forEach((entry) => {
-          merged.set(mergeKey(entry), { ...entry, isFallback: false });
-        });
-
-        return Array.from(merged.values());
-      };
-
       const [
         { data: subjectsData, error: subjectsError },
         { data: classData, error: classError },
       ] = await Promise.all([subjectsPromise, classPromise]);
 
-      const classEntries = await fetchWithFallback(
+      const classEntries = await fetchMergedSchedule(
+        supabase,
         { classId },
         selectedWeekNumber,
       );
       const studentEntries = studentId
-        ? await fetchWithFallback({ classId, studentId }, selectedWeekNumber)
+        ? await fetchMergedSchedule(
+            supabase,
+            { classId, studentId },
+            selectedWeekNumber,
+          )
         : [];
 
       if (subjectsError) throw subjectsError;
@@ -263,8 +196,8 @@ export default function WeeklyScheduleEditor({
         const grade = parseGradeFromClassName(classData.name);
         setClassInfo({ name: classData.name, grade });
       }
-    } catch (error) {
-      console.error("Error fetching schedule data:", error);
+    } catch {
+      // Silent – UI shows empty state
     } finally {
       setLoading(false);
     }
@@ -314,7 +247,7 @@ export default function WeeklyScheduleEditor({
 
   const handleSave = async () => {
     if (!formData.subject_id && !formData.custom_title) {
-      alert("Velg fag eller skriv en tittel");
+      showToast("Velg fag eller skriv en tittel", "warning");
       return;
     }
 
@@ -324,12 +257,12 @@ export default function WeeklyScheduleEditor({
       : formData.custom_title;
 
     if (formData.start_time >= formData.end_time) {
-      alert("Starttiden må være før sluttiden");
+      showToast("Starttiden må være før sluttiden", "warning");
       return;
     }
 
     if (formData.selected_days.length === 0) {
-      alert("Velg minst én dag");
+      showToast("Velg minst én dag", "warning");
       return;
     }
 
@@ -452,8 +385,7 @@ export default function WeeklyScheduleEditor({
         const { error: masterError } = await supabase
           .from("schedule_entries")
           .insert(masterRows);
-        if (masterError)
-          console.error("Masterplan insert failed:", masterError);
+        if (masterError) throw masterError;
 
         // 3. Clean up explicit week overrides so the UI falls back to masterplan
         //    (removes the "Endret" badge)
@@ -483,9 +415,8 @@ export default function WeeklyScheduleEditor({
       await fetchData();
       setIsModalOpen(false);
       setAlsoSaveAsMasterplan(false);
-    } catch (error) {
-      console.error("Error saving schedule entry:", error);
-      alert("Kunne ikke lagre timeplanen. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke lagre timeplanen. Prøv igjen.", "error");
     }
   };
 
@@ -516,9 +447,8 @@ export default function WeeklyScheduleEditor({
         if (error) throw error;
       }
       await fetchData();
-    } catch (error) {
-      console.error("Error clearing schedule entry:", error);
-      alert("Kunne ikke tømme denne timen. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke tømme denne timen. Prøv igjen.", "error");
     }
   };
 
@@ -533,9 +463,8 @@ export default function WeeklyScheduleEditor({
 
       if (error) throw error;
       await fetchData();
-    } catch (error) {
-      console.error("Error resetting override:", error);
-      alert("Kunne ikke tilbakestille denne timen.");
+    } catch {
+      showToast("Kunne ikke tilbakestille denne timen.", "error");
     }
   };
 
@@ -548,9 +477,8 @@ export default function WeeklyScheduleEditor({
 
       if (error) throw error;
       await fetchData();
-    } catch (error) {
-      console.error("Error deleting schedule entry:", error);
-      alert("Kunne ikke slette denne timen. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke slette denne timen. Prøv igjen.", "error");
     }
   };
 
@@ -641,9 +569,8 @@ export default function WeeklyScheduleEditor({
       }
 
       await fetchData();
-    } catch (error) {
-      console.error("Error making masterplan:", error);
-      alert("Kunne ikke sette som fast timeplan. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke sette som fast timeplan. Prøv igjen.", "error");
     } finally {
       setIsMakingMasterplan(false);
     }
@@ -752,12 +679,12 @@ export default function WeeklyScheduleEditor({
               {/* Day Header */}
               <div className="bg-indigo-50 border-b border-slate-200 p-3 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900 text-sm">
-                  {day.name}
+                  {day.label}
                 </h3>
                 <button
                   onClick={() => handleOpenModal(undefined, day.number)}
                   className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
-                  aria-label={`Legg til time på ${day.name}`}
+                  aria-label={`Legg til time på ${day.label}`}
                 >
                   <Plus size={16} />
                 </button>
@@ -1068,7 +995,7 @@ export default function WeeklyScheduleEditor({
                             : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
                         }`}
                       >
-                        {day.name.slice(0, 3)}
+                        {day.label.slice(0, 3)}
                       </button>
                     );
                   })}
@@ -1202,6 +1129,7 @@ export default function WeeklyScheduleEditor({
           </div>,
           document.body,
         )}
+      <Toast toast={toast} onClose={hideToast} />
     </div>
   );
 }

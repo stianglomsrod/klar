@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { DEFAULT_PETAL_COLORS } from "@/utils/constants";
 
 export type StudentProfile = {
   id: string;
@@ -43,7 +44,7 @@ export function useStudentProfile() {
             id,
             full_name,
             avatar_url
-          `
+          `,
         )
         .eq("id", user.id)
         .single();
@@ -63,7 +64,7 @@ export function useStudentProfile() {
             petal_colors,
             show_flower_garden,
             custom_welcome_message
-          `
+          `,
         )
         .eq("id", user.id)
         .single();
@@ -81,13 +82,7 @@ export function useStudentProfile() {
             current_xp: 0,
             petals_progress: 0,
             flowers_collected: 0,
-            petal_colors: [
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-              "#FFC0CB",
-            ],
+            petal_colors: [...DEFAULT_PETAL_COLORS],
             show_flower_garden: true,
           });
 
@@ -108,7 +103,7 @@ export function useStudentProfile() {
                 petal_colors,
                 show_flower_garden,
                 custom_welcome_message
-              `
+              `,
             )
             .eq("id", user.id)
             .single();
@@ -129,13 +124,7 @@ export function useStudentProfile() {
         current_xp: studentData?.current_xp ?? 0,
         petals_progress: studentData?.petals_progress ?? 0,
         flowers_collected: studentData?.flowers_collected ?? 0,
-        petal_colors: studentData?.petal_colors ?? [
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-          "#FFC0CB",
-        ],
+        petal_colors: studentData?.petal_colors ?? [...DEFAULT_PETAL_COLORS],
         show_flower_garden: studentData?.show_flower_garden ?? true,
         custom_welcome_message: studentData?.custom_welcome_message || null,
       };

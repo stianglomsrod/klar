@@ -12,6 +12,7 @@ import type {
   LessonState,
 } from "@/components/student/ScheduleCard";
 import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
+import { getLessonState, getLessonProgressPercent } from "@/utils/lesson-time";
 
 export default function StudentQuestLogPage() {
   const router = useRouter();
@@ -87,17 +88,6 @@ export default function StudentQuestLogPage() {
         );
 
         if (error) {
-          // Log the complete error object for debugging
-          console.error("Raw RPC error:", error);
-          console.error("Error keys:", Object.keys(error));
-          console.error("Error toString:", error.toString());
-          console.error("Full error details:", {
-            message: error.message,
-            code: error.code,
-            hint: error.hint,
-            details: error.details,
-          });
-
           setToast({
             message:
               "Kunne ikke laste dagens oppgaver. Prøv å laste siden på nytt.",
@@ -123,8 +113,8 @@ export default function StudentQuestLogPage() {
 
           setSchedule(todaysLessons);
         }
-      } catch (err) {
-        console.error("Error in fetchData:", err);
+      } catch {
+        // Silent — fetchData error handled by toast above
       } finally {
         setLoading(false);
       }
@@ -178,7 +168,11 @@ export default function StudentQuestLogPage() {
         } else {
           // If no active lesson, find first upcoming lesson
           const firstUpcoming = schedule.find((entry) => {
-            const state = getLessonState(entry.start_time, entry.end_time);
+            const state = getLessonState(
+              entry.start_time,
+              entry.end_time,
+              currentTime,
+            );
             return state === "upcoming";
           });
 
@@ -216,44 +210,6 @@ export default function StudentQuestLogPage() {
     return () => container.removeEventListener("scroll", onScroll);
   }, [schedule.length]);
 
-  // Determine lesson state (uses reactive currentTime for consistency)
-  const getLessonState = (startTime: string, endTime: string): LessonState => {
-    const now = currentTime;
-    const [startHour, startMin] = startTime.split(":").map(Number);
-    const [endHour, endMin] = endTime.split(":").map(Number);
-
-    const startDate = new Date(now);
-    startDate.setHours(startHour, startMin, 0, 0);
-
-    const endDate = new Date(now);
-    endDate.setHours(endHour, endMin, 0, 0);
-
-    if (now < startDate) return "upcoming";
-    if (now >= startDate && now < endDate) return "active";
-    return "finished";
-  };
-
-  const getLessonProgressPercent = (
-    startTime: string,
-    endTime: string,
-  ): number => {
-    const now = currentTime;
-    const [startHour, startMin] = startTime.split(":").map(Number);
-    const [endHour, endMin] = endTime.split(":").map(Number);
-
-    const startDate = new Date(now);
-    startDate.setHours(startHour, startMin, 0, 0);
-
-    const endDate = new Date(now);
-    endDate.setHours(endHour, endMin, 0, 0);
-
-    const total = endDate.getTime() - startDate.getTime();
-    if (total <= 0) return 0;
-
-    const elapsed = now.getTime() - startDate.getTime();
-    return Math.max(0, Math.min(100, (elapsed / total) * 100));
-  };
-
   // Calculate school day progress
   const getProgressPercent = () => {
     if (schedule.length === 0) return 0;
@@ -287,8 +243,7 @@ export default function StudentQuestLogPage() {
     return Math.round(progress);
   };
 
-  const handleLessonClick = (entry: ScheduleEntry, state: string) => {
-    // Navigate to lesson detail page to view tasks and lesson info
+  const handleLessonClick = (entry: ScheduleEntry) => {
     router.push(`/student/lesson/${entry.id}`);
   };
 
@@ -419,6 +374,7 @@ export default function StudentQuestLogPage() {
                   const state = getLessonState(
                     entry.start_time,
                     entry.end_time,
+                    currentTime,
                   ) as LessonState;
                   const isLiveLesson = state === "active";
                   const distance = cardDistances.get(entry.id) || 999;
@@ -426,6 +382,7 @@ export default function StudentQuestLogPage() {
                   const lessonProgress = getLessonProgressPercent(
                     entry.start_time,
                     entry.end_time,
+                    currentTime,
                   );
 
                   return (
@@ -435,7 +392,7 @@ export default function StudentQuestLogPage() {
                       state={state}
                       isCentered={isCentered}
                       index={index}
-                      onClick={() => handleLessonClick(entry, state)}
+                      onClick={() => handleLessonClick(entry)}
                       lessonProgress={lessonProgress}
                       activeRef={isLiveLesson ? activeLessonRef : undefined}
                     />

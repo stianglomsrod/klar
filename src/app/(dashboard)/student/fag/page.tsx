@@ -6,23 +6,10 @@ import SubjectCard from "@/components/SubjectCard";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
-
-// Definer typene vi får fra databasen
-type Task = {
-  id: string;
-  is_completed: boolean;
-};
-
-type Subject = {
-  id: string;
-  title: string;
-  emoji: string;
-  color_theme: string;
-  tasks: Task[];
-};
+import type { SubjectWithTasks } from "@/types/shared";
 
 export default function SubjectsPage() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<SubjectWithTasks[]>([]);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
@@ -39,14 +26,14 @@ export default function SubjectsPage() {
 
       // Fetch subjects with all tasks
       const { data: subjectsData, error: subjectsError } = await supabase.from(
-        "subjects"
+        "subjects",
       ).select(`
           *,
           tasks (*)
         `);
 
       if (subjectsError) {
-        console.error("Feil ved henting av fag:", subjectsError);
+        // Silent — subjects load failure handled by empty state UI
       } else {
         setSubjects(subjectsData || []);
       }
@@ -91,7 +78,7 @@ export default function SubjectsPage() {
           })
           .filter(
             ({ activeTasks, completedTasks }) =>
-              activeTasks === 0 && completedTasks > 0
+              activeTasks === 0 && completedTasks > 0,
           )
           .map(({ subject }) => subject)}
         completedSubjectsCount={
@@ -176,7 +163,7 @@ export default function SubjectsPage() {
                           index={index}
                           title={subject.title}
                           emoji={subject.emoji}
-                          colorTheme={subject.color_theme}
+                          colorTheme={subject.color_theme || "gray"}
                           taskCount={totalTasks}
                           completedCount={completedTasks}
                         />

@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { normalizeClassName } from "./shared-normalization";
+import { DEFAULT_PETAL_COLORS } from "@/utils/constants";
 
 // ── Types ────────────────────────────────────────────
 type CreateStudentInput = {
@@ -133,7 +134,7 @@ export async function createStudent(
           current_xp: 0,
           flowers_collected: 0,
           petals_progress: 0,
-          petal_colors: ["#E0E0E0", "#E0E0E0", "#E0E0E0", "#E0E0E0", "#E0E0E0"],
+          petal_colors: [...DEFAULT_PETAL_COLORS],
           show_flower_garden: true,
           max_level_reached: 1,
           current_password_plaintext: password,

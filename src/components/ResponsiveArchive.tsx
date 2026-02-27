@@ -11,6 +11,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import ArchiveDrawer from "./ArchiveDrawer";
+import type { SubjectWithTasks } from "@/types/shared";
 
 // Inline useMediaQuery hook
 function useMediaQuery(query: string): boolean {
@@ -38,13 +39,7 @@ function useMediaQuery(query: string): boolean {
   return matches;
 }
 
-type Subject = {
-  id: string;
-  title: string;
-  emoji: string;
-  color_theme: string;
-  tasks: Array<{ is_completed: boolean }>;
-};
+type Subject = SubjectWithTasks;
 
 type ResponsiveArchiveProps = {
   completedSubjects: Subject[];
@@ -142,7 +137,7 @@ export default function ResponsiveArchive({
             ) : (
               <div className="space-y-2 p-4">
                 {completedSubjects.map((subject) => {
-                  const theme = getSubjectTheme(subject.color_theme);
+                  const theme = getSubjectTheme(subject.color_theme || "gray");
                   const totalTasks = subject.tasks?.length || 0;
                   const completedTasks =
                     subject.tasks?.filter((t) => t.is_completed).length || 0;

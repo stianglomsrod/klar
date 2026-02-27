@@ -2,11 +2,14 @@
 
 import { createClient } from "@/utils/supabase/server";
 import type { WeeklyPlanData } from "./parse-weekly-plan";
+import { normalizeClassName } from "./shared-normalization";
 import {
-  normalizeClassName,
-  splitAndNormalizeSubject,
-  extractGradeNumber,
-} from "./shared-normalization";
+  authenticateTeacher,
+  resolveClasses,
+  resolveSubjects,
+  autoCreateClasses,
+  autoCreateSubjects,
+} from "./shared-plan-utils";
 
 // ── Types ────────────────────────────────────────────
 
@@ -32,62 +35,27 @@ export async function saveWeeklyPlan(
 ): Promise<SaveWeeklyPlanResult> {
   const supabase = await createClient();
 
-  // ── Auth ──────────────────────────────────────────
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
+  let teacherId: string;
+  try {
+    ({ teacherId } = await authenticateTeacher(supabase));
+  } catch {
     return { success: false, error: "Ikke autentisert. Logg inn på nytt." };
   }
 
-  const teacherId = user.id;
-
   try {
-    // ── 1. Resolve class names → class_ids (with normalization) ──
+    // ── 1. Resolve class names → class_ids ──
 
     const rawClassNames = [
       ...new Set(data.schedule.map((e) => e.className).filter(Boolean)),
     ];
-    const normalizedClassSet = new Map<string, string>(); // norm → raw
-    for (const raw of rawClassNames) {
-      normalizedClassSet.set(normalizeClassName(raw), raw);
-    }
-    const normalizedClassNames = [...normalizedClassSet.keys()];
 
-    // classMap: normalizedName → class_id
-    const classMap = new Map<string, string>();
+    const { classMap, missingClasses } = await resolveClasses(
+      supabase,
+      rawClassNames,
+    );
 
-    if (normalizedClassNames.length > 0) {
-      const { data: allClasses, error } = await supabase
-        .from("classes")
-        .select("id, name");
+    // ── 2. Resolve subject names → subject_ids ──
 
-      if (error) {
-        return {
-          success: false,
-          error: `Feil ved henting av klasser: ${error.message}`,
-        };
-      }
-
-      const dbNormMap = new Map<string, { id: string; name: string }>();
-      for (const c of allClasses ?? []) {
-        dbNormMap.set(normalizeClassName(c.name), { id: c.id, name: c.name });
-      }
-
-      for (const norm of normalizedClassNames) {
-        const match = dbNormMap.get(norm);
-        if (match) classMap.set(norm, match.id);
-      }
-    }
-
-    const missingClasses = normalizedClassNames.filter((n) => !classMap.has(n));
-
-    // ── 2. Resolve subject names → subject_ids (with normalization) ──
-
-    // Collect all raw subject names from every section
     const allRawSubjectNames = [
       ...new Set(
         [
@@ -98,47 +66,8 @@ export async function saveWeeklyPlan(
       ),
     ];
 
-    // Build normalized lookup: rawName → { parts: string[], primary: string, fullTitle: string }
-    type SubjectInfo = {
-      parts: string[];
-      primary: string;
-      fullTitle: string;
-    };
-    const subjectInfoMap = new Map<string, SubjectInfo>();
-    const allNormalizedParts = new Set<string>();
-
-    for (const raw of allRawSubjectNames) {
-      const parts = splitAndNormalizeSubject(raw);
-      const primary = parts[0];
-      const fullTitle = parts.join("/");
-      subjectInfoMap.set(raw, { parts, primary, fullTitle });
-      for (const p of parts) allNormalizedParts.add(p);
-    }
-
-    // Query DB for all unique normalized parts
-    const partsArray = [...allNormalizedParts];
-    // subjectMap: normalizedTitle → subject_id
-    const subjectMap = new Map<string, string>();
-
-    if (partsArray.length > 0) {
-      const { data: subjects, error } = await supabase
-        .from("subjects")
-        .select("id, title")
-        .in("title", partsArray);
-
-      if (error) {
-        return {
-          success: false,
-          error: `Feil ved henting av fag: ${error.message}`,
-        };
-      }
-
-      for (const s of subjects ?? []) {
-        subjectMap.set(s.title, s.id);
-      }
-    }
-
-    const missingSubjects = partsArray.filter((n) => !subjectMap.has(n));
+    const { subjectMap, missingSubjects, subjectInfoMap } =
+      await resolveSubjects(supabase, allRawSubjectNames);
 
     // ── 3. Stop-and-ask if anything is missing ──────
 
@@ -155,75 +84,8 @@ export async function saveWeeklyPlan(
 
     // ── 4. Auto-create missing entities if forceCreate ──
 
-    if (missingClasses.length > 0) {
-      // Resolve grade_id for each class so new rows are linked properly
-      const gradeCache = new Map<string, string>(); // gradeNumber → grade_id
-      const rows: { name: string; grade_id?: string }[] = [];
-
-      for (const norm of missingClasses) {
-        const gradeNum = extractGradeNumber(norm) ?? norm.match(/^(\d+)/)?.[1];
-        let gradeId: string | undefined;
-
-        if (gradeNum && !gradeCache.has(gradeNum)) {
-          const gradeName = `${gradeNum}. Trinn`;
-          const { data: existing } = await supabase
-            .from("grades")
-            .select("id")
-            .ilike("name", gradeName)
-            .limit(1)
-            .single();
-
-          if (existing) {
-            gradeCache.set(gradeNum, existing.id);
-          } else {
-            const { data: created } = await supabase
-              .from("grades")
-              .insert({ name: gradeName })
-              .select("id")
-              .single();
-            if (created) gradeCache.set(gradeNum, created.id);
-          }
-        }
-
-        if (gradeNum) gradeId = gradeCache.get(gradeNum);
-        rows.push(gradeId ? { name: norm, grade_id: gradeId } : { name: norm });
-      }
-
-      const { data: created, error: createError } = await supabase
-        .from("classes")
-        .insert(rows)
-        .select("id, name");
-
-      if (createError) {
-        return {
-          success: false,
-          error: `Feil ved opprettelse av klasser: ${createError.message}`,
-        };
-      }
-
-      for (const c of created ?? []) {
-        classMap.set(normalizeClassName(c.name), c.id);
-      }
-    }
-
-    if (missingSubjects.length > 0) {
-      for (const name of missingSubjects) {
-        const { data: newSubject, error: createError } = await supabase
-          .from("subjects")
-          .insert({ title: name, created_by: teacherId })
-          .select("id")
-          .single();
-
-        if (createError) {
-          return {
-            success: false,
-            error: `Feil ved opprettelse av fag «${name}»: ${createError.message}`,
-          };
-        }
-
-        subjectMap.set(name, newSubject.id);
-      }
-    }
+    await autoCreateClasses(supabase, missingClasses, classMap);
+    await autoCreateSubjects(supabase, missingSubjects, teacherId, subjectMap);
 
     // ── 5. Save weekly update (messages + learning goals + homework) ──
 

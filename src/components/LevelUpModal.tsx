@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
 import PaintBrushCursor from "./PaintBrushCursor";
 import FlowerPot from "./FlowerPot";
 
@@ -66,6 +68,7 @@ export default function LevelUpModal({
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [loadingRewards, setLoadingRewards] = useState(false);
   const [savingReward, setSavingReward] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -83,8 +86,6 @@ export default function LevelUpModal({
         try {
           const supabase = createClient();
 
-          console.log("Fetching rewards for student:", studentId);
-
           // Fetch rewards that are either:
           // 1. Available to all students (specific_student_ids is empty array)
           // 2. Specifically assigned to this student (array contains studentId)
@@ -96,16 +97,11 @@ export default function LevelUpModal({
             )
             .order("created_at", { ascending: true });
 
-          if (error) {
-            console.error("Error fetching rewards:", error?.message || error);
-            console.error("Full error object:", error);
-          } else {
-            console.log("Fetched rewards:", data);
-            console.log("Total rewards found:", data?.length || 0);
+          if (!error) {
             setRewards(data || []);
           }
-        } catch (err) {
-          console.error("Error fetching rewards:", err);
+        } catch {
+          // Silent — reward fetch is non-critical
         } finally {
           setLoadingRewards(false);
         }
@@ -184,9 +180,8 @@ export default function LevelUpModal({
           onSelectReward(rewardType, undefined, undefined, rewardId);
           handleClose();
         }, 1000);
-      } catch (err) {
-        console.error("Error saving reward:", err);
-        alert("Noe gikk galt ved valg av premie. Prøv igjen.");
+      } catch {
+        showToast("Noe gikk galt ved valg av premie. Prøv igjen.", "error");
       } finally {
         setSavingReward(false);
       }
@@ -525,6 +520,7 @@ export default function LevelUpModal({
           )}
         </motion.div>
       </div>
+      <Toast toast={toast} onClose={hideToast} />
     </AnimatePresence>
   );
 }

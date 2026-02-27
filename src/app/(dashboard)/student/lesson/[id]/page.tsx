@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
@@ -8,32 +8,21 @@ import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
 import LevelUpModal from "@/components/LevelUpModal";
 import SubjectProgress from "@/components/student/SubjectProgress";
-import StudentQuizView, {
-  type QuizQuestion,
-  type QuizResponses,
-  type QuizAudioBlobs,
-} from "@/components/student/StudentQuizView";
+import StudentQuizView from "@/components/student/StudentQuizView";
 import { ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useTaskCompletion } from "@/hooks/useTaskCompletion";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
+import { useTaskFlow } from "@/hooks/useTaskFlow";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import { getHeroGradient } from "@/utils/hero-gradients";
 import { formatTime } from "@/utils/format-time";
-import MediaUploadToolbar, {
-  type MediaUploadToolbarHandle,
-} from "@/components/ui/MediaUploadToolbar";
-import { uploadStudentMedia } from "@/utils/supabase/storage";
+import MediaUploadToolbar from "@/components/ui/MediaUploadToolbar";
+import type { StudentTask } from "@/types/shared";
 
 // ── Types ────────────────────────────────────────────
 
-type Task = {
-  id: string;
-  title: string;
-  description: string;
-  points_value: number;
-  type: string;
-  is_completed: boolean;
-  quiz_data?: QuizQuestion[] | null;
-};
+type Task = StudentTask;
 
 type ScheduleEntryMeta = {
   id: string;
@@ -45,37 +34,6 @@ type ScheduleEntryMeta = {
   start_time: string;
   end_time: string;
 };
-
-// ── Hero gradient helper ─────────────────────────────
-
-const heroGradients: Record<string, string> = {
-  red: "linear-gradient(to bottom, rgb(254, 226, 226), rgb(254, 240, 240), white)",
-  blue: "linear-gradient(to bottom, rgb(219, 234, 254), rgb(239, 246, 255), white)",
-  orange:
-    "linear-gradient(to bottom, rgb(254, 231, 207), rgb(254, 245, 230), white)",
-  amber:
-    "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)",
-  yellow:
-    "linear-gradient(to bottom, rgb(252, 226, 198), rgb(254, 243, 220), white)",
-  green:
-    "linear-gradient(to bottom, rgb(220, 251, 219), rgb(240, 253, 244), white)",
-  purple:
-    "linear-gradient(to bottom, rgb(243, 232, 255), rgb(250, 245, 255), white)",
-  violet:
-    "linear-gradient(to bottom, rgb(237, 235, 254), rgb(245, 243, 255), white)",
-  rose: "linear-gradient(to bottom, rgb(255, 228, 230), rgb(255, 245, 247), white)",
-  emerald:
-    "linear-gradient(to bottom, rgb(209, 250, 229), rgb(240, 253, 250), white)",
-  gray: "linear-gradient(to bottom, rgb(229, 231, 235), rgb(249, 250, 251), white)",
-  indigo:
-    "linear-gradient(to bottom, rgb(224, 231, 255), rgb(238, 242, 255), white)",
-  teal: "linear-gradient(to bottom, rgb(204, 251, 241), rgb(240, 253, 250), white)",
-  pink: "linear-gradient(to bottom, rgb(252, 231, 243), rgb(253, 242, 248), white)",
-};
-
-const getHeroGradient = (theme: string) =>
-  heroGradients[theme] ||
-  "linear-gradient(to bottom, rgb(219, 234, 254), rgb(239, 246, 255), white)";
 
 // ── Page Component ───────────────────────────────────
 
@@ -92,51 +50,39 @@ export default function LessonDetailPage() {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // useTaskCompletion hook — XP, leveling, sound, profile
+  const { toast, showToast, hideToast } = useToast();
+
   const {
     profile,
-    isCompleting,
-    completeTask,
-    undoTask,
-    selectReward,
-    playSuccessSound,
-  } = useTaskCompletion();
-
-  // Modals
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [showLevelUpModal, setShowLevelUpModal] = useState(false);
-  const [newLevel, setNewLevel] = useState(0);
-
-  // Quiz
-  const [isQuizOpen, setIsQuizOpen] = useState(false);
-  const [quizTask, setQuizTask] = useState<Task | null>(null);
-
-  // Media toolbar (smart-stop chain)
-  const mediaToolbarRef = useRef<MediaUploadToolbarHandle>(null);
-  const [mediaImage, setMediaImage] = useState<File | null>(null);
-  const [mediaAudioBlob, setMediaAudioBlob] = useState<Blob | null>(null);
-  const [mediaAudioUrl, setMediaAudioUrl] = useState<string | undefined>(
-    undefined,
-  );
-
-  const handleAudioRecorded = useCallback((blob: Blob) => {
-    setMediaAudioBlob(blob);
-    setMediaAudioUrl(URL.createObjectURL(blob));
-  }, []);
-
-  const handleAudioRemove = useCallback(() => {
-    if (mediaAudioUrl) URL.revokeObjectURL(mediaAudioUrl);
-    setMediaAudioBlob(null);
-    setMediaAudioUrl(undefined);
-  }, [mediaAudioUrl]);
-
-  const clearMedia = useCallback(() => {
-    setMediaImage(null);
-    if (mediaAudioUrl) URL.revokeObjectURL(mediaAudioUrl);
-    setMediaAudioBlob(null);
-    setMediaAudioUrl(undefined);
-  }, [mediaAudioUrl]);
+    mediaToolbarRef,
+    mediaImage,
+    setMediaImage,
+    mediaAudioBlob,
+    mediaAudioUrl,
+    handleAudioRecorded,
+    handleAudioRemove,
+    isModalOpen,
+    showLevelUpModal,
+    newLevel,
+    isQuizOpen,
+    quizTask,
+    handleTaskComplete,
+    handleConfirmCompletion,
+    handleQuizSubmit,
+    handleRewardSelection,
+    handleBeforeConfirm,
+    closeCompletionModal,
+    closeQuiz,
+    closeLevelUpModal,
+  } = useTaskFlow({
+    tasks,
+    onTaskCompleted: (taskId) => {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, is_completed: true } : t)),
+      );
+    },
+    showToast,
+  });
 
   // Scroll to top
   useEffect(() => {
@@ -159,7 +105,6 @@ export default function LessonDetailPage() {
           .single();
 
         if (entryError || !entryData) {
-          console.error("Schedule entry fetch error:", entryError);
           setErrorMsg("Timen ble ikke funnet.");
           setLoading(false);
           return;
@@ -195,7 +140,6 @@ export default function LessonDetailPage() {
           .eq("schedule_entry_id", scheduleEntryId);
 
         if (junctionError) {
-          console.error("Junction fetch error:", junctionError);
           setTasks([]);
           setLoading(false);
           return;
@@ -221,12 +165,11 @@ export default function LessonDetailPage() {
           .order("created_at", { ascending: true });
 
         if (tasksError) {
-          console.error("Tasks fetch error:", tasksError);
+          // Silent – tasks stay empty
         }
 
         setTasks(tasksData || []);
-      } catch (err) {
-        console.error("Error in lesson fetchData:", err);
+      } catch {
         setErrorMsg("En feil oppstod. Prøv igjen senere.");
       } finally {
         setLoading(false);
@@ -237,191 +180,6 @@ export default function LessonDetailPage() {
       fetchData();
     }
   }, [scheduleEntryId]);
-
-  // ── Task completion (standard) ───────────────────
-  const handleTaskComplete = (task: Task) => {
-    if (task.type === "quiz" && task.quiz_data && task.quiz_data.length > 0) {
-      setQuizTask(task);
-      setIsQuizOpen(true);
-    } else {
-      setSelectedTaskId(task.id);
-      setIsModalOpen(true);
-    }
-  };
-
-  const handleConfirmCompletion = async () => {
-    if (!selectedTaskId || !profile) return;
-
-    const task = tasks.find((t) => t.id === selectedTaskId);
-    if (!task) return;
-
-    try {
-      // 1. Upload media attachments (if any)
-      if (mediaImage || mediaAudioBlob) {
-        const supabase = createClient();
-        let imageUrl: string | null = null;
-        let audioUrl: string | null = null;
-
-        if (mediaImage) {
-          imageUrl = await uploadStudentMedia(
-            mediaImage,
-            profile.id,
-            selectedTaskId,
-            "image",
-          );
-        }
-        if (mediaAudioBlob) {
-          audioUrl = await uploadStudentMedia(
-            mediaAudioBlob,
-            profile.id,
-            selectedTaskId,
-            "audio",
-          );
-        }
-
-        await supabase.from("feedback").upsert(
-          {
-            task_id: selectedTaskId,
-            student_id: profile.id,
-            student_image_url: imageUrl,
-            student_audio_url: audioUrl,
-          },
-          { onConflict: "task_id" },
-        );
-      }
-
-      // 2. Complete task via hook
-      const result = await completeTask(selectedTaskId, task.points_value);
-
-      // 3. Optimistic UI update
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === selectedTaskId ? { ...t, is_completed: true } : t,
-        ),
-      );
-
-      // 4. Close modal & clear media
-      setIsModalOpen(false);
-      setSelectedTaskId(null);
-      clearMedia();
-
-      // 5. Level up modal
-      if (result?.shouldLevelUp && result.isNewHighLevel) {
-        setNewLevel(result.newLevel);
-        setShowLevelUpModal(true);
-      }
-    } catch (error) {
-      console.error("Feil ved fullføring av oppgave:", error);
-      alert("Noe gikk galt. Prøv igjen.");
-    }
-  };
-
-  // ── Quiz submission ──────────────────────────────
-  const handleQuizSubmit = async (
-    responses: QuizResponses,
-    audioBlobs: QuizAudioBlobs,
-  ) => {
-    if (!quizTask || !profile) return;
-
-    const supabase = createClient();
-
-    try {
-      // 1. Upload per-question audio and build enriched payload
-      const enrichedResponses: Record<
-        string,
-        { answer: string | string[]; audioUrl?: string }
-      > = {};
-
-      for (const [qId, answer] of Object.entries(responses)) {
-        const entry: { answer: string | string[]; audioUrl?: string } = {
-          answer,
-        };
-
-        if (audioBlobs[qId]) {
-          const audioUrl = await uploadStudentMedia(
-            audioBlobs[qId],
-            profile.id,
-            quizTask.id,
-            "audio",
-          );
-          entry.audioUrl = audioUrl;
-        }
-
-        enrichedResponses[qId] = entry;
-      }
-
-      // Upload audio-only answers
-      for (const [qId, blob] of Object.entries(audioBlobs)) {
-        if (!enrichedResponses[qId]) {
-          const audioUrl = await uploadStudentMedia(
-            blob,
-            profile.id,
-            quizTask.id,
-            "audio",
-          );
-          enrichedResponses[qId] = { answer: "", audioUrl };
-        }
-      }
-
-      // 2. Upsert feedback with quiz_responses
-      const { error: feedbackError } = await supabase.from("feedback").upsert(
-        {
-          task_id: quizTask.id,
-          student_id: profile.id,
-          quiz_responses: enrichedResponses,
-        },
-        { onConflict: "task_id" },
-      );
-
-      if (feedbackError) {
-        console.error("Quiz feedback upsert error:", feedbackError);
-        throw new Error(feedbackError.message || "Feedback upsert failed");
-      }
-
-      // 3. Complete task via hook
-      const result = await completeTask(quizTask.id, quizTask.points_value);
-
-      // 4. Optimistic UI update
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === quizTask.id ? { ...t, is_completed: true } : t,
-        ),
-      );
-
-      // 5. Close quiz
-      setIsQuizOpen(false);
-      setQuizTask(null);
-
-      // 6. Level up modal
-      if (result?.shouldLevelUp && result.isNewHighLevel) {
-        setNewLevel(result.newLevel);
-        setShowLevelUpModal(true);
-      }
-    } catch (error: unknown) {
-      const msg =
-        error instanceof Error ? error.message : JSON.stringify(error);
-      console.error("Feil ved lagring av quiz-svar:", msg);
-      alert("Noe gikk galt ved lagring av svarene dine. Prøv igjen.");
-    }
-  };
-
-  // ── Reward selection ─────────────────────────────
-  const handleRewardSelection = async (
-    rewardType: "petal" | "database",
-    payload?: string,
-    petalIndex?: number,
-    rewardId?: string,
-  ) => {
-    const success = await selectReward(
-      rewardType,
-      payload,
-      petalIndex,
-      rewardId,
-    );
-    if (success) {
-      setShowLevelUpModal(false);
-    }
-  };
 
   // ── Loading state ────────────────────────────────
 
@@ -608,18 +366,9 @@ export default function LessonDetailPage() {
       {/* Completion Modal */}
       <CompletionModal
         isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedTaskId(null);
-          clearMedia();
-        }}
+        onClose={closeCompletionModal}
         onConfirm={handleConfirmCompletion}
-        onBeforeConfirm={async () => {
-          const blob = await mediaToolbarRef.current?.stopRecordingIfActive();
-          if (blob) {
-            await new Promise((r) => setTimeout(r, 50));
-          }
-        }}
+        onBeforeConfirm={handleBeforeConfirm}
         avatarUrl={profile?.avatar_url}
       >
         <MediaUploadToolbar
@@ -639,10 +388,7 @@ export default function LessonDetailPage() {
           isOpen={isQuizOpen}
           questions={quizTask.quiz_data}
           taskTitle={quizTask.title}
-          onClose={() => {
-            setIsQuizOpen(false);
-            setQuizTask(null);
-          }}
+          onClose={closeQuiz}
           onSubmit={handleQuizSubmit}
         />
       )}
@@ -651,13 +397,14 @@ export default function LessonDetailPage() {
       <LevelUpModal
         isOpen={showLevelUpModal}
         newLevel={newLevel}
-        onClose={() => setShowLevelUpModal(false)}
+        onClose={closeLevelUpModal}
         onSelectReward={handleRewardSelection}
         existingPetals={profile?.petals_progress || 0}
         existingColors={profile?.petal_colors || []}
         showFlowerGarden={profile?.show_flower_garden || false}
         studentId={profile?.id}
       />
+      <Toast toast={toast} onClose={hideToast} />
     </main>
   );
 }

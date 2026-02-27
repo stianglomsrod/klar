@@ -2,15 +2,9 @@
 
 import { CheckCircle, PlayCircle } from "lucide-react";
 import TTSButton from "@/components/ui/TTSButton";
+import type { StudentTask } from "@/types/shared";
 
-type Task = {
-  id: string;
-  title: string;
-  description: string;
-  points_value: number;
-  type: string;
-  is_completed: boolean;
-};
+type Task = StudentTask;
 
 type TaskCardProps = {
   task: Task;

@@ -47,7 +47,7 @@ export function RecipientSelector({
 
   const selectedIds = useMemo(
     () => new Set(selectedRecipients.map((r) => `${r.type}:${r.id}`)),
-    [selectedRecipients]
+    [selectedRecipients],
   );
 
   // Toggle expansion of grades/classes
@@ -68,11 +68,6 @@ export function RecipientSelector({
 
   // Build hierarchical data structure
   const hierarchicalData = useMemo(() => {
-    console.log("Building hierarchy with:");
-    console.log("  Grades:", data.grades);
-    console.log("  Classes:", data.classes);
-    console.log("  Students:", data.students);
-
     // If no grades exist, create virtual grades from classes
     let gradesToUse = data.grades;
 
@@ -88,7 +83,6 @@ export function RecipientSelector({
           id: gradeId,
           name: `Trinn ${index + 1}`, // Placeholder name
         }));
-        console.log("Created placeholder grades:", gradesToUse);
       } else {
         // No grade_ids at all - create one "ungrouped" grade containing all classes
         gradesToUse = [
@@ -101,7 +95,7 @@ export function RecipientSelector({
     }
 
     const sortedGrades = [...gradesToUse].sort((a, b) =>
-      a.name.localeCompare(b.name, "no", { numeric: true })
+      a.name.localeCompare(b.name, "no", { numeric: true }),
     );
 
     const result = sortedGrades.map((grade) => {
@@ -112,21 +106,13 @@ export function RecipientSelector({
           : data.classes.filter((c) => c.grade_id === grade.id);
 
       const sortedClasses = classesInGrade.sort((a, b) =>
-        a.name.localeCompare(b.name, "no")
-      );
-
-      console.log(
-        `Grade ${grade.name} (${grade.id}) has ${sortedClasses.length} classes`
+        a.name.localeCompare(b.name, "no"),
       );
 
       const classesWithStudents = sortedClasses.map((cls) => {
         const studentsInClass = data.students
           .filter((s) => s.class_id === cls.id)
           .sort((a, b) => a.name.localeCompare(b.name, "no"));
-
-        console.log(
-          `  Class ${cls.name} (${cls.id}) has ${studentsInClass.length} students`
-        );
 
         return {
           ...cls,
@@ -140,7 +126,6 @@ export function RecipientSelector({
       };
     });
 
-    console.log("Final hierarchy:", result);
     return result;
   }, [data]);
 
@@ -157,7 +142,7 @@ export function RecipientSelector({
           .map((cls) => {
             const classMatches = cls.name.toLowerCase().includes(query);
             const filteredStudents = cls.students.filter((s) =>
-              s.name.toLowerCase().includes(query)
+              s.name.toLowerCase().includes(query),
             );
 
             // Include class if: class name matches, OR has matching students
@@ -180,7 +165,7 @@ export function RecipientSelector({
   const toggleRecipient = (
     type: "grade" | "class" | "student",
     id: string,
-    label: string
+    label: string,
   ) => {
     const key = `${type}:${id}`;
     const isCurrentlySelected = selectedIds.has(key);
@@ -203,7 +188,7 @@ export function RecipientSelector({
               (r.type === "grade" && r.id === id) ||
               (r.type === "class" && classIds.includes(r.id)) ||
               (r.type === "student" && studentIds.includes(r.id))
-            )
+            ),
         );
       } else if (type === "class") {
         // Remove class, all its students, AND the grade if selected
@@ -218,7 +203,7 @@ export function RecipientSelector({
               (r.type === "class" && r.id === id) ||
               (r.type === "student" && studentIds.includes(r.id)) ||
               (r.type === "grade" && r.id === cls?.grade_id)
-            )
+            ),
         );
       } else if (type === "student") {
         // Remove student, AND remove its class and grade if they were selected
@@ -231,7 +216,7 @@ export function RecipientSelector({
               (r.type === "student" && r.id === id) ||
               (r.type === "class" && r.id === student?.class_id) ||
               (r.type === "grade" && r.id === cls?.grade_id)
-            )
+            ),
         );
       }
     } else {
@@ -240,7 +225,7 @@ export function RecipientSelector({
         // Add grade, all its classes, and all students in those classes
         const classesInGrade = data.classes.filter((c) => c.grade_id === id);
         const studentsInGrade = data.students.filter((s) =>
-          classesInGrade.some((c) => c.id === s.class_id)
+          classesInGrade.some((c) => c.id === s.class_id),
         );
 
         newRecipients.push({ type: "grade", id, label });
@@ -284,13 +269,13 @@ export function RecipientSelector({
   const removeRecipient = (type: string, id: string) => {
     // Use the same cascading logic as toggleRecipient
     const recipient = selectedRecipients.find(
-      (r) => r.type === type && r.id === id
+      (r) => r.type === type && r.id === id,
     );
     if (recipient) {
       toggleRecipient(
         recipient.type as "grade" | "class" | "student",
         recipient.id,
-        recipient.label
+        recipient.label,
       );
     }
   };
@@ -466,7 +451,7 @@ export function RecipientSelector({
                                         toggleRecipient(
                                           "class",
                                           cls.id,
-                                          cls.name
+                                          cls.name,
                                         )
                                       }
                                       className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500"
@@ -494,13 +479,13 @@ export function RecipientSelector({
                                           type="checkbox"
                                           checked={isChecked(
                                             "student",
-                                            student.id
+                                            student.id,
                                           )}
                                           onChange={() =>
                                             toggleRecipient(
                                               "student",
                                               student.id,
-                                              student.name
+                                              student.name,
                                             )
                                           }
                                           className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-2 focus:ring-indigo-500"

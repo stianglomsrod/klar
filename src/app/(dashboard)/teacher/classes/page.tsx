@@ -4,26 +4,21 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Filter, School, Users } from "lucide-react";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
 import StudentTable from "@/components/teacher/StudentTable";
 import EditStudentSheet from "@/components/teacher/EditStudentSheet";
 import ClassesAccordion from "@/components/teacher/ClassesAccordion";
+import type { TeacherStudent } from "@/types/shared";
 
-type Student = {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-  level: number;
-  class_name: string | null;
-  class_id: string | null;
-  show_flower_garden: boolean;
-  custom_welcome_message: string | null;
-};
+type Student = TeacherStudent;
 
 export default function ClassesPage() {
   const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast, showToast, hideToast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("Alle");
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -87,8 +82,8 @@ export default function ClassesPage() {
 
       setStudents(transformedData);
       setFilteredStudents(transformedData);
-    } catch (error) {
-      console.error("Error fetching students:", error);
+    } catch {
+      // Silent – students list stays empty
     } finally {
       setLoading(false);
     }
@@ -159,9 +154,8 @@ export default function ClassesPage() {
 
       setIsSheetOpen(false);
       setEditingStudent(null);
-    } catch (error) {
-      console.error("Error updating student:", error);
-      alert("Kunne ikke lagre endringer. Prøv igjen.");
+    } catch {
+      showToast("Kunne ikke lagre endringer. Prøv igjen.", "error");
     }
   };
 
@@ -294,6 +288,7 @@ export default function ClassesPage() {
           onSave={handleSaveStudent}
         />
       )}
+      <Toast toast={toast} onClose={hideToast} />
     </div>
   );
 }

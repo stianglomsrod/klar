@@ -106,10 +106,12 @@ src/app/
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                           |
 | `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                      |
-| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used by both Container A and B. |
+| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used internally by `useTaskFlow`. |
+| `useTaskFlow`       | Shared task submission flow for Container A & B. Encapsulates media state, `handleConfirmCompletion`, `handleQuizSubmit`, quiz/modal state, reward selection. Delegates XP to `useTaskCompletion`. |
 | `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                  |
 | `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                  |
 | `useMediaQuery`     | CSS media query hook                                                                                                                                                                           |
+| `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                 |
 
 ### 2.5 XP / Leveling System
 
@@ -367,6 +369,12 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - The agent is empowered to make autonomous architectural, structural, or implementation decisions if it discovers a better approach than what is strictly prompted (since the agent possesses the actual codebase context).
 - However, any deviation from the prompt or significant autonomous decision **MUST** be thoroughly documented and justified in a dedicated section of the output summary.
 
+### 6.13 Tech Debt Ledger Maintenance
+
+- You must actively maintain and update `CODE_AUDIT.md` and `TECH_DEBT.md`.
+- Whenever technical debt is introduced, resolved, or discovered during a session, you must autonomously update these ledgers to reflect the real-time state of the codebase.
+- Expedition completion status, bug-fix resolutions, and dead-code removals must all be recorded in the appropriate ledger immediately upon completion.
+
 ---
 
 ## 7. Component Inventory — Quick Reference
@@ -401,7 +409,10 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 - `ActivityDetailSheet.tsx` — grading slide-out panel (50vw desktop)
 - `WeeklyScheduleEditor.tsx` — schedule management
-- `CreateTaskButton.tsx` + `CreateTaskModal.tsx` — task creation
+- `CreateTaskButton.tsx` + `CreateTaskModal.tsx` — task creation/edit orchestrator (composes QuizBuilder, RecipientPicker, SchedulePicker)
+- `QuizBuilder.tsx` — controlled quiz question builder (add/remove questions, option management)
+- `RecipientPicker.tsx` — class/student selection with search, grouping, auto-scroll (`forwardRef` with `getSelectedStudentIds()` handle)
+- `SchedulePicker.tsx` — week navigation + schedule entry selection Popover (`forwardRef` with `getSelectedEntryIds()` handle)
 - `StudentTable.tsx` — student list with data table
 - `ClassesAccordion.tsx` — class management accordion
 - `ClassMonitorToggle.tsx` — live monitoring toggle
@@ -410,6 +421,10 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `AddStudentModal.tsx` — student creation modal with class combobox + generated passwords
 - `PreviewScheduleGrid.tsx` — visual timetable grid for AI-parsed weekly plan preview (click-to-edit cards, Pencil hover icon)
 - `TeacherSidebar.tsx` — teacher-specific sidebar
+- `StudentRewardManager.tsx` — reward CRUD + assignment modal with list/create views, uses `EmojiPickerButton`
+- `ClassCombobox.tsx` — class search + create with grade inference, Popover-based
+- `StudentPasswordCard.tsx` — password reset/copy/show-hide card
+- `StudentSettingsCard.tsx` — settings card with toggles + welcome message
 
 ### UI Primitives
 

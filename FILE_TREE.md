@@ -90,7 +90,8 @@ klar/
 │   │   │   ├── parse-weekly-plan.ts
 │   │   │   ├── save-lesson-plan.ts
 │   │   │   ├── save-weekly-plan.ts
-│   │   │   └── shared-normalization.ts
+│   │   │   ├── shared-normalization.ts
+│   │   │   └── shared-plan-utils.ts
 │   │   │
 │   │   ├── api/
 │   │   │   └── seed/
@@ -138,14 +139,23 @@ klar/
 │   │   ├── teacher/
 │   │   │   ├── ActivityDetailSheet.tsx
 │   │   │   ├── AddStudentModal.tsx
+│   │   │   ├── ClassCombobox.tsx
 │   │   │   ├── ClassesAccordion.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
 │   │   │   ├── CreateTaskButton.tsx
 │   │   │   ├── CreateTaskModal.tsx
 │   │   │   ├── EditStudentSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
+│   │   │   ├── QuizBuilder.tsx
+│   │   │   ├── RecipientPicker.tsx
+│   │   │   ├── MissingDataDialog.tsx
 │   │   │   ├── PreviewLessonPlan.tsx
 │   │   │   ├── PreviewScheduleGrid.tsx
+│   │   │   ├── ScheduleEntryEditDialog.tsx
+│   │   │   ├── SchedulePicker.tsx
+│   │   │   ├── StudentPasswordCard.tsx
+│   │   │   ├── StudentRewardManager.tsx
+│   │   │   ├── StudentSettingsCard.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
@@ -174,14 +184,22 @@ klar/
 │   │   ├── useMediaQuery.ts
 │   │   ├── useStudentProfile.ts
 │   │   ├── useTaskCompletion.ts
+│   │   ├── useTaskFlow.ts
 │   │   ├── useTeacherProfile.ts
 │   │   ├── useTimeTracker.ts
+│   │   ├── useToast.ts
 │   │   └── useTTS.ts
 │   │
 │   └── utils/
+│       ├── constants.ts
+│       ├── format-time.ts
+│       ├── hero-gradients.ts
+│       ├── lesson-time.ts
 │       ├── subject-colors.ts
+│       ├── week-number.ts
 │       └── supabase/
 │           ├── client.ts
+│           ├── schedule-queries.ts
 │           ├── server.ts
 │           └── storage.ts
 │

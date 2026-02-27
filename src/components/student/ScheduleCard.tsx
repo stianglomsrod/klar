@@ -6,6 +6,7 @@ import MissionChip from "@/components/student/MissionChip";
 import LessonProgress from "@/components/student/LessonProgress";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import { formatTime } from "@/utils/format-time";
+import type { LessonState } from "@/utils/lesson-time";
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -25,7 +26,7 @@ export type ScheduleEntry = {
   tasks_completed: number;
 };
 
-export type LessonState = "upcoming" | "active" | "finished";
+export type { LessonState };
 
 export type ScheduleCardProps = {
   entry: ScheduleEntry;

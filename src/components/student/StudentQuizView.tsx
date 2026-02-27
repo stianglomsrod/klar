@@ -6,13 +6,9 @@ import { ChevronLeft, ChevronRight, Check, X, Send } from "lucide-react";
 import CompletionModal from "@/components/CompletionModal";
 import TTSButton from "@/components/ui/TTSButton";
 import AudioRecorder from "@/components/ui/AudioRecorder";
+import type { QuizQuestion } from "@/types/shared";
 
-export type QuizQuestion = {
-  id: string;
-  text: string;
-  answerType: "text" | "radio" | "checkbox";
-  options: string[];
-};
+export type { QuizQuestion };
 
 export type QuizResponses = Record<string, string | string[]>;
 

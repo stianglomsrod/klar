@@ -4,14 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Archive } from "lucide-react";
 import Link from "next/link";
 import { getSubjectTheme } from "@/utils/subject-colors";
+import type { SubjectWithTasks } from "@/types/shared";
 
-type Subject = {
-  id: string;
-  title: string;
-  emoji: string;
-  color_theme: string;
-  tasks: Array<{ is_completed: boolean }>;
-};
+type Subject = SubjectWithTasks;
 
 type ArchiveDrawerProps = {
   isOpen: boolean;
@@ -74,7 +69,9 @@ export default function ArchiveDrawer({
               ) : (
                 <div className="space-y-3">
                   {completedSubjects.map((subject) => {
-                    const theme = getSubjectTheme(subject.color_theme);
+                    const theme = getSubjectTheme(
+                      subject.color_theme || "gray",
+                    );
                     const totalTasks = subject.tasks?.length || 0;
                     const completedTasks =
                       subject.tasks?.filter((t) => t.is_completed).length || 0;

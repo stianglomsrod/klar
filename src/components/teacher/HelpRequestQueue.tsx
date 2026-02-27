@@ -40,7 +40,7 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
             full_name,
             avatar_url
           )
-          `
+          `,
         )
         .eq("class_id", classId)
         .eq("status", "pending")
@@ -59,8 +59,8 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
       }));
 
       setQueue(transformed);
-    } catch (error) {
-      console.error("Error fetching help queue:", error);
+    } catch {
+      // Silent — help queue fetch failure; UI shows empty state
     } finally {
       setLoading(false);
     }
@@ -82,10 +82,10 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
           filter: `class_id=eq.${classId}`,
         },
         (payload: any) => {
-          console.log("Help request change detected:", payload);
           // Refetch on any change (insert, update, delete)
+          void payload;
           fetchQueue();
-        }
+        },
       )
       .subscribe();
 
@@ -97,7 +97,7 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
 
   // Helper to calculate wait time with color coding
   const getWaitTimeWithColor = (
-    createdAt: string
+    createdAt: string,
   ): { text: string; colorClass: string } => {
     const now = new Date();
     const created = new Date(createdAt);
@@ -153,8 +153,7 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
 
       // Optimistically remove from queue (real-time listener will also handle this)
       setQueue((prev) => prev.filter((r) => r.id !== requestId));
-    } catch (error) {
-      console.error("Error updating help request:", error);
+    } catch {
       // Refetch to restore correct state on error
       fetchQueue();
     } finally {

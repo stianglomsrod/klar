@@ -32,13 +32,7 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-
-interface Subject {
-  id: string;
-  title: string;
-  emoji: string;
-  color_theme: string;
-}
+import type { Subject } from "@/types/shared";
 
 interface TaskTemplate {
   id: string;
@@ -51,19 +45,6 @@ interface TaskTemplate {
   gradeLevel: string;
   assignCount: number;
   quiz_data: any;
-}
-
-interface TaskLibraryItem {
-  id: string;
-  title: string;
-  type: "standard" | "quiz";
-  grade_level: string;
-  usage_count: number;
-  subject: {
-    title: string;
-    emoji: string;
-    color_theme: string;
-  };
 }
 
 export default function TaskLibraryPage() {
@@ -154,8 +135,8 @@ export default function TaskLibraryPage() {
 
       if (error) throw error;
       setSubjects(data || []);
-    } catch (error) {
-      console.error("Error fetching subjects:", error);
+    } catch {
+      // Silent – subjects list stays empty
     }
   };
 
@@ -194,8 +175,8 @@ export default function TaskLibraryPage() {
         })) || [];
 
       setTasks(mappedTasks);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
+    } catch {
+      // Silent – tasks list stays empty
     } finally {
       setLoading(false);
     }
@@ -267,7 +248,6 @@ export default function TaskLibraryPage() {
           .eq("is_completed", false);
 
         if (withdrawError) {
-          console.error("Supabase withdraw error:", withdrawError);
           throw withdrawError;
         }
         withdrawnCount = count ?? 0;
@@ -280,15 +260,10 @@ export default function TaskLibraryPage() {
         .eq("id", taskId);
 
       if (error) {
-        console.error("Supabase delete error:", error);
         throw error;
       }
 
       if (count === 0) {
-        console.warn(
-          "Delete returned 0 affected rows — likely an RLS policy issue. taskId:",
-          taskId,
-        );
         throw new Error(
           "Ingen rader ble slettet. Sjekk at du har rettigheter til å slette denne oppgaven.",
         );
@@ -308,7 +283,6 @@ export default function TaskLibraryPage() {
         showToast("Oppgaven ble slettet", "success");
       }
     } catch (error: any) {
-      console.error("Error deleting task:", error);
       showToast(
         error?.message || "Kunne ikke slette oppgave. Prøv igjen.",
         "error",
@@ -537,7 +511,7 @@ export default function TaskLibraryPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            console.log("Assign task clicked:", task.id);
+                            // TODO: Implement assign task
                           }}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors"
                         >

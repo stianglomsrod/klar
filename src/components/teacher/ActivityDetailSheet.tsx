@@ -23,14 +23,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
-
-// ── Types ────────────────────────────────────────────
-type QuizQuestion = {
-  id: string;
-  text: string;
-  answerType: "text" | "radio" | "checkbox";
-  options: string[];
-};
+import { timeAgo } from "@/utils/format-time";
+import type { QuizQuestion } from "@/types/shared";
 
 export type ActivityDetail = {
   id: string;
@@ -80,22 +74,6 @@ interface ActivityDetailSheetProps {
 }
 
 const QUICK_REACTIONS = ["👍", "🌟", "💪", "🎉", "❤️", "🔥"];
-
-function timeAgo(dateStr: string): string {
-  if (!dateStr || isNaN(new Date(dateStr).getTime())) return "Nylig";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "akkurat nå";
-  if (mins < 60) return `${mins} min siden`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} ${hrs === 1 ? "time" : "timer"} siden`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days} ${days === 1 ? "dag" : "dager"} siden`;
-  return new Date(dateStr).toLocaleDateString("nb-NO", {
-    day: "numeric",
-    month: "short",
-  });
-}
 
 const ANSWER_TYPE_LABELS: Record<string, string> = {
   text: "Tekstsvar",
