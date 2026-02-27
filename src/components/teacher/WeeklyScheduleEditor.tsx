@@ -1020,9 +1020,11 @@ export default function WeeklyScheduleEditor({
 
               {/* Custom Title — disabled when a subject is selected */}
               <div className="space-y-2">
-                <label className={`text-sm font-medium ${
-                  formData.subject_id ? "text-slate-400" : "text-slate-900"
-                }`}>
+                <label
+                  className={`text-sm font-medium ${
+                    formData.subject_id ? "text-slate-400" : "text-slate-900"
+                  }`}
+                >
                   Eller skriv tittel:
                 </label>
                 <input
@@ -1032,7 +1034,11 @@ export default function WeeklyScheduleEditor({
                     setFormData({ ...formData, custom_title: e.target.value })
                   }
                   disabled={!!formData.subject_id}
-                  placeholder={formData.subject_id ? "Deaktivert — fag er valgt" : "f.eks. Logoped"}
+                  placeholder={
+                    formData.subject_id
+                      ? "Deaktivert — fag er valgt"
+                      : "f.eks. Logoped"
+                  }
                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
                     formData.subject_id
                       ? "border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed"

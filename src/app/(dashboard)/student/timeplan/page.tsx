@@ -29,7 +29,11 @@ const SWIPE_THRESHOLD = 50; // px to count as a swipe
 type LessonState = "upcoming" | "active" | "finished";
 type DayRelation = "past" | "today" | "future";
 
-function getLessonState(startTime: string, endTime: string, now: Date): LessonState {
+function getLessonState(
+  startTime: string,
+  endTime: string,
+  now: Date,
+): LessonState {
   const [startHour, startMin] = startTime.split(":").map(Number);
   const [endHour, endMin] = endTime.split(":").map(Number);
 
@@ -398,18 +402,20 @@ function DayScheduleList({
   return (
     <div className="space-y-3">
       {entries.map((entry, index) => {
-        const state: LessonState = dayRelation === "today"
-          ? getLessonState(entry.start_time, entry.end_time, currentTime)
-          : dayRelation === "past"
-            ? "finished"
-            : "upcoming";
-        const progress = dayRelation === "today"
-          ? getLessonProgressPercent(
-              entry.start_time,
-              entry.end_time,
-              currentTime,
-            )
-          : 0;
+        const state: LessonState =
+          dayRelation === "today"
+            ? getLessonState(entry.start_time, entry.end_time, currentTime)
+            : dayRelation === "past"
+              ? "finished"
+              : "upcoming";
+        const progress =
+          dayRelation === "today"
+            ? getLessonProgressPercent(
+                entry.start_time,
+                entry.end_time,
+                currentTime,
+              )
+            : 0;
 
         return (
           <TimeplanCard
@@ -642,18 +648,24 @@ function DesktopWeekGrid({
             ) : (
               <div className="space-y-2">
                 {entries.map((entry) => {
-                  const state: LessonState = relation === "today"
-                    ? getLessonState(entry.start_time, entry.end_time, currentTime)
-                    : relation === "past"
-                      ? "finished"
-                      : "upcoming";
-                  const progress = relation === "today"
-                    ? getLessonProgressPercent(
-                        entry.start_time,
-                        entry.end_time,
-                        currentTime,
-                      )
-                    : 0;
+                  const state: LessonState =
+                    relation === "today"
+                      ? getLessonState(
+                          entry.start_time,
+                          entry.end_time,
+                          currentTime,
+                        )
+                      : relation === "past"
+                        ? "finished"
+                        : "upcoming";
+                  const progress =
+                    relation === "today"
+                      ? getLessonProgressPercent(
+                          entry.start_time,
+                          entry.end_time,
+                          currentTime,
+                        )
+                      : 0;
 
                   return (
                     <DesktopLessonRow
@@ -703,7 +715,11 @@ function DesktopLessonRow({
             : "bg-white/70 hover:bg-white hover:shadow-sm"
       }`}
     >
-      <span className={`text-lg flex-shrink-0 ${isFinished ? "grayscale" : ""}`}>{entry.emoji}</span>
+      <span
+        className={`text-lg flex-shrink-0 ${isFinished ? "grayscale" : ""}`}
+      >
+        {entry.emoji}
+      </span>
       <div className="flex-1 min-w-0">
         <p
           className={`text-xs font-bold truncate ${isFinished ? "text-slate-500" : "text-slate-700"}`}

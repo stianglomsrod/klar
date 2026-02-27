@@ -43,7 +43,7 @@ type TimeTrackerResult = {
  */
 export function useTimeTracker(
   studentId: string | undefined,
-  classId: string | undefined
+  classId: string | undefined,
 ): TimeTrackerResult {
   const [currentActivity, setCurrentActivity] = useState<CurrentActivity>({
     title: "Laster...",
@@ -90,7 +90,7 @@ export function useTimeTracker(
           if (studentId) {
             // Student mode: get class entries + personal entries
             q = q.or(
-              `and(class_id.eq.${classId},student_id.is.null),student_id.eq.${studentId}`
+              `and(class_id.eq.${classId},student_id.is.null),student_id.eq.${studentId}`,
             );
           } else {
             // Class mode only
