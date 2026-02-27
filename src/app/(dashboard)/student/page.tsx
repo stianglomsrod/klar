@@ -177,7 +177,6 @@ export default function StudentQuestLogPage() {
           });
         } else {
           // If no active lesson, find first upcoming lesson
-          const now = new Date();
           const firstUpcoming = schedule.find((entry) => {
             const state = getLessonState(entry.start_time, entry.end_time);
             return state === "upcoming";
@@ -217,16 +216,16 @@ export default function StudentQuestLogPage() {
     return () => container.removeEventListener("scroll", onScroll);
   }, [schedule.length]);
 
-  // Determine lesson state
-  const getLessonState = (startTime: string, endTime: string) => {
-    const now = new Date();
+  // Determine lesson state (uses reactive currentTime for consistency)
+  const getLessonState = (startTime: string, endTime: string): LessonState => {
+    const now = currentTime;
     const [startHour, startMin] = startTime.split(":").map(Number);
     const [endHour, endMin] = endTime.split(":").map(Number);
 
-    const startDate = new Date();
+    const startDate = new Date(now);
     startDate.setHours(startHour, startMin, 0, 0);
 
-    const endDate = new Date();
+    const endDate = new Date(now);
     endDate.setHours(endHour, endMin, 0, 0);
 
     if (now < startDate) return "upcoming";
@@ -265,13 +264,14 @@ export default function StudentQuestLogPage() {
       .split(":")
       .map(Number);
 
-    const dayStart = new Date();
-    dayStart.setHours(firstStart[0], firstStart[1], 0);
+    const now = currentTime;
 
-    const dayEnd = new Date();
-    dayEnd.setHours(lastEnd[0], lastEnd[1], 0);
+    const dayStart = new Date(now);
+    dayStart.setHours(firstStart[0], firstStart[1], 0, 0);
 
-    const now = new Date();
+    const dayEnd = new Date(now);
+    dayEnd.setHours(lastEnd[0], lastEnd[1], 0, 0);
+
     if (now < dayStart) return 0;
     if (now > dayEnd) return 100;
 

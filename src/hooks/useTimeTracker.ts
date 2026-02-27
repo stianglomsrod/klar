@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
 
 type ScheduleEntry = {
   id: string;
@@ -74,29 +75,40 @@ export function useTimeTracker(
           setSubjects(subjectsData);
         }
 
-        // Fetch schedule entries for today
-        const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const dayOfWeek = today === 0 ? 7 : today; // Convert Sunday from 0 to 7
+        // Fetch schedule entries for today (current week, fallback to masterplan)
+        const now = new Date();
+        const dayOfWeek = getISODayOfWeek(now);
+        const weekNumber = getISOWeekNumber(now);
 
-        let query = supabase
-          .from("schedule_entries")
-          .select("*")
-          .eq("day_of_week", dayOfWeek);
+        const buildQuery = (weekNum: number) => {
+          let q = supabase
+            .from("schedule_entries")
+            .select("*")
+            .eq("day_of_week", dayOfWeek)
+            .eq("week_number", weekNum);
 
-        if (studentId) {
-          // Student mode: get class entries + personal entries
-          query = query.or(
-            `and(class_id.eq.${classId},student_id.is.null),student_id.eq.${studentId}`
-          );
+          if (studentId) {
+            // Student mode: get class entries + personal entries
+            q = q.or(
+              `and(class_id.eq.${classId},student_id.is.null),student_id.eq.${studentId}`
+            );
+          } else {
+            // Class mode only
+            q = q.eq("class_id", classId).is("student_id", null);
+          }
+
+          return q.order("start_time");
+        };
+
+        // Try current week first
+        const { data: weekEntries } = await buildQuery(weekNumber);
+
+        if (weekEntries && weekEntries.length > 0) {
+          setScheduleEntries(weekEntries);
         } else {
-          // Class mode only
-          query = query.eq("class_id", classId).is("student_id", null);
-        }
-
-        const { data: entriesData } = await query.order("start_time");
-
-        if (entriesData) {
-          setScheduleEntries(entriesData);
+          // Fallback to masterplan (week_number = 0)
+          const { data: masterEntries } = await buildQuery(0);
+          setScheduleEntries(masterEntries || []);
         }
       } catch (error) {
         console.error("Error fetching schedule:", error);

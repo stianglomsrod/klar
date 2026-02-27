@@ -60,9 +60,9 @@ export default function ScheduleCard({
   const theme = getSubjectTheme(entry.subject_color);
   const accentColor = `rgb(${theme.shadowRgb})`;
 
-  /* Fisheye transforms */
+  /* Fisheye transforms — finished cards get less dimming for readability */
   const scale = isCentered ? 1.1 : 0.9;
-  const opacity = isCentered ? 1 : 0.5;
+  const opacity = isCentered ? 1 : isFinished ? 0.85 : 0.5;
 
   /* Labels */
   const subjectTitle = entry.subject_title || "Time";
@@ -97,11 +97,13 @@ export default function ScheduleCard({
     >
       <div
         style={glowStyle}
-        className={`relative flex items-center gap-4 p-6 rounded-3xl border-l-8 ${theme.borderAccent} transition-all duration-300 ${
+        className={`relative flex items-center gap-4 p-6 rounded-3xl border-l-8 ${isFinished ? "border-slate-300" : theme.borderAccent} transition-all duration-300 ${
           isCentered
-            ? "bg-white shadow-2xl"
+            ? isFinished
+              ? "bg-slate-50 shadow-sm"
+              : "bg-white shadow-2xl"
             : isFinished
-              ? "bg-gray-200/60"
+              ? "bg-slate-100/80"
               : "bg-white/70"
         } ${isLiveLesson ? "animate-float" : ""}`}
       >
@@ -122,9 +124,13 @@ export default function ScheduleCard({
             <h3
               className={`font-bold leading-tight truncate transition-all duration-300 ${
                 isCentered
-                  ? "text-3xl text-slate-900"
-                  : "text-lg text-slate-700"
-              } ${isFinished ? "text-slate-500" : ""}`}
+                  ? isFinished
+                    ? "text-3xl text-slate-500"
+                    : "text-3xl text-slate-900"
+                  : isFinished
+                    ? "text-lg text-slate-500"
+                    : "text-lg text-slate-700"
+              }`}
             >
               {subjectTitle}
             </h3>

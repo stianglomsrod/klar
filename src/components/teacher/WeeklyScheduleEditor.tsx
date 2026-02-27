@@ -270,7 +270,7 @@ export default function WeeklyScheduleEditor({
     }
   };
 
-  const handleOpenModal = (entry?: ScheduleEntry) => {
+  const handleOpenModal = (entry?: ScheduleEntry, preselectedDay?: number) => {
     if (entry) {
       setEditingEntry(entry);
       // Only show custom_title in the form if it differs from the computed default label
@@ -292,7 +292,7 @@ export default function WeeklyScheduleEditor({
       setEditingEntry(null);
       setFormData({
         subject_id: "",
-        selected_days: [1, 2, 3, 4, 5],
+        selected_days: preselectedDay ? [preselectedDay] : [],
         start_time: "09:00",
         end_time: "10:00",
         type: "lesson",
@@ -317,6 +317,11 @@ export default function WeeklyScheduleEditor({
       alert("Velg fag eller skriv en tittel");
       return;
     }
+
+    // Data integrity: strip custom_title when a subject is selected
+    const sanitizedCustomTitle = formData.subject_id
+      ? ""
+      : formData.custom_title;
 
     if (formData.start_time >= formData.end_time) {
       alert("Starttiden må være før sluttiden");
@@ -352,7 +357,7 @@ export default function WeeklyScheduleEditor({
           start_time: formData.start_time,
           end_time: formData.end_time,
           type: formData.type,
-          custom_title: formData.custom_title || null,
+          custom_title: sanitizedCustomTitle || null,
           class_id: classId,
           student_id: desiredStudentId,
           week_number: targetWeek,
@@ -396,7 +401,7 @@ export default function WeeklyScheduleEditor({
           start_time: formData.start_time,
           end_time: formData.end_time,
           type: formData.type,
-          custom_title: formData.custom_title || null,
+          custom_title: sanitizedCustomTitle || null,
           class_id: classId,
           student_id: desiredStudentId,
           week_number: targetWeek,
@@ -414,7 +419,7 @@ export default function WeeklyScheduleEditor({
           start_time: formData.start_time,
           end_time: formData.end_time,
           type: formData.type,
-          custom_title: formData.custom_title || null,
+          custom_title: sanitizedCustomTitle || null,
           class_id: classId,
           student_id: desiredStudentId,
           week_number: 0,
@@ -745,10 +750,17 @@ export default function WeeklyScheduleEditor({
               className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm"
             >
               {/* Day Header */}
-              <div className="bg-indigo-50 border-b border-slate-200 p-3">
+              <div className="bg-indigo-50 border-b border-slate-200 p-3 flex items-center justify-between">
                 <h3 className="font-semibold text-slate-900 text-sm">
                   {day.name}
                 </h3>
+                <button
+                  onClick={() => handleOpenModal(undefined, day.number)}
+                  className="p-1 rounded-md text-indigo-500 hover:bg-indigo-100 hover:text-indigo-700 transition-colors"
+                  aria-label={`Legg til time på ${day.name}`}
+                >
+                  <Plus size={16} />
+                </button>
               </div>
 
               {/* Day Entries */}
@@ -1006,19 +1018,26 @@ export default function WeeklyScheduleEditor({
                 </select>
               </div>
 
-              {/* Custom Title */}
+              {/* Custom Title — disabled when a subject is selected */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900">
+                <label className={`text-sm font-medium ${
+                  formData.subject_id ? "text-slate-400" : "text-slate-900"
+                }`}>
                   Eller skriv tittel:
                 </label>
                 <input
                   type="text"
-                  value={formData.custom_title}
+                  value={formData.subject_id ? "" : formData.custom_title}
                   onChange={(e) =>
                     setFormData({ ...formData, custom_title: e.target.value })
                   }
-                  placeholder="f.eks. Logoped"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  disabled={!!formData.subject_id}
+                  placeholder={formData.subject_id ? "Deaktivert — fag er valgt" : "f.eks. Logoped"}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
+                    formData.subject_id
+                      ? "border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed"
+                      : "border-slate-200 bg-white"
+                  }`}
                 />
               </div>
 

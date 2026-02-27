@@ -27,16 +27,16 @@ const SWIPE_THRESHOLD = 50; // px to count as a swipe
 /* ── Helpers ───────────────────────────────────────────── */
 
 type LessonState = "upcoming" | "active" | "finished";
+type DayRelation = "past" | "today" | "future";
 
-function getLessonState(startTime: string, endTime: string): LessonState {
-  const now = new Date();
+function getLessonState(startTime: string, endTime: string, now: Date): LessonState {
   const [startHour, startMin] = startTime.split(":").map(Number);
   const [endHour, endMin] = endTime.split(":").map(Number);
 
-  const startDate = new Date();
+  const startDate = new Date(now);
   startDate.setHours(startHour, startMin, 0, 0);
 
-  const endDate = new Date();
+  const endDate = new Date(now);
   endDate.setHours(endHour, endMin, 0, 0);
 
   if (now < startDate) return "upcoming";
@@ -77,6 +77,16 @@ export default function StudentTimeplanPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const todayDayIndex = getISODayOfWeek(currentTime) - 1; // 0-based (0=Monday)
   const [selectedDay, setSelectedDay] = useState(Math.min(todayDayIndex, 4)); // clamp to Mon-Fri
+
+  // Weekend & day-relation helpers
+  const isWeekend = todayDayIndex >= 5; // Saturday (5) or Sunday (6)
+
+  const getDayRelation = (dayIdx: number): DayRelation => {
+    if (isWeekend) return "past"; // All weekdays are past on weekends
+    if (dayIdx < todayDayIndex) return "past";
+    if (dayIdx === todayDayIndex) return "today";
+    return "future";
+  };
 
   // Update time every 30s
   useEffect(() => {
@@ -218,8 +228,8 @@ export default function StudentTimeplanPage() {
         )}
       </div>
 
-      {/* Day Tabs */}
-      <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      {/* Day Tabs — mobile only (desktop shows the 5-column grid) */}
+      <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm md:hidden">
         <div className="flex justify-center gap-1 px-3 py-2 max-w-2xl mx-auto">
           {DAY_NAMES_SHORT.map((name, idx) => {
             const dayNum = idx + 1;
@@ -265,6 +275,23 @@ export default function StudentTimeplanPage() {
         </div>
       </div>
 
+      {/* Weekend banner */}
+      {isWeekend && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-4 px-6 max-w-lg mx-auto"
+        >
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
+            <span className="text-4xl block mb-2">🌟</span>
+            <h2 className="text-lg font-bold text-amber-800">God helg!</h2>
+            <p className="text-sm text-amber-600 mt-1">
+              Nyt helgen — her kan du se timeplanen fra denne uken.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Schedule Content */}
       {isDesktop ? (
         /* ── Desktop: Grid of all days ────────────────────── */
@@ -272,6 +299,7 @@ export default function StudentTimeplanPage() {
           scheduleByDay={scheduleByDay}
           currentTime={currentTime}
           todayDayIndex={todayDayIndex}
+          isWeekend={isWeekend}
           selectedDay={selectedDay}
           onSelectDay={setSelectedDay}
           onLessonClick={handleLessonClick}
@@ -294,7 +322,7 @@ export default function StudentTimeplanPage() {
           <DayScheduleList
             entries={scheduleByDay[selectedDay + 1] || []}
             currentTime={currentTime}
-            isToday={isToday(selectedDay)}
+            dayRelation={getDayRelation(selectedDay)}
             onLessonClick={handleLessonClick}
           />
 
@@ -350,12 +378,12 @@ function DayHeader({
 function DayScheduleList({
   entries,
   currentTime,
-  isToday,
+  dayRelation,
   onLessonClick,
 }: {
   entries: ScheduleEntry[];
   currentTime: Date;
-  isToday: boolean;
+  dayRelation: DayRelation;
   onLessonClick: (entry: ScheduleEntry) => void;
 }) {
   if (entries.length === 0) {
@@ -370,10 +398,12 @@ function DayScheduleList({
   return (
     <div className="space-y-3">
       {entries.map((entry, index) => {
-        const state = isToday
-          ? getLessonState(entry.start_time, entry.end_time)
-          : "upcoming";
-        const progress = isToday
+        const state: LessonState = dayRelation === "today"
+          ? getLessonState(entry.start_time, entry.end_time, currentTime)
+          : dayRelation === "past"
+            ? "finished"
+            : "upcoming";
+        const progress = dayRelation === "today"
           ? getLessonProgressPercent(
               entry.start_time,
               entry.end_time,
@@ -388,7 +418,7 @@ function DayScheduleList({
             state={state}
             lessonProgress={progress}
             index={index}
-            isToday={isToday}
+            isToday={dayRelation === "today"}
             onClick={() => onLessonClick(entry)}
           />
         );
@@ -438,17 +468,17 @@ function TimeplanCard({
               }
             : undefined
         }
-        className={`flex items-center gap-3 p-4 rounded-2xl border-l-[6px] ${theme.borderAccent} transition-all duration-200 ${
+        className={`flex items-center gap-3 p-4 rounded-2xl border-l-[6px] ${isFinished ? "border-slate-300" : theme.borderAccent} transition-all duration-200 ${
           isLiveLesson
             ? "bg-white shadow-lg ring-1 ring-slate-200"
             : isFinished
-              ? "bg-slate-100/70"
+              ? "bg-slate-50"
               : "bg-white/80 shadow-sm"
         }`}
       >
         {/* Emoji */}
         <span
-          className={`text-2xl flex-shrink-0 ${isFinished ? "opacity-50" : ""}`}
+          className={`text-2xl flex-shrink-0 ${isFinished ? "grayscale" : ""}`}
         >
           {entry.emoji}
         </span>
@@ -458,7 +488,7 @@ function TimeplanCard({
           <div className="flex items-center gap-1">
             <h3
               className={`font-bold text-base truncate ${
-                isFinished ? "text-slate-400 line-through" : "text-slate-800"
+                isFinished ? "text-slate-500" : "text-slate-800"
               }`}
             >
               {subjectTitle}
@@ -557,21 +587,31 @@ function DesktopWeekGrid({
   scheduleByDay,
   currentTime,
   todayDayIndex,
+  isWeekend,
   onLessonClick,
 }: {
   scheduleByDay: Record<number, ScheduleEntry[]>;
   currentTime: Date;
   todayDayIndex: number;
+  isWeekend: boolean;
   selectedDay: number;
   onSelectDay: (d: number) => void;
   onLessonClick: (entry: ScheduleEntry) => void;
 }) {
+  const getDayRelation = (dayIdx: number): DayRelation => {
+    if (isWeekend) return "past";
+    if (dayIdx < todayDayIndex) return "past";
+    if (dayIdx === todayDayIndex) return "today";
+    return "future";
+  };
+
   return (
     <div className="max-w-6xl mx-auto px-4 pt-6 grid grid-cols-5 gap-4">
       {DAY_NAMES.map((name, idx) => {
         const dayNum = idx + 1;
         const entries = scheduleByDay[dayNum] || [];
-        const isTodayCol = idx === todayDayIndex;
+        const isTodayCol = idx === todayDayIndex && !isWeekend;
+        const relation = getDayRelation(idx);
 
         return (
           <div
@@ -602,10 +642,12 @@ function DesktopWeekGrid({
             ) : (
               <div className="space-y-2">
                 {entries.map((entry) => {
-                  const state = isTodayCol
-                    ? getLessonState(entry.start_time, entry.end_time)
-                    : "upcoming";
-                  const progress = isTodayCol
+                  const state: LessonState = relation === "today"
+                    ? getLessonState(entry.start_time, entry.end_time, currentTime)
+                    : relation === "past"
+                      ? "finished"
+                      : "upcoming";
+                  const progress = relation === "today"
                     ? getLessonProgressPercent(
                         entry.start_time,
                         entry.end_time,
@@ -657,14 +699,14 @@ function DesktopLessonRow({
         isLive
           ? "bg-white shadow-md ring-1 ring-indigo-200"
           : isFinished
-            ? "bg-slate-100/60 opacity-60"
+            ? "bg-slate-50"
             : "bg-white/70 hover:bg-white hover:shadow-sm"
       }`}
     >
-      <span className="text-lg flex-shrink-0">{entry.emoji}</span>
+      <span className={`text-lg flex-shrink-0 ${isFinished ? "grayscale" : ""}`}>{entry.emoji}</span>
       <div className="flex-1 min-w-0">
         <p
-          className={`text-xs font-bold truncate ${isFinished ? "text-slate-400 line-through" : "text-slate-700"}`}
+          className={`text-xs font-bold truncate ${isFinished ? "text-slate-500" : "text-slate-700"}`}
         >
           {entry.subject_title || "Time"}
         </p>
