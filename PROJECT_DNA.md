@@ -447,7 +447,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 ### Rewards
 
-- `CouponCard.tsx` — reward/coupon display card
+- `CouponCard.tsx` — reward/coupon display card with ticket-style perforation dots; redeemed cards show pastel gradients at reduced opacity with an emerald "✅ Innløst" pill (no stamp overlay)
 
 ---
 

@@ -174,7 +174,7 @@ export default function KupongerPage() {
         >
           <div className="flex items-center justify-center gap-3 mb-3">
             <Wallet className="w-10 h-10 text-purple-600" />
-            <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">
+            <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 pb-2">
               Mine Kuponger
             </h1>
             <span className="text-5xl">🎫</span>
@@ -245,9 +245,9 @@ export default function KupongerPage() {
               className="w-full mb-4 flex items-center justify-between p-4 bg-white/60 hover:bg-white/80 rounded-2xl shadow-md transition-all group"
             >
               <div className="flex items-center gap-2">
-                <span className="text-2xl">📜</span>
+                <span className="text-2xl">🏆</span>
                 <h2 className="text-2xl font-bold text-gray-800">
-                  Tidligere Premier
+                  Premieskap
                 </h2>
                 <span className="text-sm font-normal text-gray-500 ml-2">
                   ({redeemedRewards.length})

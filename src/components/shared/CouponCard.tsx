@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Calendar, Check, Lock } from "lucide-react";
+import { Calendar, Lock } from "lucide-react";
 
 type CouponCardProps = {
   title: string;
@@ -34,12 +34,12 @@ export default function CouponCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`relative rounded-2xl overflow-hidden shadow-lg transition-all ${
+      className={`relative rounded-2xl overflow-hidden transition-all ${
         isLocked
-          ? "bg-gray-200 opacity-70"
+          ? "bg-gray-200 opacity-70 shadow-lg"
           : isRedeemed
-            ? "bg-gray-200 opacity-75"
-            : "bg-gradient-to-br from-yellow-100 via-orange-100 to-pink-100 hover:shadow-xl hover:scale-[1.02]"
+            ? "bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 opacity-90"
+            : "bg-gradient-to-br from-yellow-100 via-orange-100 to-pink-100 shadow-lg hover:shadow-xl hover:scale-[1.02]"
       }`}
     >
       {/* Ticket perforations - top and bottom */}
@@ -48,7 +48,7 @@ export default function CouponCard({
           <div
             key={`top-${i}`}
             className={`w-2 h-2 rounded-full ${
-              isLocked || isRedeemed ? "bg-gray-300" : "bg-white/40"
+              isLocked ? "bg-gray-300" : isRedeemed ? "bg-white/30" : "bg-white/40"
             }`}
           />
         ))}
@@ -58,7 +58,7 @@ export default function CouponCard({
           <div
             key={`bottom-${i}`}
             className={`w-2 h-2 rounded-full ${
-              isLocked || isRedeemed ? "bg-gray-300" : "bg-white/40"
+              isLocked ? "bg-gray-300" : isRedeemed ? "bg-white/30" : "bg-white/40"
             }`}
           />
         ))}
@@ -79,16 +79,7 @@ export default function CouponCard({
         </div>
       )}
 
-      {/* Redeemed stamp */}
-      {isRedeemed && !isLocked && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-15deg] z-10">
-          <div className="border-4 border-red-600 rounded-lg px-6 py-3 bg-white/80">
-            <p className="text-3xl font-black text-red-600 tracking-wider">
-              BRUKT
-            </p>
-          </div>
-        </div>
-      )}
+      {/* Redeemed — no stamp, just a subtle ribbon */}
 
       {/* Card content */}
       <div className="p-6 pt-8 pb-8 relative">
@@ -98,7 +89,7 @@ export default function CouponCard({
         {/* Title */}
         <h3
           className={`text-xl font-bold text-center mb-2 ${
-            isLocked || isRedeemed ? "text-gray-600" : "text-gray-900"
+            isLocked ? "text-gray-600" : "text-gray-900"
           }`}
         >
           {title}
@@ -108,7 +99,7 @@ export default function CouponCard({
         {description && (
           <p
             className={`text-sm text-center mb-4 ${
-              isLocked || isRedeemed ? "text-gray-500" : "text-gray-700"
+              isLocked ? "text-gray-500" : "text-gray-700"
             }`}
           >
             {description}
@@ -118,7 +109,7 @@ export default function CouponCard({
         {/* Date */}
         <div
           className={`flex items-center justify-center gap-2 text-xs ${
-            isLocked || isRedeemed ? "text-gray-500" : "text-gray-600"
+            isLocked ? "text-gray-500" : "text-gray-600"
           } mb-4`}
         >
           <Calendar className="w-3 h-3" />
@@ -138,9 +129,9 @@ export default function CouponCard({
             Bruk kupong
           </button>
         ) : (
-          <div className="flex items-center justify-center gap-2 text-gray-500 font-semibold">
-            <Check className="w-5 h-5" />
-            <span>Brukt</span>
+          <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-50 border border-emerald-200">
+            <span className="text-base">✅</span>
+            <span className="text-sm font-semibold text-emerald-700">Innløst</span>
           </div>
         )}
       </div>
@@ -148,7 +139,7 @@ export default function CouponCard({
       {/* Dashed border effect */}
       <div
         className={`absolute inset-0 border-2 border-dashed rounded-2xl pointer-events-none ${
-          isLocked || isRedeemed ? "border-gray-400" : "border-orange-300"
+          isLocked ? "border-gray-400" : isRedeemed ? "border-orange-200" : "border-orange-300"
         }`}
         style={{ margin: "4px" }}
       />
