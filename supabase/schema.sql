@@ -486,20 +486,43 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
   RETURN QUERY
+  WITH deduped AS (
+    -- For each (day, start, end) slot, keep the week-specific entry
+    -- over the masterplan entry (week_number = 0).
+    SELECT DISTINCT ON (se.day_of_week, se.start_time, se.end_time)
+      se.id,
+      se.day_of_week,
+      se.start_time,
+      se.end_time,
+      se.subject_id,
+      se.custom_title,
+      se.week_number
+    FROM schedule_entries se
+    WHERE se.type = 'lesson'
+    AND (
+      se.student_id = p_student_id
+      OR se.class_id IN (
+        SELECT class_id FROM student_profiles WHERE student_profiles.id = p_student_id
+      )
+    )
+    AND (se.week_number = p_current_week_number OR se.week_number = 0 OR se.week_number IS NULL)
+    ORDER BY se.day_of_week, se.start_time, se.end_time,
+      CASE WHEN se.week_number = p_current_week_number THEN 0 ELSE 1 END
+  )
   SELECT
-    se.id,
-    se.day_of_week,
-    se.start_time::TEXT,
-    se.end_time::TEXT,
-    se.subject_id,
-    COALESCE(s.title, se.custom_title, 'Time') AS subject_title,
+    d.id,
+    d.day_of_week,
+    d.start_time::TEXT,
+    d.end_time::TEXT,
+    d.subject_id,
+    COALESCE(s.title, d.custom_title, 'Time') AS subject_title,
     COALESCE(s.emoji, '📚') AS emoji,
     COALESCE(s.color_theme, 'gray') AS subject_color,
     COALESCE(
       EXISTS(
         SELECT 1 FROM task_schedule_entries tse
         JOIN tasks t ON tse.task_id = t.id
-        WHERE tse.schedule_entry_id = se.id
+        WHERE tse.schedule_entry_id = d.id
         AND t.student_id = p_student_id
       ),
       FALSE
@@ -507,7 +530,7 @@ BEGIN
     COALESCE(
       EXISTS(
         SELECT 1 FROM tasks t
-        WHERE t.subject_id = se.subject_id
+        WHERE t.subject_id = d.subject_id
         AND t.student_id = p_student_id
         AND t.is_completed = FALSE
         AND NOT EXISTS (
@@ -516,34 +539,26 @@ BEGIN
       ),
       FALSE
     ) AS subject_has_tasks,
-    se.custom_title,
-    COALESCE(se.week_number, 0) AS week_number,
+    d.custom_title,
+    COALESCE(d.week_number, 0) AS week_number,
     (
       SELECT COUNT(*)
       FROM task_schedule_entries tse
       JOIN tasks t ON tse.task_id = t.id
-      WHERE tse.schedule_entry_id = se.id
+      WHERE tse.schedule_entry_id = d.id
       AND t.student_id = p_student_id
     ) AS tasks_total,
     (
       SELECT COUNT(*)
       FROM task_schedule_entries tse
       JOIN tasks t ON tse.task_id = t.id
-      WHERE tse.schedule_entry_id = se.id
+      WHERE tse.schedule_entry_id = d.id
       AND t.student_id = p_student_id
       AND t.is_completed = TRUE
     ) AS tasks_completed
-  FROM schedule_entries se
-  LEFT JOIN subjects s ON se.subject_id = s.id
-  WHERE se.type = 'lesson'
-  AND (
-    se.student_id = p_student_id
-    OR se.class_id IN (
-      SELECT class_id FROM student_profiles WHERE student_profiles.id = p_student_id
-    )
-  )
-  AND (se.week_number = p_current_week_number OR se.week_number = 0 OR se.week_number IS NULL)
-  ORDER BY se.day_of_week, se.start_time;
+  FROM deduped d
+  LEFT JOIN subjects s ON d.subject_id = s.id
+  ORDER BY d.day_of_week, d.start_time;
 END;
 $$ LANGUAGE plpgsql STABLE;
 

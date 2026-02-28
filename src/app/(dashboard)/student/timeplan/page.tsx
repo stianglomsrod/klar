@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, PanInfo } from "framer-motion";
@@ -40,6 +40,7 @@ export default function StudentTimeplanPage() {
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const userIdRef = useRef<string | null>(null);
   const todayDayIndex = getISODayOfWeek(currentTime) - 1; // 0-based (0=Monday)
   const [selectedDay, setSelectedDay] = useState(Math.min(todayDayIndex, 4)); // clamp to Mon-Fri
 
@@ -71,6 +72,8 @@ export default function StudentTimeplanPage() {
           router.push("/login");
           return;
         }
+
+        userIdRef.current = user.id;
 
         const weekNumber = getISOWeekNumber(currentTime);
 
@@ -105,6 +108,39 @@ export default function StudentTimeplanPage() {
     fetchSchedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Periodic schedule refetch every 5 minutes
+  const refetchSchedule = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!uid) return;
+    try {
+      const now = new Date();
+      const weekNumber = getISOWeekNumber(now);
+      const { data: scheduleData } = await supabase.rpc(
+        "get_student_schedule",
+        { p_student_id: uid, p_current_week_number: weekNumber },
+      );
+      if (scheduleData) {
+        const entries = (scheduleData || []).map(
+          (entry: Record<string, unknown>) => ({
+            ...entry,
+            tasks_total: entry.tasks_total ?? 0,
+            tasks_completed: entry.tasks_completed ?? 0,
+            subject_color: entry.subject_color ?? "gray",
+          }),
+        );
+        setSchedule(entries);
+      }
+    } catch {
+      // Silent — background refresh failure is non-critical
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(refetchSchedule, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [refetchSchedule]);
 
   // Group schedule by day_of_week (1=Monday … 5=Friday)
   const scheduleByDay: Record<number, ScheduleEntry[]> = {};

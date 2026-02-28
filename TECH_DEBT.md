@@ -4,6 +4,22 @@
 
 ---
 
+## Resolved Debt
+
+### ~~Schedule & TimeTracker Logic~~ ✅ RESOLVED (2026-02-28)
+
+The following critical schedule bugs were identified in CODE_AUDIT.md §3.2–§3.5 and resolved:
+
+| Bug                                                | Description                                                                                      | Resolution                                                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| §3.2 `useTimeTracker` missing `week_number` filter | Could return entries from wrong weeks                                                            | Already had correct filter with masterplan fallback; verified and confirmed. Added 5-min periodic refetch.                  |
+| §3.3 Past days shown as "upcoming" in Timeplan     | Monday's lessons showed dashed circles on Tuesday+                                               | Already fixed via `getDayRelation()` helper; verified and confirmed.                                                        |
+| §3.4 No schedule deduplication on import           | Uploading the same week twice created duplicate `schedule_entries`                               | Added `DELETE` before `INSERT` in `save-weekly-plan.ts` for the target `week_number + class_id` combination.                |
+| §3.5 Schedule fetched once with no refresh         | Teacher schedule changes not reflected until page reload                                         | Added 5-min periodic refetch to `useTimeTracker.ts`, `student/page.tsx`, and `student/timeplan/page.tsx`.                   |
+| (new) RPC returned duplicate entries               | `get_student_schedule` returned both week-specific and masterplan entries for the same time slot | Updated RPC with `DISTINCT ON` CTE to prefer week-specific entries. Migration: `20260228000000_fix_schedule_rpc_dedup.sql`. |
+
+---
+
 ## 1. Student Auth Hack: Invisible Emails
 
 | Field      | Detail                         |

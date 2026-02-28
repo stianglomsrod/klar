@@ -58,29 +58,25 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 - **Files:** `src/app/(dashboard)/student/page.tsx`, `src/app/(dashboard)/student/timeplan/page.tsx`
 - **Resolution:** Extracted to `src/utils/lesson-time.ts` as pure functions with explicit `now` parameter. All callers now pass `currentTime`.
 
-### 3.2 🔴 `useTimeTracker` missing `week_number` filter
+### 3.2 ~~🔴 `useTimeTracker` missing `week_number` filter~~ ✅ FIXED (2026-02-28)
 
-- **File:** `src/hooks/useTimeTracker.ts` (L82–86)
-- **Impact:** Returns ALL schedule entries across all weeks for today's weekday — students see wrong/duplicate lessons
-- **Fix:** Add `week_number` filter or refactor to use `get_student_schedule` RPC
+- **File:** `src/hooks/useTimeTracker.ts`
+- **Resolution:** Verified that the hook already correctly filters by `week_number` with fallback to masterplan (week 0). Added 5-minute periodic refetch via `refetchTick` state.
 
-### 3.3 🔴 Past days show as "upcoming" in Timeplan
+### 3.3 ~~🔴 Past days show as "upcoming" in Timeplan~~ ✅ FIXED (2026-02-28)
 
-- **File:** `src/app/(dashboard)/student/timeplan/page.tsx` (L340–345)
-- **Impact:** Monday's lessons still show dashed circles on Tuesday+. Weekends show all days as "upcoming"
-- **Fix:** Compare `dayIndex` against `todayDayIndex`; past → "finished", future → "upcoming"
+- **File:** `src/app/(dashboard)/student/timeplan/page.tsx`
+- **Resolution:** Verified that the `getDayRelation()` helper already correctly compares `dayIndex` against `todayDayIndex`. Past days → "finished", future days → "upcoming", today → uses `getLessonState()`. Weekends show all days as "past".
 
-### 3.4 🔴 No schedule deduplication on import
+### 3.4 ~~🔴 No schedule deduplication on import~~ ✅ FIXED (2026-02-28)
 
 - **File:** `src/app/actions/save-weekly-plan.ts`
-- **Impact:** Uploading the same week twice creates duplicate `schedule_entries` — no DELETE or UPSERT
-- **Fix:** Delete existing entries for target `week_number + class_id` before insert
+- **Resolution:** Added `DELETE` for existing `schedule_entries` matching the target `week_number + class_id` combination before `INSERT` in step 6b. Uploading the same week now cleanly replaces existing entries.
 
-### 3.5 🔴 Schedule fetched once with no refresh
+### 3.5 ~~🔴 Schedule fetched once with no refresh~~ ✅ FIXED (2026-02-28)
 
-- **Files:** `student/page.tsx`, `student/timeplan/page.tsx`
-- **Impact:** Teacher schedule changes not reflected until page reload
-- **Fix:** Add periodic refetch (5-min interval) or Supabase realtime subscription
+- **Files:** `student/page.tsx`, `student/timeplan/page.tsx`, `useTimeTracker.ts`
+- **Resolution:** Added 5-minute periodic refetch intervals to all three schedule consumers. Uses `useCallback` + `setInterval` pattern with `userIdRef` to avoid stale closures. Background failures are silent (non-critical).
 
 ### 3.6 ~~🔴 `useStudentProfile.ts` hook has divergent `StudentProfile` type~~ ✅ RESOLVED
 
@@ -177,6 +173,7 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 - ```200 lines of near-identical logic between them~~
 
   ```
+
 - Now: A=456 lines, B=412 lines. Shared logic in `useTaskFlow` hook (356 lines) + `hero-gradients.ts` (60 lines)
 
 ### 4.8 🟡 `student/timeplan/page.tsx` — 733 lines

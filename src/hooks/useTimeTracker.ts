@@ -57,8 +57,18 @@ export function useTimeTracker(
   const [loading, setLoading] = useState(true);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [refetchTick, setRefetchTick] = useState(0);
 
   const supabase = createClient();
+
+  // Periodic schedule refetch every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(
+      () => setRefetchTick((t) => t + 1),
+      5 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, []);
 
   // Fetch schedule data
   useEffect(() => {
@@ -118,7 +128,8 @@ export function useTimeTracker(
     };
 
     fetchSchedule();
-  }, [classId, studentId, supabase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, studentId, refetchTick]);
 
   // Update current activity every 30 seconds
   useEffect(() => {

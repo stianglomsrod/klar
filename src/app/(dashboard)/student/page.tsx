@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +26,7 @@ export default function StudentQuestLogPage() {
     message: "",
     visible: false,
   });
+  const userIdRef = useRef<string | null>(null);
 
   // Refs for wheel navigation
   const containerRef = useRef<HTMLDivElement>(null);
@@ -63,6 +64,8 @@ export default function StudentQuestLogPage() {
           router.push("/login");
           return;
         }
+
+        userIdRef.current = user.id;
 
         // Get student profile for name
         const { data: profileData } = await supabase
@@ -121,7 +124,42 @@ export default function StudentQuestLogPage() {
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Periodic schedule refetch every 5 minutes
+  const refetchSchedule = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!uid) return;
+    try {
+      const now = new Date();
+      const weekNumber = getISOWeekNumber(now);
+      const { data: scheduleData } = await supabase.rpc(
+        "get_student_schedule",
+        { p_student_id: uid, p_current_week_number: weekNumber },
+      );
+      if (scheduleData) {
+        const todayNum = getISODayOfWeek(now);
+        const todaysLessons = (scheduleData || [])
+          .filter((entry: any) => entry.day_of_week === todayNum)
+          .map((entry: any) => ({
+            ...entry,
+            tasks_total: entry.tasks_total ?? 0,
+            tasks_completed: entry.tasks_completed ?? 0,
+            subject_color: entry.subject_color ?? "gray",
+          }));
+        setSchedule(todaysLessons);
+      }
+    } catch {
+      // Silent — background refresh failure is non-critical
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(refetchSchedule, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [refetchSchedule]);
 
   // Calculate card distances from center on scroll + track active lesson index
   const handleScroll = () => {

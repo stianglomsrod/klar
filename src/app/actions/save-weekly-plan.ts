@@ -224,7 +224,19 @@ export async function saveWeeklyPlan(
         }
       }
 
-      // ── 6b. Insert the actual week entries ──
+      // ── 6b. Delete existing entries for this week + classes, then insert ──
+
+      const classIdsToClean = [
+        ...new Set(rows.map((r) => r.class_id).filter(Boolean)),
+      ] as string[];
+
+      if (classIdsToClean.length > 0) {
+        await supabase
+          .from("schedule_entries")
+          .delete()
+          .in("class_id", classIdsToClean)
+          .eq("week_number", data.weekNumber);
+      }
 
       const { error } = await supabase.from("schedule_entries").insert(rows);
 
