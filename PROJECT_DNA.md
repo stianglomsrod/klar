@@ -102,16 +102,16 @@ src/app/
 
 ### 2.4 Hooks
 
-| Hook                | Purpose                                                                                                                                                                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                           |
-| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                      |
-| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used internally by `useTaskFlow`. |
+| Hook                | Purpose                                                                                                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                               |
+| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                          |
+| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used internally by `useTaskFlow`.   |
 | `useTaskFlow`       | Shared task submission flow for Container A & B. Encapsulates media state, `handleConfirmCompletion`, `handleQuizSubmit`, quiz/modal state, reward selection. Delegates XP to `useTaskCompletion`. |
-| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                  |
-| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                  |
-| `useMediaQuery`     | CSS media query hook                                                                                                                                                                           |
-| `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                 |
+| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                      |
+| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                      |
+| `useMediaQuery`     | CSS media query hook                                                                                                                                                                               |
+| `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                     |
 
 ### 2.5 XP / Leveling System
 
@@ -403,16 +403,17 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `StudentQuizView.tsx` — full quiz experience
 - `FeedbackBubble.tsx` — messenger-style teacher feedback display with TTS
 - `FeedbackSheet.tsx` — "Wall of Praise" sliding sheet; fetches all feedback with subject/task context, renders FeedbackBubble cards, auto-marks as read
+- `AvatarPickerModal.tsx` — curated emoji avatar selector (portal + Framer Motion), saves to profiles.avatar_url, refreshes via StudentProfileContext
 - `ArchiveDrawer.tsx` + `ResponsiveArchive.tsx` — completed task archive
 
 ### Teacher Experience
 
 - `ActivityDetailSheet.tsx` — grading slide-out panel (50vw desktop)
 - `WeeklyScheduleEditor.tsx` — schedule management
-- `CreateTaskButton.tsx` + `CreateTaskModal.tsx` — task creation/edit orchestrator (composes QuizBuilder, RecipientPicker, SchedulePicker)
-- `QuizBuilder.tsx` — controlled quiz question builder (add/remove questions, option management)
+- `CreateTaskButton.tsx` + `CreateTaskModal.tsx` (~850L) — 2-step wizard task creation (Step 1: Innhold, Step 2: Tildeling) with step indicator pills; edit mode uses single-step view. Composes QuizBuilder, RecipientPicker, SchedulePicker. Supports **recurring tasks** via progressive disclosure checkbox ("Gjenta denne oppgaven hver uke", visible only when schedule entries are selected): recurring mode links to masterplan `week_number=0` entries; single-week mode (default) links to specific-week entries, cloning/upserting from masterplan if needed.
+- `QuizBuilder.tsx` — card-based quiz builder with expandable question cards, pill-button answer type selector (Tekstsvar / Flervalg én riktig / Flervalg flere riktige), visual radio/checkbox indicators, and explicit "+ Legg til alternativ" button
 - `RecipientPicker.tsx` — class/student selection with search, grouping, auto-scroll (`forwardRef` with `getSelectedStudentIds()` handle)
-- `SchedulePicker.tsx` — week navigation + schedule entry selection Popover (`forwardRef` with `getSelectedEntryIds()` handle)
+- `SchedulePicker.tsx` — week navigation + schedule entry selection Popover (`forwardRef` with `getSelectedEntryIds()`, `getSelectedEntries()`, and `getViewingWeek()` handles; `onSelectionChange` callback for parent notification). Chips display "Mandag 08:30 Norsk" format.
 - `StudentTable.tsx` — student list with data table
 - `ClassesAccordion.tsx` — class management accordion
 - `ClassMonitorToggle.tsx` — live monitoring toggle
@@ -423,6 +424,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `TeacherSidebar.tsx` — teacher-specific sidebar
 - `StudentRewardManager.tsx` — reward CRUD + assignment modal with list/create views, uses `EmojiPickerButton`
 - `ClassCombobox.tsx` — class search + create with grade inference, Popover-based
+- `BulkStudentAssignModal.tsx` — multi-select modal for assigning students to a class (search, checkboxes, batch updateStudentClass)
 - `StudentPasswordCard.tsx` — password reset/copy/show-hide card
 - `StudentSettingsCard.tsx` — settings card with toggles + welcome message
 
@@ -451,23 +453,25 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 ## 8. Migration History
 
-| Migration        | Description                            |
-| ---------------- | -------------------------------------- |
-| `20260102000000` | Add emoji column to rewards            |
-| `20260102000001` | Add rewards RLS policies               |
-| `20260102000002` | Add delete_reward RPC                  |
-| `20260112000000` | Add get_student_schedule RPC           |
-| `20260121000000` | Fix get_student_schedule task counts   |
-| `20260220000000` | Add task_library RLS policies          |
-| `20260220000001` | Rewards multi-student support          |
-| `20260221000001` | Activity feed updates                  |
-| `20260221000002` | Add quiz and media support             |
-| `20260221000003` | Add feedback task unique constraint    |
-| `20260222000000` | Add earned_at_level to student_rewards |
-| `20260222000001` | Add max_level_reached column           |
-| `20260222000002` | Create student-media storage bucket    |
-| `20260222100000` | Add teacher_id & read_at to feedback   |
-| `20260222200000` | Add current_password_plaintext column  |
+| Migration        | Description                              |
+| ---------------- | ---------------------------------------- |
+| `20260102000000` | Add emoji column to rewards              |
+| `20260102000001` | Add rewards RLS policies                 |
+| `20260102000002` | Add delete_reward RPC                    |
+| `20260112000000` | Add get_student_schedule RPC             |
+| `20260121000000` | Fix get_student_schedule task counts     |
+| `20260220000000` | Add task_library RLS policies            |
+| `20260220000001` | Rewards multi-student support            |
+| `20260221000001` | Activity feed updates                    |
+| `20260221000002` | Add quiz and media support               |
+| `20260221000003` | Add feedback task unique constraint      |
+| `20260222000000` | Add earned_at_level to student_rewards   |
+| `20260222000001` | Add max_level_reached column             |
+| `20260222000002` | Create student-media storage bucket      |
+| `20260222100000` | Add teacher_id & read_at to feedback     |
+| `20260222200000` | Add current_password_plaintext column    |
+| `20260228000000` | Add class unique constraint + UPDATE RLS |
+| `20260228000001` | Add DELETE RLS policy for classes table  |
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Filter, School, Users } from "lucide-react";
@@ -56,8 +56,12 @@ export default function ClassesPage() {
           avatar_url, 
           student_profiles (
             level,
+            class_id,
             show_flower_garden,
-            custom_welcome_message
+            custom_welcome_message,
+            classes (
+              name
+            )
           )
           `,
         )
@@ -72,8 +76,8 @@ export default function ClassesPage() {
         full_name: profile.full_name,
         avatar_url: profile.avatar_url,
         level: profile.student_profiles?.level ?? 1,
-        class_name: null, // Note: class relationship not in current query
-        class_id: null,
+        class_id: profile.student_profiles?.class_id ?? null,
+        class_name: profile.student_profiles?.classes?.name ?? null,
         show_flower_garden:
           profile.student_profiles?.show_flower_garden ?? true,
         custom_welcome_message:
@@ -131,6 +135,25 @@ export default function ClassesPage() {
     setEditingStudent(student);
     setIsSheetOpen(true);
   };
+
+  // Callback for inline class assignment / removal in StudentTable
+  const handleStudentClassChanged = useCallback(
+    (studentId: string, className: string | null, classId: string | null) => {
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === studentId
+            ? { ...s, class_name: className, class_id: classId }
+            : s,
+        ),
+      );
+      if (className) {
+        showToast(`Klasse endret til "${className}"`, "success");
+      } else {
+        showToast("Elev fjernet fra klasse", "success");
+      }
+    },
+    [showToast],
+  );
 
   const handleSaveStudent = async (
     studentId: string,
@@ -273,6 +296,7 @@ export default function ClassesPage() {
         <StudentTable
           students={filteredStudents}
           onEditStudent={handleEditStudent}
+          onStudentClassChanged={handleStudentClassChanged}
         />
       )}
 

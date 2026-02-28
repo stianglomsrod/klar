@@ -22,6 +22,8 @@ type SidebarProps = {
   level?: number;
   progressPercent?: number;
   avatar?: string;
+  /** Called when the student clicks their avatar to change it. */
+  onAvatarClick?: () => void;
 };
 
 export default function Sidebar({
@@ -31,6 +33,7 @@ export default function Sidebar({
   level = 3,
   progressPercent = 42,
   avatar = "🦄",
+  onAvatarClick,
 }: SidebarProps = {}) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const router = useRouter();
@@ -141,15 +144,28 @@ export default function Sidebar({
             {/* Bottom Progress Card (Nå synkronisert med footer!) */}
             <div className="absolute bottom-6 left-6 right-6">
               <div className="bg-gradient-to-br from-indigo-50 to-blue-50 p-4 rounded-xl text-center border border-indigo-100">
-                {avatar && avatar.startsWith("http") ? (
-                  <img
-                    src={avatar}
-                    alt="Avatar"
-                    className="w-12 h-12 rounded-full mx-auto mb-1 object-cover border-2 border-indigo-200"
-                  />
-                ) : (
-                  <span className="text-3xl block mb-1">{avatar}</span>
-                )}
+                <button
+                  type="button"
+                  onClick={onAvatarClick}
+                  className="relative group mx-auto mb-1 cursor-pointer"
+                  aria-label="Bytt avatar"
+                >
+                  {avatar && avatar.startsWith("http") ? (
+                    <img
+                      src={avatar}
+                      alt="Avatar"
+                      className="w-12 h-12 rounded-full object-cover border-2 border-indigo-200 group-hover:ring-2 group-hover:ring-indigo-400 transition-all"
+                    />
+                  ) : (
+                    <span className="text-3xl block group-hover:scale-110 transition-transform">
+                      {avatar}
+                    </span>
+                  )}
+                  {/* Pencil overlay on hover */}
+                  <span className="absolute -bottom-0.5 -right-0.5 bg-indigo-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                    ✏️
+                  </span>
+                </button>
                 <p className="text-sm text-gray-600 mt-1 font-semibold">
                   Nivå {level}
                 </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -9,9 +9,27 @@ import {
   Users,
   GraduationCap,
   MoreVertical,
+  Plus,
+  Loader2,
+  X,
 } from "lucide-react";
 import ClassMonitorToggle from "./ClassMonitorToggle";
 import HelpRequestQueue from "./HelpRequestQueue";
+import BulkStudentAssignModal from "./BulkStudentAssignModal";
+import ClassCombobox from "./ClassCombobox";
+import ConfirmDialog, {
+  type ConfirmDialogState,
+} from "@/components/ui/ConfirmDialog";
+import { EditDialog } from "@/components/ui/edit-dialog";
+import {
+  createClass,
+  updateStudentClass,
+  renameClass,
+  renameGrade,
+  deleteClass,
+} from "@/app/actions/student-actions";
+import { useToast } from "@/hooks/useToast";
+import Toast from "@/components/ui/Toast";
 import type { TeacherStudent } from "@/types/shared";
 
 type Student = TeacherStudent;
@@ -19,12 +37,14 @@ type Student = TeacherStudent;
 type Class = {
   id: string;
   name: string;
+  grade_id: string | null;
   students: Student[];
 };
 
 type Trinn = {
   id: string;
   name: string;
+  grade_id: string | null;
   classes: Class[];
 };
 
@@ -58,12 +78,45 @@ export default function ClassesAccordion({
     position: DropdownPosition;
   } | null>(null);
 
-  const supabase = createClient();
+  // ── Create class dialog state ──────────────────────
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newClassName, setNewClassName] = useState("");
+  const [createDialogGradeHint, setCreateDialogGradeHint] = useState<
+    string | null
+  >(null);
+  const [creating, setCreating] = useState(false);
+  const { toast, showToast, hideToast } = useToast();
 
-  useEffect(() => {
-    fetchClassStructure();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Bulk assign modal state ─────────────────────────
+  const [bulkAssignTarget, setBulkAssignTarget] = useState<{
+    classId: string;
+    className: string;
+  } | null>(null);
+
+  // ── Confirm dialog state (for "Fjern elev") ────────
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null);
+
+  // ── Move student dialog state ──────────────────────
+  const [moveStudentTarget, setMoveStudentTarget] = useState<{
+    studentId: string;
+    studentName: string;
+    currentClassName: string | null;
+  } | null>(null);
+
+  // ── Edit class/trinn dialog state ──────────────────
+  const [editClassDialog, setEditClassDialog] = useState<{
+    classId: string;
+    currentName: string;
+  } | null>(null);
+  const [editClassName, setEditClassName] = useState("");
+
+  const [editTrinnDialog, setEditTrinnDialog] = useState<{
+    gradeId: string;
+    currentName: string;
+  } | null>(null);
+  const [editTrinnName, setEditTrinnName] = useState("");
+
+  const supabase = createClient();
 
   // Helper function to extract trinn number from class name
   const extractTrinnFromClassName = (className: string): string | null => {
@@ -73,7 +126,7 @@ export default function ClassesAccordion({
 
   // Helper function to group classes by trinn
   const groupClassesByTrinn = (
-    classes: { id: string; name: string }[],
+    classes: { id: string; name: string; grade_id: string | null }[],
     students: Student[],
   ): Trinn[] => {
     // Assign students to classes
@@ -97,11 +150,16 @@ export default function ClassesAccordion({
 
     // Convert map to array and sort
     const trinnArray: Trinn[] = Array.from(trinnMap.entries())
-      .map(([trinnKey, classes]) => ({
-        id: trinnKey,
-        name: trinnKey === "andre" ? "Andre" : `${trinnKey}. Trinn`,
-        classes: classes.sort((a, b) => a.name.localeCompare(b.name)),
-      }))
+      .map(([trinnKey, classes]) => {
+        // Get grade_id from the first class in this group (all share same grade)
+        const gradeId = classes[0]?.grade_id ?? null;
+        return {
+          id: trinnKey,
+          name: trinnKey === "andre" ? "Andre" : `${trinnKey}. Trinn`,
+          grade_id: gradeId,
+          classes: classes.sort((a, b) => a.name.localeCompare(b.name)),
+        };
+      })
       .sort((a, b) => {
         // "Andre" always goes last
         if (a.id === "andre") return 1;
@@ -113,13 +171,13 @@ export default function ClassesAccordion({
     return trinnArray;
   };
 
-  const fetchClassStructure = async () => {
+  const fetchClassStructure = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch all classes
       const { data: classesData, error: classesError } = await supabase
         .from("classes")
-        .select("id, name")
+        .select("id, name, grade_id")
         .order("name", { ascending: true });
 
       if (classesError) throw classesError;
@@ -168,7 +226,12 @@ export default function ClassesAccordion({
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchClassStructure();
+  }, [fetchClassStructure]);
 
   const toggleTrinn = (trinnId: string) => {
     const newExpanded = new Set(expandedTrinn);
@@ -211,20 +274,86 @@ export default function ClassesAccordion({
 
     switch (action) {
       case "add-class":
-        // TODO: Implement add class
+        // Pre-fill grade hint from the trinn context (id = trinn key e.g. "5")
+        setCreateDialogGradeHint(id !== "andre" ? `${id}. Trinn` : null);
+        setNewClassName(id !== "andre" ? id : "");
+        setCreateDialogOpen(true);
         break;
-      case "edit-trinn":
-        // TODO: Implement edit grade
+      case "edit-trinn": {
+        // Find the trinn to get its grade_id
+        const trinn = trinnGroups.find((t) => t.id === id);
+        if (trinn && trinn.grade_id) {
+          setEditTrinnDialog({
+            gradeId: trinn.grade_id,
+            currentName: trinn.name,
+          });
+          setEditTrinnName(trinn.name);
+        } else {
+          showToast("Kan ikke redigere dette trinnet.", "error");
+        }
         break;
-      case "add-student":
-        // TODO: Implement add student
+      }
+      case "add-student": {
+        // Find the class info for the bulk assign modal
+        const targetClass = trinnGroups
+          .flatMap((t) => t.classes)
+          .find((c) => c.id === id);
+        if (targetClass) {
+          setBulkAssignTarget({
+            classId: targetClass.id,
+            className: targetClass.name,
+          });
+        }
         break;
+      }
       case "message-class":
         // TODO: Implement message class
         break;
-      case "edit-class":
-        // TODO: Implement edit class name
+      case "edit-class": {
+        // Find the class by id
+        const classToEdit = trinnGroups
+          .flatMap((t) => t.classes)
+          .find((c) => c.id === id);
+        if (classToEdit) {
+          setEditClassDialog({
+            classId: classToEdit.id,
+            currentName: classToEdit.name,
+          });
+          setEditClassName(classToEdit.name);
+        }
         break;
+      }
+      case "delete-class": {
+        const classToDelete = trinnGroups
+          .flatMap((t) => t.classes)
+          .find((c) => c.id === id);
+        if (classToDelete) {
+          if (classToDelete.students.length > 0) {
+            showToast(
+              `Kan ikke slette "${classToDelete.name}" — den har ${classToDelete.students.length} elev${classToDelete.students.length !== 1 ? "er" : ""}.`,
+              "error",
+            );
+          } else {
+            setConfirmDialog({
+              title: "Slett klasse",
+              description: `Er du sikker på at du vil slette klassen "${classToDelete.name}"? Denne handlingen kan ikke angres.`,
+              action: async () => {
+                const result = await deleteClass(classToDelete.id);
+                if (result.success) {
+                  showToast(
+                    `Klassen "${classToDelete.name}" er slettet.`,
+                    "success",
+                  );
+                  fetchClassStructure();
+                } else {
+                  showToast(result.error, "error");
+                }
+              },
+            });
+          }
+        }
+        break;
+      }
       case "view-profile":
         router.push(`/teacher/students/${id}`);
         break;
@@ -233,14 +362,85 @@ export default function ClassesAccordion({
           onStudentClick(student);
         }
         break;
-      case "move-student":
-        // TODO: Implement move student
+      case "move-student": {
+        // Find student info for ClassCombobox dialog
+        const studentToMove = trinnGroups
+          .flatMap((t) => t.classes)
+          .flatMap((c) => c.students)
+          .find((s) => s.id === id);
+        if (studentToMove) {
+          setMoveStudentTarget({
+            studentId: studentToMove.id,
+            studentName: studentToMove.full_name,
+            currentClassName: studentToMove.class_name || null,
+          });
+        }
         break;
-      case "remove-student":
-        // TODO: Implement remove student
+      }
+      case "remove-student": {
+        // Find student info for the confirm dialog
+        const studentToRemove = trinnGroups
+          .flatMap((t) => t.classes)
+          .flatMap((c) => c.students)
+          .find((s) => s.id === id);
+        if (studentToRemove) {
+          const className =
+            studentToRemove.class_name ||
+            trinnGroups
+              .flatMap((t) => t.classes)
+              .find((c) => c.students.some((s) => s.id === id))?.name ||
+            "klassen";
+          setConfirmDialog({
+            title: "Fjern elev fra klasse",
+            description: `Er du sikker på at du vil fjerne ${studentToRemove.full_name} fra ${className}?`,
+            action: async () => {
+              const result = await updateStudentClass(id, null, null);
+              if (result.success) {
+                showToast(
+                  `${studentToRemove.full_name} fjernet fra klassen`,
+                  "success",
+                );
+                fetchClassStructure();
+              } else {
+                showToast(result.error, "error");
+              }
+            },
+          });
+        }
         break;
+      }
     }
   };
+
+  // ── Create class handler ───────────────────────────
+  const openCreateDialog = useCallback((gradeHint?: string | null) => {
+    setCreateDialogGradeHint(gradeHint ?? null);
+    setNewClassName(
+      gradeHint && gradeHint !== "Annet"
+        ? gradeHint.replace(/\.\s*Trinn$/i, "")
+        : "",
+    );
+    setCreateDialogOpen(true);
+  }, []);
+
+  const handleCreateClassSubmit = useCallback(async () => {
+    const name = newClassName.trim();
+    if (!name) return;
+
+    setCreating(true);
+    const result = await createClass(name, createDialogGradeHint ?? undefined);
+    setCreating(false);
+
+    if (result.success) {
+      showToast(`Klasse "${result.name}" opprettet`, "success");
+      setCreateDialogOpen(false);
+      setNewClassName("");
+      setCreateDialogGradeHint(null);
+      fetchClassStructure();
+    } else {
+      showToast(result.error, "error");
+    }
+  }, [newClassName, createDialogGradeHint, showToast, fetchClassStructure]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -312,20 +512,53 @@ export default function ClassesAccordion({
           <p className="text-slate-600 mb-2">
             {searchQuery.trim() ? "Ingen treff" : "Ingen klassestruktur funnet"}
           </p>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 mb-4">
             {searchQuery.trim()
               ? "Prøv et annet søkeord"
               : "Opprett klasser for å organisere elevene dine"}
           </p>
+          {!searchQuery.trim() && (
+            <button
+              onClick={() => openCreateDialog()}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Opprett klasse
+            </button>
+          )}
         </div>
+        {/* Create Class Dialog */}
+        {createDialogOpen && (
+          <CreateClassDialog
+            newClassName={newClassName}
+            setNewClassName={setNewClassName}
+            gradeHint={createDialogGradeHint}
+            creating={creating}
+            onSubmit={handleCreateClassSubmit}
+            onClose={() => {
+              setCreateDialogOpen(false);
+              setNewClassName("");
+              setCreateDialogGradeHint(null);
+            }}
+          />
+        )}
+        <Toast toast={toast} onClose={hideToast} />
       </div>
     );
   }
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-4 border-b border-slate-200 bg-slate-50">
+      <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900">Mine Klasser</h3>
+        <button
+          onClick={() => openCreateDialog()}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+          title="Legg til klasse"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Legg til klasse</span>
+        </button>
       </div>
 
       <div className="divide-y divide-slate-200">
@@ -412,9 +645,23 @@ export default function ClassesAccordion({
                           {/* Students in this Class */}
                           {isClassExpanded && (
                             <div className="bg-white">
-                              {/* Class Toolbar - Monitor Toggle */}
+                              {/* Class Toolbar - Monitor Toggle + Bulk Assign */}
                               <div className="w-full px-4 py-3 pl-20 flex items-center gap-4 bg-gray-50 border-b border-slate-200 mb-2">
                                 <ClassMonitorToggle classId={cls.id} />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBulkAssignTarget({
+                                      classId: cls.id,
+                                      className: cls.name,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-200"
+                                  title="Legg til elever i denne klassen"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Legg til elever
+                                </button>
                               </div>
 
                               {/* Help Request Queue */}
@@ -546,6 +793,13 @@ export default function ClassesAccordion({
               >
                 Rediger klassenavn
               </button>
+              <div className="border-t border-slate-200 my-1" />
+              <button
+                onClick={() => handleMenuAction("delete-class", openMenu.id)}
+                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
+              >
+                Slett klasse
+              </button>
             </>
           )}
 
@@ -586,6 +840,302 @@ export default function ClassesAccordion({
           )}
         </div>
       )}
+
+      {/* Create Class Dialog */}
+      {createDialogOpen && (
+        <CreateClassDialog
+          newClassName={newClassName}
+          setNewClassName={setNewClassName}
+          gradeHint={createDialogGradeHint}
+          creating={creating}
+          onSubmit={handleCreateClassSubmit}
+          onClose={() => {
+            setCreateDialogOpen(false);
+            setNewClassName("");
+            setCreateDialogGradeHint(null);
+          }}
+        />
+      )}
+      {/* Bulk Student Assign Modal */}
+      {bulkAssignTarget && (
+        <BulkStudentAssignModal
+          targetClassId={bulkAssignTarget.classId}
+          targetClassName={bulkAssignTarget.className}
+          onComplete={() => {
+            showToast(
+              `Elever lagt til i ${bulkAssignTarget.className}`,
+              "success",
+            );
+            fetchClassStructure();
+          }}
+          onClose={() => setBulkAssignTarget(null)}
+        />
+      )}
+
+      {/* Move Student Dialog */}
+      {moveStudentTarget && (
+        <MoveStudentDialog
+          studentId={moveStudentTarget.studentId}
+          studentName={moveStudentTarget.studentName}
+          currentClassName={moveStudentTarget.currentClassName}
+          onMoved={(newClassName) => {
+            showToast(
+              `${moveStudentTarget.studentName} flyttet til ${newClassName}`,
+              "success",
+            );
+            setMoveStudentTarget(null);
+            fetchClassStructure();
+          }}
+          onClose={() => setMoveStudentTarget(null)}
+        />
+      )}
+
+      {/* Confirm Dialog (remove student / delete class) */}
+      <ConfirmDialog
+        state={confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        confirmLabel="Fjern"
+      />
+
+      {/* Edit Class Name Dialog */}
+      <EditDialog
+        open={!!editClassDialog}
+        onClose={() => setEditClassDialog(null)}
+        title="Rediger klassenavn"
+        onSave={async () => {
+          if (!editClassDialog) return;
+          const result = await renameClass(
+            editClassDialog.classId,
+            editClassName,
+          );
+          if (result.success) {
+            showToast(
+              `Klassenavn endret til "${editClassName.trim()}"`,
+              "success",
+            );
+            setEditClassDialog(null);
+            fetchClassStructure();
+          } else {
+            showToast(result.error, "error");
+          }
+        }}
+      >
+        <div>
+          <label className="text-sm font-medium text-slate-700 block mb-1.5">
+            Nytt klassenavn
+          </label>
+          <input
+            type="text"
+            value={editClassName}
+            onChange={(e) => setEditClassName(e.target.value)}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && editClassName.trim()) {
+                e.preventDefault();
+                // Trigger save via form submission pattern
+                const saveBtn = (e.target as HTMLElement)
+                  .closest(".max-h-\\[90vh\\]")
+                  ?.querySelector(
+                    "button:last-child",
+                  ) as HTMLButtonElement | null;
+                saveBtn?.click();
+              }
+            }}
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+        </div>
+      </EditDialog>
+
+      {/* Edit Trinn Name Dialog */}
+      <EditDialog
+        open={!!editTrinnDialog}
+        onClose={() => setEditTrinnDialog(null)}
+        title="Rediger trinnnavn"
+        onSave={async () => {
+          if (!editTrinnDialog) return;
+          const result = await renameGrade(
+            editTrinnDialog.gradeId,
+            editTrinnName,
+          );
+          if (result.success) {
+            showToast(
+              `Trinnnavn endret til "${editTrinnName.trim()}"`,
+              "success",
+            );
+            setEditTrinnDialog(null);
+            fetchClassStructure();
+          } else {
+            showToast(result.error, "error");
+          }
+        }}
+      >
+        <div>
+          <label className="text-sm font-medium text-slate-700 block mb-1.5">
+            Nytt trinnnavn
+          </label>
+          <input
+            type="text"
+            value={editTrinnName}
+            onChange={(e) => setEditTrinnName(e.target.value)}
+            autoFocus
+            className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+        </div>
+      </EditDialog>
+
+      <Toast toast={toast} onClose={hideToast} />
+    </div>
+  );
+}
+
+// ── Move Student Dialog ──────────────────────────────
+
+function MoveStudentDialog({
+  studentId,
+  studentName,
+  currentClassName,
+  onMoved,
+  onClose,
+}: {
+  studentId: string;
+  studentName: string;
+  currentClassName: string | null;
+  onMoved: (newClassName: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      {/* Dialog */}
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900">
+            Flytt {studentName}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+
+        {currentClassName && (
+          <p className="text-sm text-slate-500 mb-3">
+            Nåværende klasse:{" "}
+            <span className="font-medium text-slate-700">
+              {currentClassName}
+            </span>
+          </p>
+        )}
+
+        <p className="text-sm text-slate-600 mb-3">Velg ny klasse:</p>
+
+        <ClassCombobox
+          studentId={studentId}
+          initialClassName={currentClassName}
+          onClassChanged={(newClassName) => {
+            onMoved(newClassName);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Create Class Dialog ──────────────────────────────
+
+function inferGradeFromInput(className: string): string {
+  const match = className.match(/^(\d+)/);
+  return match ? `${match[1]}. Trinn` : "Annet";
+}
+
+function CreateClassDialog({
+  newClassName,
+  setNewClassName,
+  gradeHint,
+  creating,
+  onSubmit,
+  onClose,
+}: {
+  newClassName: string;
+  setNewClassName: (v: string) => void;
+  gradeHint: string | null;
+  creating: boolean;
+  onSubmit: () => void;
+  onClose: () => void;
+}) {
+  const displayedGrade = gradeHint || inferGradeFromInput(newClassName);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      {/* Dialog */}
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-indigo-600" />
+            Opprett klasse
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <X className="h-4 w-4 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">
+              Klassenavn
+            </label>
+            <input
+              type="text"
+              placeholder='F.eks. "5A", "6B"'
+              value={newClassName}
+              onChange={(e) => setNewClassName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newClassName.trim()) onSubmit();
+              }}
+              autoFocus
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          {newClassName.trim() && (
+            <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600">
+              Trinn:{" "}
+              <span className="font-medium text-slate-900">
+                {displayedGrade}
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            Avbryt
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={!newClassName.trim() || creating}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {creating ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+            Opprett
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

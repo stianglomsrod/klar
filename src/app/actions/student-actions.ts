@@ -29,6 +29,12 @@ type ResetPasswordResult =
 
 type UpdateClassResult = { success: true } | { success: false; error: string };
 
+type CreateClassResult =
+  | { success: true; id: string; name: string; grade_name: string }
+  | { success: false; error: string };
+
+type MutationResult = { success: true } | { success: false; error: string };
+
 // ── Helpers ──────────────────────────────────────────
 
 /** "Ole Oppfinner" → "ole.oppfinner" */
@@ -291,8 +297,8 @@ export async function resetStudentPassword(
 
 export async function updateStudentClass(
   studentId: string,
-  className: string,
-  gradeName: string,
+  className: string | null,
+  gradeName: string | null,
 ): Promise<UpdateClassResult> {
   const supabase = getAdminClient();
   if (!supabase) {
@@ -303,13 +309,29 @@ export async function updateStudentClass(
   }
 
   try {
+    // null className = remove student from class
+    if (!className) {
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ class_id: null })
+        .eq("id", studentId);
+
+      if (error) {
+        return {
+          success: false,
+          error: `Kunne ikke fjerne klasse: ${error.message}`,
+        };
+      }
+      return { success: true };
+    }
+
     const normalizedClass = normalizeClassName(className);
     const { error: rpcError } = await supabase.rpc(
       "link_student_to_class_structure",
       {
         p_student_id: studentId,
         p_class_name: normalizedClass,
-        p_grade_name: gradeName,
+        p_grade_name: gradeName || "Annet",
       },
     );
 
@@ -323,6 +345,326 @@ export async function updateStudentClass(
     return { success: true };
   } catch (err) {
     console.error("updateStudentClass unexpected error:", err);
+    return {
+      success: false,
+      error: `Uventet feil: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ── Create class (standalone, no student) ────────────
+
+/** "5A" → "5. Trinn", "10B" → "10. Trinn", "Piano" → "Annet" */
+function inferGradeName(className: string): string {
+  const match = className.match(/^(\d+)/);
+  return match ? `${match[1]}. Trinn` : "Annet";
+}
+
+export async function createClass(
+  className: string,
+  gradeName?: string,
+): Promise<CreateClassResult> {
+  const supabase = getAdminClient();
+  if (!supabase) {
+    return {
+      success: false,
+      error: "Mangler serverkonfigurasjon (env-variabler).",
+    };
+  }
+
+  try {
+    const normalizedClass = normalizeClassName(className);
+    if (!normalizedClass) {
+      return { success: false, error: "Klassenavn kan ikke være tomt." };
+    }
+
+    const resolvedGrade = gradeName || inferGradeName(normalizedClass);
+
+    // 1. Upsert grade (case-insensitive lookup)
+    let gradeId: string;
+    const { data: existingGrade } = await supabase
+      .from("grades")
+      .select("id")
+      .ilike("name", resolvedGrade)
+      .limit(1)
+      .single();
+
+    if (existingGrade) {
+      gradeId = existingGrade.id;
+    } else {
+      const { data: newGrade, error: gradeError } = await supabase
+        .from("grades")
+        .insert({ name: resolvedGrade })
+        .select("id")
+        .single();
+      if (gradeError || !newGrade) {
+        return {
+          success: false,
+          error: `Kunne ikke opprette trinn: ${gradeError?.message ?? "ukjent feil"}`,
+        };
+      }
+      gradeId = newGrade.id;
+    }
+
+    // 2. Check if class already exists (case-insensitive + same grade)
+    const { data: existingClass } = await supabase
+      .from("classes")
+      .select("id, name")
+      .ilike("name", normalizedClass)
+      .eq("grade_id", gradeId)
+      .limit(1)
+      .single();
+
+    if (existingClass) {
+      return {
+        success: false,
+        error: `Klassen "${existingClass.name}" finnes allerede.`,
+      };
+    }
+
+    // 3. Insert class
+    const { data: newClass, error: classError } = await supabase
+      .from("classes")
+      .insert({
+        name: normalizedClass,
+        grade_id: gradeId,
+        is_queue_open: false,
+      })
+      .select("id, name")
+      .single();
+
+    if (classError || !newClass) {
+      return {
+        success: false,
+        error: `Kunne ikke opprette klasse: ${classError?.message ?? "ukjent feil"}`,
+      };
+    }
+
+    return {
+      success: true,
+      id: newClass.id,
+      name: newClass.name,
+      grade_name: resolvedGrade,
+    };
+  } catch (err) {
+    console.error("createClass unexpected error:", err);
+    return {
+      success: false,
+      error: `Uventet feil: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ── Rename class ─────────────────────────────────────
+
+export async function renameClass(
+  classId: string,
+  newName: string,
+): Promise<MutationResult> {
+  const supabase = getAdminClient();
+  if (!supabase) {
+    return {
+      success: false,
+      error: "Mangler serverkonfigurasjon (env-variabler).",
+    };
+  }
+
+  const normalized = normalizeClassName(newName);
+  if (!normalized) {
+    return { success: false, error: "Klassenavn kan ikke være tomt." };
+  }
+
+  try {
+    // Fetch existing class to get its grade_id
+    const { data: existing, error: fetchErr } = await supabase
+      .from("classes")
+      .select("grade_id")
+      .eq("id", classId)
+      .single();
+
+    if (fetchErr || !existing) {
+      return { success: false, error: "Klassen ble ikke funnet." };
+    }
+
+    // Check for duplicate within same grade
+    const { data: duplicate } = await supabase
+      .from("classes")
+      .select("id")
+      .ilike("name", normalized)
+      .eq("grade_id", existing.grade_id)
+      .neq("id", classId)
+      .limit(1)
+      .single();
+
+    if (duplicate) {
+      return {
+        success: false,
+        error: `Klassen "${normalized}" finnes allerede i dette trinnet.`,
+      };
+    }
+
+    // Potentially update grade_id if the new name implies a different grade
+    const newGradeName = inferGradeName(normalized);
+    let newGradeId = existing.grade_id;
+
+    // Check if the grade changed
+    const { data: currentGrade } = await supabase
+      .from("grades")
+      .select("name")
+      .eq("id", existing.grade_id)
+      .single();
+
+    if (!currentGrade || currentGrade.name !== newGradeName) {
+      // Upsert the new grade
+      const { data: existingGrade } = await supabase
+        .from("grades")
+        .select("id")
+        .ilike("name", newGradeName)
+        .limit(1)
+        .single();
+
+      if (existingGrade) {
+        newGradeId = existingGrade.id;
+      } else {
+        const { data: newGrade, error: gradeErr } = await supabase
+          .from("grades")
+          .insert({ name: newGradeName })
+          .select("id")
+          .single();
+        if (gradeErr || !newGrade) {
+          return {
+            success: false,
+            error: `Kunne ikke opprette trinn: ${gradeErr?.message ?? "ukjent feil"}`,
+          };
+        }
+        newGradeId = newGrade.id;
+      }
+    }
+
+    const { error: updateErr } = await supabase
+      .from("classes")
+      .update({ name: normalized, grade_id: newGradeId })
+      .eq("id", classId);
+
+    if (updateErr) {
+      return {
+        success: false,
+        error: `Kunne ikke endre navn: ${updateErr.message}`,
+      };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("renameClass unexpected error:", err);
+    return {
+      success: false,
+      error: `Uventet feil: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ── Rename grade ─────────────────────────────────────
+
+export async function renameGrade(
+  gradeId: string,
+  newName: string,
+): Promise<MutationResult> {
+  const supabase = getAdminClient();
+  if (!supabase) {
+    return {
+      success: false,
+      error: "Mangler serverkonfigurasjon (env-variabler).",
+    };
+  }
+
+  const trimmed = newName.trim();
+  if (!trimmed) {
+    return { success: false, error: "Trinnnavn kan ikke være tomt." };
+  }
+
+  try {
+    // Check for duplicate grade name
+    const { data: duplicate } = await supabase
+      .from("grades")
+      .select("id")
+      .ilike("name", trimmed)
+      .neq("id", gradeId)
+      .limit(1)
+      .single();
+
+    if (duplicate) {
+      return { success: false, error: `Trinnet "${trimmed}" finnes allerede.` };
+    }
+
+    const { error: updateErr } = await supabase
+      .from("grades")
+      .update({ name: trimmed })
+      .eq("id", gradeId);
+
+    if (updateErr) {
+      return {
+        success: false,
+        error: `Kunne ikke endre trinn: ${updateErr.message}`,
+      };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("renameGrade unexpected error:", err);
+    return {
+      success: false,
+      error: `Uventet feil: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+// ── Delete class (only if empty) ─────────────────────
+
+export async function deleteClass(classId: string): Promise<MutationResult> {
+  const supabase = getAdminClient();
+  if (!supabase) {
+    return {
+      success: false,
+      error: "Mangler serverkonfigurasjon (env-variabler).",
+    };
+  }
+
+  try {
+    // Check if any students are assigned to this class
+    const { count, error: countErr } = await supabase
+      .from("student_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", classId);
+
+    if (countErr) {
+      return {
+        success: false,
+        error: `Kunne ikke sjekke elever: ${countErr.message}`,
+      };
+    }
+
+    if (count && count > 0) {
+      return {
+        success: false,
+        error: `Kan ikke slette klassen — den har fortsatt ${count} elev${count !== 1 ? "er" : ""}.`,
+      };
+    }
+
+    const { error: deleteErr } = await supabase
+      .from("classes")
+      .delete()
+      .eq("id", classId);
+
+    if (deleteErr) {
+      return {
+        success: false,
+        error: `Kunne ikke slette klasse: ${deleteErr.message}`,
+      };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("deleteClass unexpected error:", err);
     return {
       success: false,
       error: `Uventet feil: ${err instanceof Error ? err.message : String(err)}`,

@@ -20,6 +20,10 @@ const DAYS = WEEKDAYS;
 export interface SchedulePickerRef {
   /** Returns the set of selected schedule entry IDs. */
   getSelectedEntryIds: () => Set<string>;
+  /** Returns the full selected schedule entries (for week_number inspection). */
+  getSelectedEntries: () => ScheduleEntry[];
+  /** Returns the week number currently displayed in the picker. */
+  getViewingWeek: () => number;
 }
 
 interface SchedulePickerProps {
@@ -35,11 +39,21 @@ interface SchedulePickerProps {
   disabled: boolean;
   /** Hint text to show next to the label (e.g. "Velg fag for å knytte til time"). */
   hint: string | null;
+  /** Called whenever the number of selected entries changes. */
+  onSelectionChange?: (count: number) => void;
 }
 
 const SchedulePicker = forwardRef<SchedulePickerRef, SchedulePickerProps>(
   function SchedulePicker(
-    { classId, studentId, subjectId, dueDate, disabled, hint },
+    {
+      classId,
+      studentId,
+      subjectId,
+      dueDate,
+      disabled,
+      hint,
+      onSelectionChange,
+    },
     ref,
   ) {
     const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
@@ -61,8 +75,11 @@ const SchedulePicker = forwardRef<SchedulePickerRef, SchedulePickerProps>(
       ref,
       () => ({
         getSelectedEntryIds: () => selectedEntryIds,
+        getSelectedEntries: () =>
+          scheduleEntries.filter((e) => selectedEntryIds.has(e.id)),
+        getViewingWeek: () => weekNumber,
       }),
-      [selectedEntryIds],
+      [selectedEntryIds, scheduleEntries, weekNumber],
     );
 
     // ----- effects -----
@@ -84,6 +101,11 @@ const SchedulePicker = forwardRef<SchedulePickerRef, SchedulePickerProps>(
       setOpen(false);
       setError(null);
     }, [subjectId, classId, studentId]);
+
+    // Notify parent of selection changes
+    useEffect(() => {
+      onSelectionChange?.(selectedEntryIds.size);
+    }, [selectedEntryIds.size, onSelectionChange]);
 
     // Re-fetch when week changes while open
     useEffect(() => {
@@ -174,8 +196,9 @@ const SchedulePicker = forwardRef<SchedulePickerRef, SchedulePickerProps>(
       .filter((e) => selectedEntryIds.has(e.id))
       .map((e) => {
         const day = DAYS.find((d) => d.number === e.day_of_week)?.label || "";
-        const label = e.custom_title || `${e.start_time}`;
-        return `${day} ${label} (uke ${e.week_number ?? 0})`.trim();
+        const time = e.start_time?.slice(0, 5) ?? "";
+        const subject = e.subject_title ?? e.custom_title ?? "";
+        return `${day} ${time} ${subject}`.trim();
       });
 
     const buttonDisabled = disabled || isLoading;

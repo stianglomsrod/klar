@@ -11,6 +11,11 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import ClassCombobox from "./ClassCombobox";
+import ConfirmDialog, {
+  type ConfirmDialogState,
+} from "@/components/ui/ConfirmDialog";
+import { updateStudentClass } from "@/app/actions/student-actions";
 import type { TeacherStudent } from "@/types/shared";
 
 type Student = TeacherStudent;
@@ -18,6 +23,11 @@ type Student = TeacherStudent;
 type StudentTableProps = {
   students: Student[];
   onEditStudent: (student: Student) => void;
+  onStudentClassChanged?: (
+    studentId: string,
+    className: string | null,
+    classId: string | null,
+  ) => void;
 };
 
 type DropdownPosition = {
@@ -28,6 +38,7 @@ type DropdownPosition = {
 export default function StudentTable({
   students,
   onEditStudent,
+  onStudentClassChanged,
 }: StudentTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -35,6 +46,14 @@ export default function StudentTable({
     studentId: string;
     position: DropdownPosition;
   } | null>(null);
+
+  // ── Inline class assignment state ──────────────────
+  const [editingClassForStudent, setEditingClassForStudent] = useState<
+    string | null
+  >(null);
+
+  // ── Confirm dialog state (for "Fjern elev") ────────
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null);
 
   const handleMenuClick = useCallback(
     (e: React.MouseEvent, studentId: string) => {
@@ -48,6 +67,29 @@ export default function StudentTable({
     [],
   );
 
+  // ── Handle class change from inline ClassCombobox ──
+  const handleClassChanged = useCallback(
+    (studentId: string, className: string) => {
+      setEditingClassForStudent(null);
+      if (onStudentClassChanged) {
+        // classId is unknown client-side after RPC, pass null — parent refreshes from name
+        onStudentClassChanged(studentId, className, null);
+      }
+    },
+    [onStudentClassChanged],
+  );
+
+  // ── Handle remove from class ───────────────────────
+  const handleRemoveFromClass = useCallback(
+    async (student: Student) => {
+      const result = await updateStudentClass(student.id, null, null);
+      if (result.success && onStudentClassChanged) {
+        onStudentClassChanged(student.id, null, null);
+      }
+    },
+    [onStudentClassChanged],
+  );
+
   const handleMenuAction = useCallback(
     (action: string, student: Student) => {
       setOpenMenu(null);
@@ -57,17 +99,31 @@ export default function StudentTable({
           onEditStudent(student);
           break;
         case "view-profile":
-          // TODO: Implement view profile
+          router.push(`/teacher/students/${student.id}`);
           break;
         case "move-student":
-          // TODO: Implement move student
+          setEditingClassForStudent(student.id);
           break;
         case "remove-student":
-          // TODO: Implement remove student
+          if (!student.class_name) return; // Already has no class
+          setConfirmDialog({
+            title: "Fjern elev fra klasse",
+            description: `Er du sikker på at du vil fjerne ${student.full_name} fra ${student.class_name}?`,
+            action: () => handleRemoveFromClass(student),
+          });
           break;
       }
     },
-    [onEditStudent],
+    [onEditStudent, router, handleRemoveFromClass],
+  );
+
+  // ── Handle clicking the class badge ────────────────
+  const handleClassBadgeClick = useCallback(
+    (e: React.MouseEvent, studentId: string) => {
+      e.stopPropagation();
+      setEditingClassForStudent(studentId);
+    },
+    [],
   );
 
   // Define columns
@@ -129,13 +185,44 @@ export default function StudentTable({
           );
         },
         cell: ({ row }) => {
-          const className = row.getValue("class_name") as string | null;
+          const student = row.original;
+          const className = student.class_name;
+          const isEditing = editingClassForStudent === student.id;
+
+          // Conditionally render ClassCombobox inline (React 19 safe)
+          if (isEditing) {
+            return (
+              <div
+                className="min-w-[200px]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ClassCombobox
+                  studentId={student.id}
+                  initialClassName={className}
+                  onClassChanged={(newName) =>
+                    handleClassChanged(student.id, newName)
+                  }
+                />
+              </div>
+            );
+          }
+
           return className ? (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <button
+              onClick={(e) => handleClassBadgeClick(e, student.id)}
+              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors cursor-pointer"
+              title="Klikk for å endre klasse"
+            >
               {className}
-            </span>
+            </button>
           ) : (
-            <span className="text-sm text-slate-400">Ingen klasse</span>
+            <button
+              onClick={(e) => handleClassBadgeClick(e, student.id)}
+              className="text-sm text-slate-400 hover:text-indigo-600 hover:underline transition-colors cursor-pointer"
+              title="Klikk for å tildele klasse"
+            >
+              Ingen klasse
+            </button>
           );
         },
         sortingFn: (rowA, rowB, columnId) => {
@@ -219,7 +306,12 @@ export default function StudentTable({
         },
       },
     ],
-    [handleMenuClick],
+    [
+      handleMenuClick,
+      editingClassForStudent,
+      handleClassChanged,
+      handleClassBadgeClick,
+    ],
   );
 
   const table = useReactTable({
@@ -241,6 +333,30 @@ export default function StudentTable({
       return () => document.removeEventListener("click", handleClickOutside);
     }
   }, [openMenu]);
+
+  // Close inline combobox when clicking outside
+  useEffect(() => {
+    if (!editingClassForStudent) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking inside a Radix popover or the combobox itself
+      if (
+        target.closest("[data-radix-popper-content-wrapper]") ||
+        target.closest("[data-class-combobox]")
+      ) {
+        return;
+      }
+      setEditingClassForStudent(null);
+    };
+    // Delay to avoid immediate close on same click
+    const timer = setTimeout(() => {
+      document.addEventListener("click", handleOutsideClick);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("click", handleOutsideClick);
+    };
+  }, [editingClassForStudent]);
 
   if (students.length === 0) {
     return (
@@ -338,6 +454,13 @@ export default function StudentTable({
           })()}
         </div>
       )}
+
+      {/* Confirm Dialog for student removal from class */}
+      <ConfirmDialog
+        state={confirmDialog}
+        onClose={() => setConfirmDialog(null)}
+        confirmLabel="Fjern"
+      />
     </div>
   );
 }

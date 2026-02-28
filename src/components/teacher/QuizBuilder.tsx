@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, Trash2 } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  GripVertical,
+  CircleDot,
+  CheckSquare,
+  Type,
+} from "lucide-react";
 import type { QuizQuestion } from "@/types/shared";
 import type { ToastVariant } from "@/hooks/useToast";
 
@@ -11,179 +18,255 @@ interface QuizBuilderProps {
   showToast: (message: string, variant: ToastVariant) => void;
 }
 
+const ANSWER_TYPES: {
+  value: QuizQuestion["answerType"];
+  label: string;
+  icon: typeof Type;
+}[] = [
+  { value: "text", label: "Tekstsvar", icon: Type },
+  { value: "radio", label: "Flervalg (én riktig)", icon: CircleDot },
+  { value: "checkbox", label: "Flervalg (flere riktige)", icon: CheckSquare },
+];
+
 export default function QuizBuilder({
   questions,
   onQuestionsChange,
   showToast,
 }: QuizBuilderProps) {
-  const [newQuestionText, setNewQuestionText] = useState("");
-  const [newQuestionType, setNewQuestionType] = useState<
-    "text" | "radio" | "checkbox"
-  >("text");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const addQuizQuestion = () => {
-    if (!newQuestionText.trim()) {
-      showToast("Vennligst skriv inn et spørsmål", "warning");
+  // ── Question CRUD ──────────────────────────────────────
+
+  const addQuestion = () => {
+    const id = Date.now().toString();
+    const newQ: QuizQuestion = {
+      id,
+      text: "",
+      answerType: "radio",
+      options: ["", ""],
+    };
+    onQuestionsChange([...questions, newQ]);
+    setExpandedId(id);
+  };
+
+  const updateQuestion = (id: string, patch: Partial<QuizQuestion>) => {
+    onQuestionsChange(
+      questions.map((q) => (q.id === id ? { ...q, ...patch } : q)),
+    );
+  };
+
+  const deleteQuestion = (id: string) => {
+    onQuestionsChange(questions.filter((q) => q.id !== id));
+    if (expandedId === id) setExpandedId(null);
+  };
+
+  // ── Option helpers ─────────────────────────────────────
+
+  const addOption = (qId: string) => {
+    const q = questions.find((q) => q.id === qId);
+    if (!q) return;
+    updateQuestion(qId, { options: [...q.options, ""] });
+  };
+
+  const updateOption = (qId: string, idx: number, value: string) => {
+    const q = questions.find((q) => q.id === qId);
+    if (!q) return;
+    const opts = [...q.options];
+    opts[idx] = value;
+    updateQuestion(qId, { options: opts });
+  };
+
+  const removeOption = (qId: string, idx: number) => {
+    const q = questions.find((q) => q.id === qId);
+    if (!q) return;
+    if (q.options.length <= 2) {
+      showToast("Flervalg trenger minst to alternativer", "warning");
       return;
     }
-
-    const newQuestion: QuizQuestion = {
-      id: Date.now().toString(),
-      text: newQuestionText,
-      answerType: newQuestionType,
-      options: [],
-    };
-
-    onQuestionsChange([...questions, newQuestion]);
-    setNewQuestionText("");
-    setNewQuestionType("text");
+    updateQuestion(qId, { options: q.options.filter((_, i) => i !== idx) });
   };
 
-  const deleteQuizQuestion = (questionId: string) => {
-    onQuestionsChange(questions.filter((q) => q.id !== questionId));
+  const changeAnswerType = (qId: string, type: QuizQuestion["answerType"]) => {
+    const q = questions.find((q) => q.id === qId);
+    if (!q) return;
+    // When switching to text, clear options; when switching to choice, seed 2 blanks
+    if (type === "text") {
+      updateQuestion(qId, { answerType: type, options: [] });
+    } else if (q.answerType === "text") {
+      updateQuestion(qId, { answerType: type, options: ["", ""] });
+    } else {
+      updateQuestion(qId, { answerType: type });
+    }
   };
 
-  const addOptionToQuestion = (questionId: string, option: string) => {
-    if (!option.trim()) return;
-
-    onQuestionsChange(
-      questions.map((q) =>
-        q.id === questionId ? { ...q, options: [...q.options, option] } : q,
-      ),
-    );
-  };
-
-  const removeOptionFromQuestion = (
-    questionId: string,
-    optionIndex: number,
-  ) => {
-    onQuestionsChange(
-      questions.map((q) =>
-        q.id === questionId
-          ? { ...q, options: q.options.filter((_, i) => i !== optionIndex) }
-          : q,
-      ),
-    );
-  };
+  // ── Render ─────────────────────────────────────────────
 
   return (
-    <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50/50 animate-in fade-in slide-in-from-top-4 duration-300">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-slate-900">
-          Spørsmål ({questions.length})
-        </h3>
-        <button
-          type="button"
-          onClick={addQuizQuestion}
-          className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-white hover:bg-indigo-50 border border-indigo-300 rounded-lg transition-colors flex items-center gap-1"
-        >
-          <Plus className="h-3 w-3" />
-          Legg til spørsmål
-        </button>
-      </div>
+    <div className="space-y-3">
+      {/* Question Cards */}
+      {questions.map((q, index) => {
+        const isExpanded = expandedId === q.id;
+        const typeInfo = ANSWER_TYPES.find((t) => t.value === q.answerType)!;
+        const TypeIcon = typeInfo.icon;
 
-      {/* New Question Builder */}
-      <div className="space-y-3 mb-4 p-3 bg-white rounded-lg border border-indigo-200">
-        <input
-          type="text"
-          value={newQuestionText}
-          onChange={(e) => setNewQuestionText(e.target.value)}
-          placeholder="Skriv spørsmålet her..."
-          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1">
-            Svartype
-          </label>
-          <select
-            value={newQuestionType}
-            onChange={(e) =>
-              setNewQuestionType(
-                e.target.value as "text" | "radio" | "checkbox",
-              )
-            }
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        return (
+          <div
+            key={q.id}
+            className={`bg-white rounded-xl border transition-shadow ${
+              isExpanded
+                ? "border-indigo-300 shadow-md ring-1 ring-indigo-200"
+                : "border-slate-200 shadow-sm hover:shadow"
+            }`}
           >
-            <option value="text">Tekstsvar</option>
-            <option value="radio">Flervalg (én riktig)</option>
-            <option value="checkbox">Flervalg (flere riktige)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Questions List */}
-      {questions.length > 0 && (
-        <div className="space-y-2">
-          {questions.map((question, index) => (
-            <div
-              key={question.id}
-              className="p-3 bg-white rounded-lg border border-slate-200"
+            {/* Card Header — always visible */}
+            <button
+              type="button"
+              onClick={() => setExpandedId(isExpanded ? null : q.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left"
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex-1">
-                  <span className="text-xs font-semibold text-indigo-600">
-                    Spørsmål {index + 1}
-                  </span>
-                  <p className="text-sm text-slate-900 mt-1">{question.text}</p>
-                  <span className="text-xs text-slate-500">
-                    {question.answerType === "text" && "Tekstsvar"}
-                    {question.answerType === "radio" && "Flervalg (én riktig)"}
-                    {question.answerType === "checkbox" &&
-                      "Flervalg (flere riktige)"}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => deleteQuizQuestion(question.id)}
-                  className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              <GripVertical className="h-4 w-4 text-slate-300 shrink-0" />
+              <span className="text-xs font-bold text-indigo-600 shrink-0 w-5">
+                {index + 1}
+              </span>
+              <span className="flex-1 text-sm text-slate-800 truncate">
+                {q.text || (
+                  <span className="text-slate-400 italic">Nytt spørsmål…</span>
+                )}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                <TypeIcon className="h-3 w-3" />
+                {typeInfo.label}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteQuestion(q.id);
+                }}
+                className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                aria-label="Slett spørsmål"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </button>
 
-              {/* Options for radio/checkbox */}
-              {(question.answerType === "radio" ||
-                question.answerType === "checkbox") && (
-                <div className="mt-2 space-y-1">
-                  {question.options.map((option, optionIndex) => (
-                    <div
-                      key={optionIndex}
-                      className="flex items-center gap-2 text-xs"
-                    >
-                      <span className="px-2 py-1 bg-slate-100 text-slate-700 rounded flex-1">
-                        {option}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeOptionFromQuestion(question.id, optionIndex)
-                        }
-                        className="text-slate-400 hover:text-red-600"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+            {/* Card Body — expanded */}
+            {isExpanded && (
+              <div className="px-4 pb-4 pt-1 space-y-4 border-t border-slate-100">
+                {/* Question text */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Spørsmål
+                  </label>
                   <input
                     type="text"
-                    placeholder="Legg til alternativ (trykk Enter)"
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const input = e.currentTarget;
-                        addOptionToQuestion(question.id, input.value);
-                        input.value = "";
-                      }
-                    }}
-                    className="w-full px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    value={q.text}
+                    onChange={(e) =>
+                      updateQuestion(q.id, { text: e.target.value })
+                    }
+                    placeholder="Skriv spørsmålet her…"
+                    autoFocus
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+
+                {/* Answer type selector — pill buttons */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Svartype
+                  </label>
+                  <div className="flex gap-1.5">
+                    {ANSWER_TYPES.map((t) => {
+                      const Icon = t.icon;
+                      const active = q.answerType === t.value;
+                      return (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onClick={() => changeAnswerType(q.id, t.value)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            active
+                              ? "bg-indigo-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {t.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Options editor (radio / checkbox) */}
+                {(q.answerType === "radio" || q.answerType === "checkbox") && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                      Alternativer
+                    </label>
+                    <div className="space-y-2">
+                      {q.options.map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          {/* Visual indicator */}
+                          {q.answerType === "radio" ? (
+                            <div className="w-4 h-4 rounded-full border-2 border-slate-300 shrink-0" />
+                          ) : (
+                            <div className="w-4 h-4 rounded border-2 border-slate-300 shrink-0" />
+                          )}
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) =>
+                              updateOption(q.id, optIdx, e.target.value)
+                            }
+                            placeholder={`Alternativ ${optIdx + 1}`}
+                            className="flex-1 px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeOption(q.id, optIdx)}
+                            className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors shrink-0"
+                            aria-label="Fjern alternativ"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Explicit add-option button */}
+                      <button
+                        type="button"
+                        onClick={() => addOption(q.id)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 py-1 transition-colors"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Legg til alternativ
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Text-answer hint */}
+                {q.answerType === "text" && (
+                  <p className="text-xs text-slate-400 italic">
+                    Eleven skriver svaret sitt i et fritekstfelt.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Add Question button */}
+      <button
+        type="button"
+        onClick={addQuestion}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-2 border-dashed border-indigo-300 rounded-xl transition-colors"
+      >
+        <Plus className="h-4 w-4" />
+        Legg til spørsmål
+      </button>
     </div>
   );
 }

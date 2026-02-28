@@ -166,8 +166,7 @@ const RecipientPicker = forwardRef<RecipientPickerRef, RecipientPickerProps>(
               name
             )
           `,
-          )
-          .order("classes(name)", { ascending: true });
+          );
 
         if (studentsError) throw studentsError;
 
@@ -196,7 +195,18 @@ const RecipientPicker = forwardRef<RecipientPickerRef, RecipientPickerProps>(
           }
         });
 
-        setAvailableClasses(Array.from(uniqueClasses.values()));
+        // Sort client-side: by class name, then student name (Norwegian locale)
+        processedStudents.sort(
+          (a, b) =>
+            a.class_name.localeCompare(b.class_name, "no") ||
+            a.name.localeCompare(b.name, "no"),
+        );
+
+        setAvailableClasses(
+          Array.from(uniqueClasses.values()).sort((a, b) =>
+            a.name.localeCompare(b.name, "no"),
+          ),
+        );
         setAvailableStudents(processedStudents);
       } catch {
         setError("Kunne ikke laste elever og klasser. Prøv igjen senere.");

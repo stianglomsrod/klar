@@ -1,17 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { X, Search, Plus, Loader2, Copy, Check, UserPlus } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { X, Loader2, Copy, Check, UserPlus } from "lucide-react";
 import { createStudent } from "@/app/actions/student-actions";
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-} from "@/components/ui/popover";
+import ClassCombobox from "./ClassCombobox";
 
 // ── Types ────────────────────────────────────────────
-import type { ClassOption } from "@/types/shared";
 
 type SuccessData = {
   fullName: string;
@@ -44,12 +38,6 @@ export default function AddStudentModal({
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedGrade, setSelectedGrade] = useState("");
 
-  // Class combobox
-  const [classSearch, setClassSearch] = useState("");
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [classesLoading, setClassesLoading] = useState(false);
-  const [comboOpen, setComboOpen] = useState(false);
-
   // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -60,28 +48,6 @@ export default function AddStudentModal({
 
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Fetch classes on mount ─────────────────────────
-  useEffect(() => {
-    if (!isOpen) return;
-    const supabase = createClient();
-
-    setClassesLoading(true);
-    supabase
-      .from("classes")
-      .select("id, name, grades ( name )")
-      .order("name")
-      .then(({ data }) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const options: ClassOption[] = (data || []).map((c: any) => ({
-          id: c.id as string,
-          name: c.name as string,
-          grade_name: (c.grades as { name?: string } | null)?.name ?? null,
-        }));
-        setClasses(options);
-        setClassesLoading(false);
-      });
-  }, [isOpen]);
-
   // ── Focus name input on open ───────────────────────
   useEffect(() => {
     if (isOpen && !successData) {
@@ -89,37 +55,14 @@ export default function AddStudentModal({
     }
   }, [isOpen, successData]);
 
-  // Radix Popover handles outside-click dismissal automatically
-
-  // ── Filtered classes ───────────────────────────────
-  const filteredClasses = classSearch.trim()
-    ? classes.filter((c) =>
-        c.name.toLowerCase().includes(classSearch.toLowerCase()),
-      )
-    : classes;
-
-  const exactMatch = classes.some(
-    (c) => c.name.toLowerCase() === classSearch.trim().toLowerCase(),
+  // ── Handle class selection from ClassCombobox ──────
+  const handleClassSelected = useCallback(
+    (className: string, level: number | null) => {
+      setSelectedClass(className);
+      setSelectedGrade(level ? `${level}. Trinn` : inferGradeName(className));
+    },
+    [],
   );
-
-  // ── Select a class ─────────────────────────────────
-  const handleSelectClass = useCallback((cls: ClassOption) => {
-    setSelectedClass(cls.name);
-    setSelectedGrade(cls.grade_name || inferGradeName(cls.name));
-    setClassSearch(cls.name);
-    setComboOpen(false);
-  }, []);
-
-  // ── Create new class inline ────────────────────────
-  const handleCreateClass = useCallback(() => {
-    const name = classSearch.trim();
-    if (!name) return;
-    const grade = inferGradeName(name);
-    setSelectedClass(name);
-    setSelectedGrade(grade);
-    setClassSearch(name);
-    setComboOpen(false);
-  }, [classSearch]);
 
   // ── Submit ─────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -175,7 +118,6 @@ export default function AddStudentModal({
     setFullName("");
     setSelectedClass("");
     setSelectedGrade("");
-    setClassSearch("");
     setError("");
     setSuccessData(null);
     setCopied(false);
@@ -285,92 +227,17 @@ export default function AddStudentModal({
                 />
               </div>
 
-              {/* Class combobox */}
+              {/* Class combobox — uses shared ClassCombobox in form mode */}
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">
                   Klasse
                 </label>
-                <Popover open={comboOpen} onOpenChange={setComboOpen}>
-                  <PopoverAnchor asChild>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Søk etter klasse…"
-                        value={classSearch}
-                        onChange={(e) => {
-                          setClassSearch(e.target.value);
-                          setSelectedClass("");
-                          if (!comboOpen) setComboOpen(true);
-                        }}
-                        onFocus={() => setComboOpen(true)}
-                        disabled={submitting}
-                        className="w-full pl-9 pr-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-400 disabled:opacity-50"
-                      />
-                    </div>
-                  </PopoverAnchor>
-                  <PopoverContent
-                    className="p-0 w-[var(--radix-popover-trigger-width)] z-[100]"
-                    align="start"
-                    sideOffset={4}
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                  >
-                    {/* Class list */}
-                    <div className="max-h-48 overflow-y-auto">
-                      {classesLoading ? (
-                        <div className="px-4 py-3 text-sm text-slate-400">
-                          Laster klasser…
-                        </div>
-                      ) : filteredClasses.length === 0 &&
-                        !classSearch.trim() ? (
-                        <div className="px-4 py-3 text-sm text-slate-400">
-                          Ingen klasser funnet.
-                        </div>
-                      ) : filteredClasses.length === 0 && classSearch.trim() ? (
-                        <button
-                          type="button"
-                          onClick={handleCreateClass}
-                          className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 transition-colors flex items-center gap-2 text-green-700 font-medium"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Opprett klasse &ldquo;{classSearch.trim()}&rdquo;
-                        </button>
-                      ) : (
-                        <>
-                          {filteredClasses.map((cls) => (
-                            <button
-                              key={cls.id}
-                              type="button"
-                              onClick={() => handleSelectClass(cls)}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between"
-                            >
-                              <span className="font-medium text-slate-700">
-                                {cls.name}
-                              </span>
-                              {cls.grade_name && (
-                                <span className="text-xs text-slate-400">
-                                  {cls.grade_name}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-
-                          {/* Create new class option */}
-                          {classSearch.trim() && !exactMatch && (
-                            <button
-                              type="button"
-                              onClick={handleCreateClass}
-                              className="w-full text-left px-4 py-2.5 text-sm hover:bg-green-50 transition-colors flex items-center gap-2 border-t border-slate-100 text-green-700 font-medium"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Opprett klasse &ldquo;{classSearch.trim()}&rdquo;
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <ClassCombobox
+                  initialClassName={null}
+                  mode="form"
+                  hideLabel
+                  onClassChanged={handleClassSelected}
+                />
                 {selectedClass && (
                   <p className="text-xs text-green-600 mt-1">
                     Valgt: {selectedClass}{" "}

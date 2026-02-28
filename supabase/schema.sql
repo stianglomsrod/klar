@@ -37,6 +37,25 @@ CREATE POLICY "Teachers can insert classes" ON public.classes
     EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
   );
 
+CREATE POLICY "Teachers can update classes" ON public.classes
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  )
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can delete classes" ON public.classes
+  FOR DELETE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+-- Unique: no two classes with the same (case-insensitive) name in the same grade
+CREATE UNIQUE INDEX IF NOT EXISTS classes_name_grade_unique
+  ON public.classes (LOWER(name), COALESCE(grade_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
 CREATE TABLE public.feedback (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   task_id uuid UNIQUE,

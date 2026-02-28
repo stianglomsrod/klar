@@ -130,6 +130,7 @@ klar/
 │   │   │   └── CouponCard.tsx
 │   │   │
 │   │   ├── student/
+│   │   │   ├── AvatarPickerModal.tsx
 │   │   │   ├── FeedbackBubble.tsx
 │   │   │   ├── FeedbackSheet.tsx
 │   │   │   ├── StudentHelpButton.tsx
@@ -139,6 +140,7 @@ klar/
 │   │   ├── teacher/
 │   │   │   ├── ActivityDetailSheet.tsx
 │   │   │   ├── AddStudentModal.tsx
+│   │   │   ├── BulkStudentAssignModal.tsx
 │   │   │   ├── ClassCombobox.tsx
 │   │   │   ├── ClassesAccordion.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
@@ -220,5 +222,7 @@ klar/
         ├── 20260222000001_add_max_level_reached.sql
         ├── 20260222000002_create_student_media_bucket.sql
         ├── 20260222100000_add_feedback_teacher_id_and_read_at.sql
-        └── 20260222200000_add_current_password_plaintext.sql
+        ├── 20260222200000_add_current_password_plaintext.sql
+        └── 20260228000000_add_class_unique_constraint.sql
+        └── 20260228000001_add_class_delete_policy.sql
 ```

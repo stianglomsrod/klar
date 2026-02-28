@@ -24,6 +24,8 @@ type StudentFooterProps = {
   // Help button props
   studentId?: string;
   classId?: string;
+  /** Called when the student clicks their avatar to change it. */
+  onAvatarClick?: () => void;
 };
 
 export default function StudentFooter({
@@ -36,6 +38,7 @@ export default function StudentFooter({
   activityProgress = 0,
   studentId,
   classId,
+  onAvatarClick,
 }: StudentFooterProps) {
   const [toolEnabled, setToolEnabled] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -269,21 +272,26 @@ export default function StudentFooter({
                 animate={{ left: avatarOffset }}
                 transition={{ type: "spring", stiffness: 100, damping: 15 }}
               >
-                <div className="relative">
+                <button
+                  type="button"
+                  onClick={onAvatarClick}
+                  className="relative group cursor-pointer"
+                  aria-label="Bytt avatar"
+                >
                   {avatar && avatar.startsWith("http") ? (
                     // Avatar is a URL (image)
                     <img
                       src={avatar}
                       alt="User avatar"
-                      className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover"
+                      className="w-7 h-7 rounded-full border-2 border-white shadow-md object-cover group-hover:ring-2 group-hover:ring-indigo-400 transition-all"
                     />
                   ) : (
                     // Avatar is an emoji
-                    <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block">
+                    <span className="text-2xl filter drop-shadow-md transform -translate-y-1 block group-hover:scale-125 transition-transform">
                       {avatar}
                     </span>
                   )}
-                </div>
+                </button>
               </motion.div>
             </div>
           </div>

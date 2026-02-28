@@ -18,15 +18,25 @@ function inferGradeName(className: string): string {
 }
 
 interface ClassComboboxProps {
-  studentId: string;
+  /** Student ID — required when mode="assign" (default). Not used in "form" mode. */
+  studentId?: string;
   initialClassName: string | null;
   onClassChanged?: (className: string, level: number | null) => void;
+  /**
+   * "assign" (default): calls `updateStudentClass` on selection then fires callback.
+   * "form": fires callback immediately without DB mutation (for use in creation forms).
+   */
+  mode?: "assign" | "form";
+  /** Hide the label when embedding inside another form */
+  hideLabel?: boolean;
 }
 
 export default function ClassCombobox({
   studentId,
   initialClassName,
   onClassChanged,
+  mode = "assign",
+  hideLabel = false,
 }: ClassComboboxProps) {
   const supabase = createClient();
 
@@ -80,23 +90,27 @@ export default function ClassCombobox({
       setClassSearch(cls.name);
       setComboOpen(false);
 
+      const gradeName = cls.grade_name || inferGradeName(cls.name);
+      const levelMatch = gradeName.match(/^(\d+)/);
+      const level = levelMatch ? parseInt(levelMatch[1], 10) : null;
+
+      if (mode === "form") {
+        // Form mode: no DB mutation, just notify parent
+        onClassChanged?.(cls.name, level);
+        return;
+      }
+
+      // Assign mode: call server action
+      if (!studentId) return;
       setClassUpdating(true);
-      const result = await updateStudentClass(
-        studentId,
-        cls.name,
-        cls.grade_name || inferGradeName(cls.name),
-      );
+      const result = await updateStudentClass(studentId, cls.name, gradeName);
       setClassUpdating(false);
 
-      if (result.success && onClassChanged) {
-        const levelMatch = (cls.grade_name || cls.name).match(/^(\d+)/);
-        onClassChanged(
-          cls.name,
-          levelMatch ? parseInt(levelMatch[1], 10) : null,
-        );
+      if (result.success) {
+        onClassChanged?.(cls.name, level);
       }
     },
-    [studentId, onClassChanged],
+    [studentId, onClassChanged, mode],
   );
 
   const handleCreateClass = useCallback(async () => {
@@ -107,27 +121,37 @@ export default function ClassCombobox({
     setClassSearch(name);
     setComboOpen(false);
 
+    const levelMatch = name.match(/^(\d+)/);
+    const level = levelMatch ? parseInt(levelMatch[1], 10) : null;
+
+    if (mode === "form") {
+      // Form mode: no DB mutation, just notify parent
+      onClassChanged?.(name, level);
+      return;
+    }
+
+    // Assign mode: call server action
+    if (!studentId) return;
     setClassUpdating(true);
     const result = await updateStudentClass(studentId, name, grade);
     setClassUpdating(false);
 
     if (result.success) {
       fetchClasses();
-      const levelMatch = name.match(/^(\d+)/);
-      if (onClassChanged) {
-        onClassChanged(name, levelMatch ? parseInt(levelMatch[1], 10) : null);
-      }
+      onClassChanged?.(name, level);
     }
-  }, [classSearch, studentId, fetchClasses, onClassChanged]);
+  }, [classSearch, studentId, fetchClasses, onClassChanged, mode]);
 
   return (
     <div>
-      <label className="text-sm font-medium text-slate-900 block mb-2">
-        Klasse
-        {classUpdating && (
-          <Loader2 className="inline h-3 w-3 ml-1.5 animate-spin text-indigo-500" />
-        )}
-      </label>
+      {!hideLabel && (
+        <label className="text-sm font-medium text-slate-900 block mb-2">
+          Klasse
+          {classUpdating && (
+            <Loader2 className="inline h-3 w-3 ml-1.5 animate-spin text-indigo-500" />
+          )}
+        </label>
+      )}
       <Popover open={comboOpen} onOpenChange={setComboOpen}>
         <PopoverAnchor asChild>
           <div className="relative">

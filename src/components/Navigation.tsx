@@ -5,12 +5,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Sidebar from "./Sidebar";
 import FeedbackSheet from "./student/FeedbackSheet";
+import AvatarPickerModal from "./student/AvatarPickerModal";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { createClient } from "@/utils/supabase/client";
 
 export default function Navigation() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [feedbackSheetOpen, setFeedbackSheetOpen] = useState(false);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
@@ -28,7 +30,18 @@ export default function Navigation() {
     };
   }, [refresh]);
 
-  const isRootPage = pathname === "/" || pathname === "/student";
+  // Top-level student sections show the hamburger menu.
+  // Deep routes (e.g. /student/lesson/[id], /subject/[id]) show the back button.
+  const TOP_LEVEL_ROUTES = [
+    "/",
+    "/student",
+    "/student/fag",
+    "/student/timeplan",
+    "/belonninger",
+    "/belonninger/hage",
+    "/belonninger/kuponger",
+  ];
+  const isTopLevelPage = TOP_LEVEL_ROUTES.includes(pathname);
 
   // Fetch unread feedback count for the global badge
   useEffect(() => {
@@ -78,14 +91,26 @@ export default function Navigation() {
         level={userLevel}
         progressPercent={progressPercent}
         avatar={userAvatar}
+        onAvatarClick={() => setAvatarPickerOpen(true)}
       />
+
+      {/* Avatar Picker Modal */}
+      {profile?.id && (
+        <AvatarPickerModal
+          open={avatarPickerOpen}
+          onClose={() => setAvatarPickerOpen(false)}
+          currentAvatar={userAvatar}
+          userId={profile.id}
+          onAvatarChanged={refresh}
+        />
+      )}
 
       {/* Native Header / Top App Bar */}
       <header className="fixed top-0 left-0 w-full h-16 bg-white/80 backdrop-blur-md border-b border-gray-200 z-50">
         <div className="flex items-center h-full px-4">
-          {/* Left Slot: Hamburger (root) or Back Button (sub-pages) */}
+          {/* Left Slot: Hamburger (top-level) or Back Button (deep routes) */}
           <div className="flex-shrink-0">
-            {isRootPage ? (
+            {isTopLevelPage ? (
               <button
                 onClick={() => setSidebarOpen((prev) => !prev)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-800"
