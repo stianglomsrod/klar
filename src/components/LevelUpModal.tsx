@@ -224,41 +224,44 @@ export default function LevelUpModal({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
+    <>
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        {/* Backdrop */}
+      {isOpen && (
         <motion.div
+          key="level-up-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-          onClick={handleClose}
-        />
-
-        {/* Confetti (Step 1 only) */}
-        {step === "celebration" && (
-          <Confetti
-            width={typeof window !== "undefined" ? window.innerWidth : 300}
-            height={typeof window !== "undefined" ? window.innerHeight : 300}
-            recycle={false}
-            numberOfPieces={500}
-            gravity={0.3}
-          />
-        )}
-
-        {/* Modal Content */}
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0, y: 50 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.8, opacity: 0 }}
-          transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className={`relative z-10 bg-white rounded-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full mx-3 sm:mx-4 md:mx-6 p-4 sm:p-6 md:p-8 lg:p-12 max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-y-auto ${
-            step === "colorPicker" ? "cursor-none [&_*]:cursor-none" : ""
-          }`}
+          className="fixed inset-0 z-50 flex items-center justify-center"
         >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={handleClose}
+          />
+
+          {/* Confetti (Step 1 only) */}
+          {step === "celebration" && (
+            <Confetti
+              width={typeof window !== "undefined" ? window.innerWidth : 300}
+              height={typeof window !== "undefined" ? window.innerHeight : 300}
+              recycle={false}
+              numberOfPieces={500}
+              gravity={0.3}
+            />
+          )}
+
+          {/* Modal Content */}
+          <motion.div
+            initial={{ scale: 0.8, y: 50 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.8 }}
+            transition={{ type: "spring", damping: 20, stiffness: 300 }}
+            className={`relative z-10 bg-white rounded-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full mx-3 sm:mx-4 md:mx-6 p-4 sm:p-6 md:p-8 lg:p-12 max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-y-auto ${
+              step === "colorPicker" ? "cursor-none [&_*]:cursor-none" : ""
+            }`}
+          >
           {/* Paint Brush Cursor (only in color picker) */}
           {step === "colorPicker" && <PaintBrushCursor color={selectedColor} />}
           {/* Close Button */}
@@ -519,8 +522,10 @@ export default function LevelUpModal({
             </div>
           )}
         </motion.div>
-      </div>
-      <Toast toast={toast} onClose={hideToast} />
+      </motion.div>
+      )}
     </AnimatePresence>
+    <Toast toast={toast} onClose={hideToast} />
+    </>
   );
 }

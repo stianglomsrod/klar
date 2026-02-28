@@ -44,7 +44,7 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 
 | Severity        | Definition                                                      | Count |
 | --------------- | --------------------------------------------------------------- | ----- |
-| 🔴 **Critical** | Bugs, data integrity risks, or security issues affecting users  | 6     |
+| 🔴 **Critical** | Bugs, data integrity risks, or security issues affecting users  | 7     |
 | 🟠 **High**     | Monoliths or large duplication that actively hinder development | 8     |
 | 🟡 **Medium**   | Duplication, dead code, or inconsistencies causing confusion    | 14    |
 | 🟢 **Low**      | Polish items, minor cleanup, cosmetic improvements              | 10    |
@@ -83,6 +83,12 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 - **File:** ~~`src/hooks/useStudentProfile.ts`~~ (DELETED in Expedition 2)
 - **Impact:** If any code imports from the hook (instead of context), it gets a `StudentProfile` missing `class_id` and `max_level_reached`. Different default petal colors (`#FFC0CB` vs `#E0E0E0`)
 - **Fix:** ~~Delete the hook entirely — it has zero consumers (confirmed by grep)~~ Done.
+
+### 3.7 ~~🔴 Task queries missing `student_id` filter~~ ✅ FIXED (2026-02-28)
+
+- **Files:** `src/app/subject/[id]/page.tsx` (Container A), `src/app/(dashboard)/student/lesson/[id]/page.tsx` (Container B)
+- **Impact:** Both containers fetched tasks by `subject_id` only, without filtering by `student_id`. With no RLS on the `tasks` table, all N student copies were returned (N = number of students in class), causing visual duplication.
+- **Resolution:** Added `supabase.auth.getUser()` at the start of each `fetchData` function with null-user guard (redirect to `/login`). Applied `.eq("student_id", user.id)` to all task queries: both incomplete and completed in Container A, and the junction-fetched query in Container B.
 
 ---
 

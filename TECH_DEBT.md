@@ -18,6 +18,15 @@ The following critical schedule bugs were identified in CODE_AUDIT.md §3.2–§
 | §3.5 Schedule fetched once with no refresh         | Teacher schedule changes not reflected until page reload                                         | Added 5-min periodic refetch to `useTimeTracker.ts`, `student/page.tsx`, and `student/timeplan/page.tsx`.                   |
 | (new) RPC returned duplicate entries               | `get_student_schedule` returned both week-specific and masterplan entries for the same time slot | Updated RPC with `DISTINCT ON` CTE to prefer week-specific entries. Migration: `20260228000000_fix_schedule_rpc_dedup.sql`. |
 
+### ~~Task Duplication in Student Views~~ ✅ RESOLVED (2026-02-28)
+
+Both Container A (`subject/[id]/page.tsx`) and Container B (`student/lesson/[id]/page.tsx`) fetched tasks without filtering by `student_id`. Since the `tasks` table has no RLS (see §3 below), all N copies of each task were returned (one per student in the class), causing visual duplication.
+
+| Container | File | Resolution |
+| --- | --- | --- |
+| A — Subject library | `src/app/subject/[id]/page.tsx` | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to both incomplete and completed task queries. Null-user guard redirects to `/login`. |
+| B — Lesson view | `src/app/(dashboard)/student/lesson/[id]/page.tsx` | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to the junction-fetched task query. Null-user guard redirects to `/login`. |
+
 ---
 
 ## 1. Student Auth Hack: Invisible Emails

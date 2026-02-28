@@ -92,6 +92,13 @@ export default function SubjectDetailPage() {
     const fetchData = async () => {
       const supabase = createClient();
 
+      // Authenticate current student
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
       // Fetch subject details
       const { data: subjectData, error: subjectError } = await supabase
         .from("subjects")
@@ -105,11 +112,12 @@ export default function SubjectDetailPage() {
         setSubject(subjectData);
       }
 
-      // Fetch incomplete tasks for this subject
+      // Fetch incomplete tasks for this subject (scoped to current student)
       const { data: tasksData, error: tasksError } = await supabase
         .from("tasks")
         .select("*")
         .eq("subject_id", subjectId)
+        .eq("student_id", user.id)
         .eq("is_completed", false)
         .order("created_at", { ascending: true });
 
@@ -119,7 +127,7 @@ export default function SubjectDetailPage() {
         setTasks(tasksData || []);
       }
 
-      // Fetch completed tasks for this subject (with feedback + teacher profile)
+      // Fetch completed tasks for this subject (scoped to current student, with feedback + teacher profile)
       const { data: completedTasksData, error: completedError } = await supabase
         .from("tasks")
         .select(
@@ -134,6 +142,7 @@ export default function SubjectDetailPage() {
         `,
         )
         .eq("subject_id", subjectId)
+        .eq("student_id", user.id)
         .eq("is_completed", true)
         .order("created_at", { ascending: false });
 

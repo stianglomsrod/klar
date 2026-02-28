@@ -94,6 +94,13 @@ export default function LessonDetailPage() {
     const fetchData = async () => {
       const supabase = createClient();
 
+      // Authenticate current student
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+
       try {
         // 1. Fetch schedule entry with subject join
         const { data: entryData, error: entryError } = await supabase
@@ -155,13 +162,14 @@ export default function LessonDetailPage() {
           return;
         }
 
-        // 3. Fetch full task rows
+        // 3. Fetch full task rows (scoped to current student)
         const { data: tasksData, error: tasksError } = await supabase
           .from("tasks")
           .select(
             "id, title, description, points_value, type, is_completed, quiz_data",
           )
           .in("id", taskIds)
+          .eq("student_id", user.id)
           .order("created_at", { ascending: true });
 
         if (tasksError) {
