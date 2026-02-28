@@ -33,8 +33,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
 GEMINI_API_KEY=<google-gemini-api-key>
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=<vapid-public-key>
 VAPID_PRIVATE_KEY=<vapid-private-key>
-PUSH_REACT_SECRET=<shared-secret-for-sw-react-endpoint>
+PUSH_REACT_SECRET=<shared-secret-for-hmac-reaction-tokens>
 SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
+SEED_SECRET=<optional-secret-for-seed-endpoint>
 ```
 
 ### Scripts
@@ -74,11 +75,11 @@ src/app/
 │   └── parse-weekly-plan.ts  # AI-powered .docx → structured JSON (Gemini + Mammoth)
 │   └── save-weekly-plan.ts   # Class/subject normalization, hybrid splitting, auto-create flow, saves to DB
 │
-├── api/seed/route.ts   # Seed data endpoint
+├── api/seed/route.ts   # Seed data endpoint (dev-only, X-Seed-Secret guarded)
 ├── api/push/            # Push notification API
 │   ├── subscribe/route.ts  # Save teacher's PushSubscription to DB
-│   ├── send/route.ts       # Send push to teacher on task completion
-│   └── react/route.ts      # Receive emoji reaction from SW (X-Push-Secret auth)
+│   ├── send/route.ts       # Send push to teacher on task completion (HMAC token)
+│   └── react/route.ts      # Receive emoji reaction from SW (HMAC-verified, emoji-validated)
 ├── belonninger/        # Rewards pages (garden, coupons)
 │   ├── layout.tsx, page.tsx, hage/, kuponger/
 │
@@ -99,7 +100,7 @@ src/app/
 
 **`StudentProfileContext`** (`src/contexts/StudentProfileContext.tsx`)
 
-- Provides `StudentProfile` type: `id`, `full_name`, `avatar_url`, `level`, `points_earned`, `current_goal_total`, `current_xp`, `petals_progress`, `flowers_collected`, `petal_colors`, `show_flower_garden`, `custom_welcome_message`, `class_id`, `max_level_reached`
+- Provides `StudentProfile` type: `id`, `full_name`, `avatar_url`, `level`, `points_earned`, `current_goal_total`, `current_xp`, `petals_progress`, `flowers_collected`, `petal_colors`, `show_flower_garden`, `custom_welcome_message`, `class_id`, `max_level_reached`, `pending_reward_levels`, `completed_flower_colors`, `garden_positions`
 - Merges data from `profiles` + `student_profiles` tables
 - Auto-creates `student_profiles` row if missing (PGRST116 error → insert)
 - Exposes `refresh()` to re-fetch after XP updates
@@ -110,16 +111,16 @@ src/app/
 
 ### 2.4 Hooks
 
-| Hook                | Purpose                                                                                                                                                                                            |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                               |
-| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                          |
-| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward`, `playSuccessSound`. Used internally by `useTaskFlow`.   |
-| `useTaskFlow`       | Shared task submission flow for Container A & B. Encapsulates media state, `handleConfirmCompletion`, `handleQuizSubmit`, quiz/modal state, reward selection. Delegates XP to `useTaskCompletion`. |
-| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                      |
-| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                      |
-| `useMediaQuery`     | CSS media query hook                                                                                                                                                                               |
-| `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                     |
+| Hook                | Purpose                                                                                                                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useTTS`            | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                                                                              |
+| `useTimeTracker`    | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                                                                         |
+| `useTaskCompletion` | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward` (returns `RewardResult` with `isFlowerComplete`), `playSuccessSound`. Used internally by `useTaskFlow`. |
+| `useTaskFlow`       | Shared task submission flow for Container A & B. Encapsulates media state, `handleConfirmCompletion`, `handleQuizSubmit`, quiz/modal state, reward selection. Delegates XP to `useTaskCompletion`.                                                |
+| `useStudentProfile` | Shorthand consumer of `StudentProfileContext`                                                                                                                                                                                                     |
+| `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                                                                     |
+| `useMediaQuery`     | CSS media query hook                                                                                                                                                                                                                              |
+| `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                                                                    |
 
 ### 2.5 XP / Leveling System
 
@@ -127,7 +128,9 @@ src/app/
 - `current_xp` accumulates toward `current_goal_total`
 - When `current_xp >= current_goal_total` → level up, `LevelUpModal` shown, `current_goal_total` increases
 - `max_level_reached` column tracks highest level ever reached (never decreases)
-- Flower garden: 5-petal system where `petals_progress` (0–4) fills petals with colors from subject theme, `flowers_collected` increments on 5th petal
+- **Reward Persistence:** `pending_reward_levels integer[]` on `student_profiles` tracks levels where a reward hasn't been claimed yet. Set atomically with the level-up in `completeTask`. Cleared when `selectReward` succeeds (via `forLevel` parameter). Cleaned up on `undoTask` demotion. Backdrop click is disabled on `LevelUpModal` to prevent accidental dismissal; the X button still works but the reward stays in the DB pending array. **Global Reward Awareness:** The reward claim UI lives in `StudentFooterWrapper`, which renders on every student page (dashboard, subject, rewards). A glowing/pulsing gift icon (🎁) appears in the footer bar when `pending_reward_levels` is non-empty. Clicking it opens `LevelUpModal` for `Math.min(...pendingLevels)`. After the reward is claimed, the icon disappears (or updates its badge count for multiple pending levels). This replaced the earlier `PendingRewardClaim` dashboard-only floating banner.
+- Flower garden: 5-petal system where `petals_progress` (0–4) fills petals with colors from subject theme, `flowers_collected` increments on 5th petal. Painting the 5th petal triggers "The Bloom Moment" — a multi-stage celebration (canvas-confetti burst, FlowerPot bloom animation, rainbow "Ny blomst i hagen!" message) before auto-dismissing. **Flower Memory:** When a flower completes, its 5-color array is appended to `completed_flower_colors` (jsonb `string[][]`) before the active petals reset. This preserves every flower's unique color palette permanently. **The Living Meadow** (`/belonninger/hage`): Full-screen landscape with sky gradient, drifting clouds, rolling SVG hills, and a sun. Historical flowers from `completed_flower_colors` are organically scattered across the hills using deterministic pseudo-random positioning (no CSS grid). The current in-progress flower sits prominently in the foreground. Flowers gently sway and sparkle on tap. **Interactive Garden Sandbox (Operation Poio-Hage):** Each completed flower is draggable via Framer Motion `drag`. When a flower is repositioned, its percentage-based coordinates are persisted to Supabase `garden_positions` (jsonb, `Record<string, {x: number, y: number}>`). Flowers without a saved position fall back to the deterministic `getFlowerPlacement()` algorithm. This lets students arrange their garden however they like while new flowers still appear in natural-looking default positions.
+- `selectReward` returns `RewardResult { success: boolean; isFlowerComplete: boolean }` — callers can detect flower completion
 
 ### 2.6 Subject Color System
 
@@ -259,26 +262,26 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 
 ### Tables
 
-| Table                      | Purpose                            | Key Columns                                                                                                                                                                                           |
-| -------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `profiles`                 | All users (linked to `auth.users`) | `id`, `full_name`, `role`, `avatar_url`                                                                                                                                                               |
-| `student_profiles`         | Student-specific data              | `id` → profiles, `class_id`, `level`, `current_xp`, `current_goal_total`, `points_earned`, `petals_progress`, `flowers_collected`, `petal_colors[]`, `max_level_reached`                              |
-| `classes`                  | School classes                     | `name`, `grade_id`, `is_queue_open`                                                                                                                                                                   |
-| `grades`                   | School grades (trinn)              | `name`                                                                                                                                                                                                |
-| `subjects`                 | School subjects                    | `title` (UNIQUE), `emoji`, `color_theme`, `created_by`                                                                                                                                                |
-| `tasks`                    | Assigned tasks                     | `student_id`, `created_by`, `title`, `description`, `is_completed`, `type` (standard/quiz), `quiz_data` (jsonb), `audio_support_url`, `points_value`, `subject_id`, `task_library_id`, `completed_at` |
-| `feedback`                 | Task submissions                   | `task_id` (UNIQUE), `student_id`, `student_comment`, `student_audio_url`, `student_image_url`, `quiz_responses` (jsonb), `teacher_reaction`, `teacher_comment`                                        |
-| `task_library`             | Reusable task templates            | `title`, `description`, `subject_id`, `grade_level`, `type`, `quiz_data`, `audio_url`, `usage_count`                                                                                                  |
-| `schedule_entries`         | Weekly schedule slots              | `class_id`/`student_id`, `subject_id`, `day_of_week` (1-7), `start_time`, `end_time`, `type`, `week_number`                                                                                           |
-| `task_schedule_entries`    | Links tasks ↔ schedule             | `task_id`, `schedule_entry_id`                                                                                                                                                                        |
-| `rewards`                  | Teacher-created rewards            | `title`, `emoji`, `cost_value`, `cost_type`, `specific_student_ids[]`, `created_by`                                                                                                                   |
-| `student_rewards`          | Earned/redeemed rewards            | `student_id`, `reward_id`, `is_redeemed`, `earned_at_level`                                                                                                                                           |
-| `help_requests`            | Student help queue                 | `student_id`, `class_id`, `status` (pending/in_progress/resolved/cancelled)                                                                                                                           |
-| `daily_announcements`      | Targeted messages                  | `target_type` (student/class/grade), `target_id`, `content`, `display_date`, `message_type`                                                                                                           |
-| `teacher_active_sessions`  | Active monitor sessions            | `teacher_id`, `class_id`                                                                                                                                                                              |
-| `weekly_updates`           | Weekly content updates             | `week_number`, `content_text`, `audio_url`                                                                                                                                                            |
-| `push_subscriptions`       | Push notification config           | `user_id`, `subscription_data`, `device_type`                                                                                                                                                         |
-| `student_teacher_settings` | Per-pair settings                  | `student_id`, `teacher_id`, `push_enabled`                                                                                                                                                            |
+| Table                      | Purpose                            | Key Columns                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `profiles`                 | All users (linked to `auth.users`) | `id`, `full_name`, `role`, `avatar_url`                                                                                                                                                                                                                                                                                                            |
+| `student_profiles`         | Student-specific data              | `id` → profiles, `class_id`, `level`, `current_xp`, `current_goal_total`, `points_earned`, `petals_progress`, `flowers_collected`, `petal_colors[]`, `completed_flower_colors` (jsonb), `max_level_reached`, `pending_reward_levels[]`, `garden_positions` (jsonb — `Record<string, {x: number, y: number}>`, percentage-based flower coordinates) |
+| `classes`                  | School classes                     | `name`, `grade_id`, `is_queue_open`                                                                                                                                                                                                                                                                                                                |
+| `grades`                   | School grades (trinn)              | `name`                                                                                                                                                                                                                                                                                                                                             |
+| `subjects`                 | School subjects                    | `title` (UNIQUE), `emoji`, `color_theme`, `created_by`                                                                                                                                                                                                                                                                                             |
+| `tasks`                    | Assigned tasks                     | `student_id`, `created_by`, `title`, `description`, `is_completed`, `type` (standard/quiz), `quiz_data` (jsonb), `audio_support_url`, `points_value`, `subject_id`, `task_library_id`, `completed_at`                                                                                                                                              |
+| `feedback`                 | Task submissions                   | `task_id` (UNIQUE), `student_id`, `student_comment`, `student_audio_url`, `student_image_url`, `quiz_responses` (jsonb), `teacher_reaction`, `teacher_comment`                                                                                                                                                                                     |
+| `task_library`             | Reusable task templates            | `title`, `description`, `subject_id`, `grade_level`, `type`, `quiz_data`, `audio_url`, `usage_count`                                                                                                                                                                                                                                               |
+| `schedule_entries`         | Weekly schedule slots              | `class_id`/`student_id`, `subject_id`, `day_of_week` (1-7), `start_time`, `end_time`, `type`, `week_number`                                                                                                                                                                                                                                        |
+| `task_schedule_entries`    | Links tasks ↔ schedule             | `task_id`, `schedule_entry_id`                                                                                                                                                                                                                                                                                                                     |
+| `rewards`                  | Teacher-created rewards            | `title`, `emoji`, `cost_value`, `cost_type`, `specific_student_ids[]`, `created_by`                                                                                                                                                                                                                                                                |
+| `student_rewards`          | Earned/redeemed rewards            | `student_id`, `reward_id`, `is_redeemed`, `earned_at_level`                                                                                                                                                                                                                                                                                        |
+| `help_requests`            | Student help queue                 | `student_id`, `class_id`, `status` (pending/in_progress/resolved/cancelled)                                                                                                                                                                                                                                                                        |
+| `daily_announcements`      | Targeted messages                  | `target_type` (student/class/grade), `target_id`, `content`, `display_date`, `message_type`                                                                                                                                                                                                                                                        |
+| `teacher_active_sessions`  | Active monitor sessions            | `teacher_id`, `class_id`                                                                                                                                                                                                                                                                                                                           |
+| `weekly_updates`           | Weekly content updates             | `week_number`, `content_text`, `audio_url`                                                                                                                                                                                                                                                                                                         |
+| `push_subscriptions`       | Push notification config           | `user_id`, `subscription_data`, `device_type`                                                                                                                                                                                                                                                                                                      |
+| `student_teacher_settings` | Per-pair settings                  | `student_id`, `teacher_id`, `push_enabled`                                                                                                                                                                                                                                                                                                         |
 
 ### RPC Functions
 
@@ -291,6 +294,40 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 - **`student-media`** — stores student uploads
 - Path format: `{studentId}/{taskId}/{type}_{timestamp}.{ext}`
 - Upload helper: `src/utils/supabase/storage.ts`
+
+---
+
+## 5b. Security Boundary
+
+### Middleware (`src/middleware.ts`)
+
+Next.js middleware enforces role-based access control at the edge:
+
+- **Teacher routes** (`/teacher/*`): Requires authenticated user with `profiles.role = 'teacher'`. Students are redirected to `/student`. Unauthenticated users are redirected to `/login`.
+- **Teacher API routes** (`/api/push/subscribe`, `/api/seed`): Same role check; returns 401/403 JSON instead of redirects.
+- **Public paths** (`/login`, `/api/push/react`, `/api/push/send`): Bypass middleware entirely.
+- **Student routes** (`/student/*`, `/subject/*`, `/belonninger/*`): No middleware restriction (rely on application-level `student_id` scoping).
+
+### Seed API Protection
+
+`/api/seed` has two layers of protection:
+
+1. `NODE_ENV` must be `"development"` — blocked in production builds.
+2. `X-Seed-Secret` header must match `SEED_SECRET` env var (if set).
+
+Passwords and student emails are no longer exposed in API responses.
+
+### Push Notification Security (HMAC Tokens)
+
+The push reaction flow uses **per-notification HMAC tokens** instead of a shared secret:
+
+1. `push/send` computes `HMAC-SHA256(PUSH_REACT_SECRET, taskId:studentId)` → `reactionToken`
+2. The token (not the secret) is embedded in the push payload
+3. The SW sends `reactionToken` via `X-Reaction-Token` header
+4. `push/react` recomputes the HMAC and uses `timingSafeEqual` to verify
+5. Reaction emoji is validated against the 4 allowed values (`👍 🌟 💪 🎉`)
+
+The master `PUSH_REACT_SECRET` never leaves the server.
 
 ---
 
@@ -392,7 +429,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `ConditionalLayout.tsx` — layout wrapper with conditional rendering
 - `Navigation.tsx` — navigation bar
 - `Sidebar.tsx` — desktop sidebar
-- `StudentFooter.tsx` + `StudentFooterWrapper.tsx` — mobile bottom navigation
+- `StudentFooter.tsx` + `StudentFooterWrapper.tsx` — mobile bottom navigation. Includes **Flower Teaser**: a miniature `FlowerPot` (44px) showing the current petal progress, linking to `/belonninger/hage`. Only visible when `show_flower_garden` is true. Bounces on petal change. Five dot indicators below show filled/unfilled petals.
 - `PaintBrushCursor.tsx` — decorative cursor effect
 
 ### Student Experience
@@ -404,9 +441,9 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `MissionChip.tsx` — task-completion pill (e.g. "2/4"), green when all complete
 - `LessonProgress.tsx` — circular SVG progress ring for active lessons
 - `CompletionModal.tsx` — task submission confirmation
-- `LevelUpModal.tsx` — level-up celebration overlay
+- `LevelUpModal.tsx` — level-up celebration overlay with 3-step flow: celebration → colorPicker (paint studio) → bloom (flower completion celebration with canvas-confetti + rainbow text + auto-dismiss)
 - `WelcomeOverlay.tsx` — welcome screen with daily announcement
-- `FlowerPot.tsx` — visual flower/petal XP display
+- `FlowerPot.tsx` — visual flower/petal XP display with per-petal splash/shake/breathing animations and multi-stage bloom animation (`isBloomAnimating` prop: petals burst → center glow → shrink+float)
 - `StudentHelpButton.tsx` — help request trigger
 - `StudentQuizView.tsx` — full quiz experience
 - `FeedbackBubble.tsx` — messenger-style teacher feedback display with TTS
@@ -461,25 +498,29 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 ## 8. Migration History
 
-| Migration        | Description                              |
-| ---------------- | ---------------------------------------- |
-| `20260102000000` | Add emoji column to rewards              |
-| `20260102000001` | Add rewards RLS policies                 |
-| `20260102000002` | Add delete_reward RPC                    |
-| `20260112000000` | Add get_student_schedule RPC             |
-| `20260121000000` | Fix get_student_schedule task counts     |
-| `20260220000000` | Add task_library RLS policies            |
-| `20260220000001` | Rewards multi-student support            |
-| `20260221000001` | Activity feed updates                    |
-| `20260221000002` | Add quiz and media support               |
-| `20260221000003` | Add feedback task unique constraint      |
-| `20260222000000` | Add earned_at_level to student_rewards   |
-| `20260222000001` | Add max_level_reached column             |
-| `20260222000002` | Create student-media storage bucket      |
-| `20260222100000` | Add teacher_id & read_at to feedback     |
-| `20260222200000` | Add current_password_plaintext column    |
-| `20260228000000` | Add class unique constraint + UPDATE RLS |
-| `20260228000001` | Add DELETE RLS policy for classes table  |
+| Migration        | Description                                           |
+| ---------------- | ----------------------------------------------------- |
+| `20260102000000` | Add emoji column to rewards                           |
+| `20260102000001` | Add rewards RLS policies                              |
+| `20260102000002` | Add delete_reward RPC                                 |
+| `20260112000000` | Add get_student_schedule RPC                          |
+| `20260121000000` | Fix get_student_schedule task counts                  |
+| `20260220000000` | Add task_library RLS policies                         |
+| `20260220000001` | Rewards multi-student support                         |
+| `20260221000001` | Activity feed updates                                 |
+| `20260221000002` | Add quiz and media support                            |
+| `20260221000003` | Add feedback task unique constraint                   |
+| `20260222000000` | Add earned_at_level to student_rewards                |
+| `20260222000001` | Add max_level_reached column                          |
+| `20260222000002` | Create student-media storage bucket                   |
+| `20260222100000` | Add teacher_id & read_at to feedback                  |
+| `20260222200000` | Add current_password_plaintext column                 |
+| `20260228000000` | Add class unique constraint + UPDATE RLS              |
+| `20260228000001` | Add DELETE RLS policy for classes table               |
+| `20260301000002` | Unique constraint on student_rewards                  |
+| `20260301000003` | Add pending_reward_levels column                      |
+| `20260301000004` | Add completed_flower_colors jsonb column              |
+| `20260301000005` | Add garden_positions jsonb column to student_profiles |
 
 ---
 
@@ -495,7 +536,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 5. **feedback.task_id is UNIQUE** — Each task can have at most one feedback row. This is enforced at the DB level.
 
-6. **Petal colors are an array** — `petal_colors` is `text[]` with 5 elements, defaulting to `#E0E0E0` (gray). Each completed task fills the next petal with the subject's theme color.
+6. **Petal colors are an array** — `petal_colors` is `text[]` with 5 elements, defaulting to `#E0E0E0` (gray). Each completed task fills the next petal with the subject's theme color. On flower completion, the 5-color array is appended to `completed_flower_colors` (jsonb) before `petal_colors` resets to `[]`.
 
 7. **Animations are intentionally calm** — No pulse/bounce. The avatar uses a slow breathing scale (`[1, 1.06, 1]` over 3s). This is a deliberate UX decision for the target audience (children).
 
@@ -516,3 +557,5 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 15. **Three student schedule views** — The daily dashboard (`/student`) uses fisheye scroll with `ScheduleCard`. The weekly Timeplan page (`/student/timeplan`) reuses the same `get_student_schedule` RPC but shows all 5 weekdays (swipeable on mobile, 5-col grid on desktop). Both use `formatTime()` and `getSubjectTheme()` from centralized utilities. Lesson clicks route to `/student/lesson/[id]` in both views.
 
 16. **Centralized color system** — `subject-colors.ts` exports `ColorClasses` (12 properties incl. `borderAccent`, `shadowRgb`), `getSubjectTheme()`, and `COLOR_MAP` with 22 Tailwind themes. All schedule cards, progress rings, and glow effects derive colors from this single map. Never duplicate color lookups.
+
+17. **Garden layout is deterministic** — `getFlowerPlacement()` in `/belonninger/hage/page.tsx` uses index-based `Math.sin`/`Math.cos` to compute stable positions, sizes, and rotations for garden flowers. This avoids layout shift on re-renders. Flowers further "back" (higher `y%`) render smaller for a perspective effect, and `zIndex` is derived from `y` so nearer flowers overlap farther ones.

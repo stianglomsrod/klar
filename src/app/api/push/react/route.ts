@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createHmac, timingSafeEqual } from "crypto";
+
+/** The only emoji values we accept as reactions. */
+const ALLOWED_REACTIONS = new Set(["👍", "🌟", "💪", "🎉"]);
+
+/**
+ * Verify the per-notification HMAC token.
+ * Recomputes HMAC-SHA256(secret, taskId:studentId) and compares
+ * in constant time to prevent timing attacks.
+ */
+function verifyReactionToken(
+  taskId: string,
+  studentId: string,
+  token: string,
+): boolean {
+  const secret = process.env.PUSH_REACT_SECRET || "";
+  const expected = createHmac("sha256", secret)
+    .update(`${taskId}:${studentId}`)
+    .digest("base64url");
+
+  // Constant-time comparison
+  try {
+    return timingSafeEqual(Buffer.from(token), Buffer.from(expected));
+  } catch {
+    return false; // Different lengths → mismatch
+  }
+}
 
 /**
  * POST /api/push/react
@@ -7,23 +34,28 @@ import { createClient } from "@supabase/supabase-js";
  * Receives an emoji reaction from the Service Worker when a teacher
  * taps an action button on a push notification.
  *
- * Authenticated via X-Push-Secret header (shared secret from .env.local)
- * because the SW cannot carry browser auth cookies.
+ * Authenticated via X-Reaction-Token header (HMAC-signed, per-notification).
+ * The master PUSH_REACT_SECRET never leaves the server.
  *
  * Body: { taskId, studentId, reaction }
  */
 export async function POST(req: NextRequest) {
   try {
-    const secret = req.headers.get("X-Push-Secret");
-
-    if (!secret || secret !== process.env.PUSH_REACT_SECRET) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const { taskId, studentId, reaction } = await req.json();
 
     if (!taskId || !studentId || !reaction) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    }
+
+    // 1. Validate reaction is an allowed emoji
+    if (!ALLOWED_REACTIONS.has(reaction)) {
+      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    }
+
+    // 2. Verify HMAC token (replaces raw shared-secret check)
+    const token = req.headers.get("X-Reaction-Token") || "";
+    if (!verifyReactionToken(taskId, studentId, token)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Use service-role client — SW has no user session/cookies

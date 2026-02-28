@@ -25,10 +25,14 @@ export type StudentProfile = {
   custom_welcome_message: string | null;
   class_id: string | null;
   max_level_reached: number;
+  pending_reward_levels: number[];
+  completed_flower_colors: string[][];
+  garden_positions: Record<string, { x: number; y: number }>;
 };
 
 type StudentProfileContextType = {
   profile: StudentProfile | null;
+  setProfile: React.Dispatch<React.SetStateAction<StudentProfile | null>>;
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<StudentProfile | null>;
@@ -77,7 +81,10 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             show_flower_garden,
             custom_welcome_message,
             class_id,
-            max_level_reached
+            max_level_reached,
+            pending_reward_levels,
+            completed_flower_colors,
+            garden_positions
           `,
         )
         .eq("id", user.id)
@@ -97,6 +104,9 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             petal_colors: [...DEFAULT_PETAL_COLORS],
             show_flower_garden: true,
             max_level_reached: 1,
+            pending_reward_levels: [],
+            completed_flower_colors: [],
+            garden_positions: {},
           });
 
         if (!insertError) {
@@ -114,7 +124,10 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
                 show_flower_garden,
                 custom_welcome_message,
                 class_id,
-                max_level_reached
+                max_level_reached,
+                pending_reward_levels,
+                completed_flower_colors,
+                garden_positions
               `,
             )
             .eq("id", user.id)
@@ -140,6 +153,9 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         custom_welcome_message: studentData?.custom_welcome_message || null,
         class_id: studentData?.class_id ?? null,
         max_level_reached: studentData?.max_level_reached ?? 1,
+        pending_reward_levels: studentData?.pending_reward_levels ?? [],
+        completed_flower_colors: studentData?.completed_flower_colors ?? [],
+        garden_positions: studentData?.garden_positions ?? {},
       };
 
       setProfile(mergedProfile);
@@ -163,7 +179,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
 
   return (
     <StudentProfileContext.Provider
-      value={{ profile, loading, error, refresh }}
+      value={{ profile, setProfile, loading, error, refresh }}
     >
       {children}
     </StudentProfileContext.Provider>

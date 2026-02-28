@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Confetti from "react-confetti";
+import confetti from "canvas-confetti";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { useToast } from "@/hooks/useToast";
@@ -57,7 +58,7 @@ export default function LevelUpModal({
   showFlowerGarden = false,
   studentId,
 }: LevelUpModalProps) {
-  const [step, setStep] = useState<"celebration" | "colorPicker">(
+  const [step, setStep] = useState<"celebration" | "colorPicker" | "bloom">(
     "celebration",
   );
   const [selectedReward, setSelectedReward] = useState<RewardType | null>(null);
@@ -78,6 +79,8 @@ export default function LevelUpModal({
   const [modalColors, setModalColors] = useState<string[]>(
     normalizeColors(existingColors),
   );
+  const [isBloomAnimating, setIsBloomAnimating] = useState(false);
+  const [bloomColorsSnapshot, setBloomColorsSnapshot] = useState<string[]>([]);
 
   // Fetch rewards from database when modal opens
   useEffect(() => {
@@ -174,58 +177,74 @@ export default function LevelUpModal({
       setSelectedReward(rewardType);
       setStep("colorPicker");
     } else if (rewardType === "database" && rewardId && studentId) {
-      // Save database reward selection
+      // Delegate reward persistence to the hook (useTaskCompletion.selectReward)
       setSavingReward(true);
       try {
-        const supabase = createClient();
-        const { error } = await supabase.from("student_rewards").insert({
-          student_id: studentId,
-          reward_id: rewardId,
-          is_redeemed: false,
-          date_earned: new Date().toISOString(),
-          earned_at_level: newLevel,
-        });
-
-        if (error) throw error;
-
         // Show success feedback with confetti
         setIsAnimatingSuccess(true);
 
-        // Close after showing success animation
+        // Close after showing success animation — hook handles DB insert
         setTimeout(() => {
           onSelectReward(rewardType, undefined, undefined, rewardId);
           handleClose();
         }, 1000);
-      } catch {
-        showToast("Noe gikk galt ved valg av premie. Prøv igjen.", "error");
       } finally {
         setSavingReward(false);
       }
     }
   };
 
-  const handleColorSelect = (color: string) => {
-    if (selectedReward) {
-      onSelectReward(selectedReward, color);
-      handleClose();
-    }
-  };
-
   const handlePetalConfirm = (index: number) => {
     if (!selectedColor || !selectedReward) return;
     // Optimistically color the clicked petal in the modal before the success pulse
-    setModalColors((prev) => {
-      const next = [...prev];
-      next[index] = selectedColor!;
-      return next;
-    });
+    const newColors = [...modalColors];
+    newColors[index] = selectedColor;
+    setModalColors(newColors);
+
+    // Detect flower completion (all 5 petals now have colors)
+    const filledCount = newColors.filter(
+      (c) => c && c.trim().length > 0 && c.trim() !== "#E0E0E0",
+    ).length;
+    const isFlowerComplete = filledCount >= 5;
+
     setIsAnimatingSuccess(true);
-    // Delay closing to let the pulse animation play
+    // Delay to let the petal splash animation play
     setTimeout(() => {
+      // Always persist the reward
       onSelectReward(selectedReward, selectedColor, index);
-      handleClose();
+
+      if (isFlowerComplete) {
+        // Snapshot colors for the bloom step, then transition
+        setBloomColorsSnapshot(newColors);
+        setIsAnimatingSuccess(false);
+        setStep("bloom");
+        setIsBloomAnimating(true);
+
+        // Fire canvas-confetti burst
+        confetti({
+          particleCount: 150,
+          spread: 90,
+          origin: { y: 0.5 },
+          colors: newColors.filter((c) => c !== "#E0E0E0"),
+        });
+        // Second burst slightly delayed
+        setTimeout(() => {
+          confetti({
+            particleCount: 80,
+            spread: 120,
+            origin: { y: 0.4, x: 0.6 },
+          });
+        }, 300);
+      } else {
+        handleClose();
+      }
     }, 1500);
   };
+
+  // Called by FlowerPot when the bloom animation sequence finishes
+  const handleBloomComplete = useCallback(() => {
+    setIsBloomAnimating(false);
+  }, []);
 
   const handleDipBrush = (color: string) => {
     setSelectedColor(color);
@@ -237,6 +256,8 @@ export default function LevelUpModal({
     setSelectedColor(null);
     setHoveredPetalIndex(null);
     setIsAnimatingSuccess(false);
+    setIsBloomAnimating(false);
+    setBloomColorsSnapshot([]);
     onClose();
   };
 
@@ -251,11 +272,9 @@ export default function LevelUpModal({
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center"
           >
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-              onClick={handleClose}
-            />
+            {/* Backdrop — no click-to-dismiss (too easy for kids to misclick;
+                pending reward persists in DB so nothing is lost) */}
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
             {/* Confetti (Step 1 only) */}
             {step === "celebration" && (
@@ -280,17 +299,19 @@ export default function LevelUpModal({
                 step === "colorPicker" ? "cursor-none [&_*]:cursor-none" : ""
               }`}
             >
-              {/* Paint Brush Cursor (only in color picker) */}
+              {/* Paint Brush Cursor (only in color picker, not bloom) */}
               {step === "colorPicker" && (
                 <PaintBrushCursor color={selectedColor} />
               )}
-              {/* Close Button */}
-              <button
-                onClick={handleClose}
-                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <X className="h-6 w-6 text-gray-600" />
-              </button>
+              {/* Close Button (hidden during bloom — use the dismiss button instead) */}
+              {step !== "bloom" && (
+                <button
+                  onClick={handleClose}
+                  className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="h-6 w-6 text-gray-600" />
+                </button>
+              )}
 
               {/* Step 1: Celebration */}
               {step === "celebration" && (
@@ -443,25 +464,28 @@ export default function LevelUpModal({
                 </div>
               )}
 
-              {/* Step 2: Color Picker */}
+              {/* Step 2: Color Picker — Paint Studio */}
               {step === "colorPicker" && (
                 <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4 md:space-y-6">
-                  {/* Instructions */}
+                  {/* Animated emoji cue — replaces text instructions */}
                   <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center"
+                    initial={{ opacity: 1, y: 0 }}
+                    animate={
+                      selectedColor
+                        ? { opacity: 0, y: -12, scale: 0.8 }
+                        : {
+                            opacity: [1, 1, 0.6],
+                            y: [0, -8, 0],
+                          }
+                    }
+                    transition={
+                      selectedColor
+                        ? { duration: 0.4 }
+                        : { duration: 1.5, repeat: 2, ease: "easeInOut" }
+                    }
+                    className="text-3xl sm:text-4xl md:text-5xl select-none"
                   >
-                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
-                      {selectedColor
-                        ? "Mal det ledige kronbladet! 🌸"
-                        : "Dypp penselen i en farge! 👇"}
-                    </p>
-                    {!selectedColor && (
-                      <p className="text-xs sm:text-sm text-gray-600">
-                        Velg en farge fra paletten under
-                      </p>
-                    )}
+                    {selectedColor ? "🌸" : "🎨"}
                   </motion.div>
 
                   {/* Flower Pot - Interactive */}
@@ -493,44 +517,126 @@ export default function LevelUpModal({
                     />
                   </motion.div>
 
-                  {/* Color Palette - Dipping Area */}
+                  {/* Wood-grain Paint Palette */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="flex flex-wrap justify-center items-center gap-2 sm:gap-2.5 md:gap-3 bg-gray-50 p-2.5 sm:p-3 md:p-4 rounded-xl md:rounded-2xl border-2 border-dashed border-gray-300 w-full max-w-xl mx-auto"
+                    className="relative w-full max-w-lg mx-auto rounded-2xl md:rounded-3xl p-3 sm:p-4 md:p-5 shadow-xl overflow-visible"
+                    style={{
+                      background:
+                        "linear-gradient(155deg, #DEB887 0%, #C4914B 25%, #D2A069 50%, #C4914B 75%, #DEB887 100%)",
+                    }}
                   >
-                    {colorPalette.map((color, index) => (
-                      <motion.button
-                        key={color.hex}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{
-                          delay: 0.3 + index * 0.05,
-                          type: "spring",
-                          stiffness: 200,
-                        }}
-                        whileHover={{ scale: 1.2 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleDipBrush(color.hex)}
-                        className={`h-11 w-11 sm:h-12 sm:w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 rounded-full shadow-lg transition-all flex-shrink-0 ${
-                          selectedColor === color.hex
-                            ? "ring-2 sm:ring-3 md:ring-4 ring-offset-2 ring-gray-800 scale-110"
-                            : "hover:shadow-xl"
-                        }`}
-                        style={{ backgroundColor: color.hex }}
-                      >
-                        {selectedColor === color.hex && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            className="flex items-center justify-center h-full text-white font-bold text-sm drop-shadow-lg"
+                    {/* Wood grain texture overlay */}
+                    <div
+                      className="absolute inset-0 opacity-[0.15] pointer-events-none"
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(95deg, transparent, transparent 12px, rgba(139,69,19,0.3) 12px, rgba(139,69,19,0.3) 13px)",
+                      }}
+                    />
+                    {/* Paint palette thumb hole */}
+                    <div
+                      className="absolute bottom-2 right-3 sm:bottom-3 sm:right-4 w-8 h-10 sm:w-10 sm:h-12 rounded-full border-2 border-[#8B5A2B]/40 pointer-events-none"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse, #B8860B 0%, #A0826D 100%)",
+                      }}
+                    />
+                    {/* Paint blob swatches */}
+                    <div className="relative flex flex-wrap justify-center gap-2 sm:gap-3 md:gap-4">
+                      {colorPalette.map((color, index) => {
+                        const isSelected = selectedColor === color.hex;
+                        // Each blob gets a unique rotation for organic feel
+                        const blobRotation =
+                          [0, -15, 12, -8, 20, -12, 8, -20][index] ?? 0;
+                        // Unique irregular blob SVG paths (48×48 viewBox)
+                        const blobPaths = [
+                          "M24,4 C34,2 44,12 42,24 C40,36 28,46 18,42 C6,38 2,26 6,16 C10,6 16,6 24,4Z",
+                          "M20,2 C32,0 46,8 44,22 C42,36 32,48 18,44 C4,40 0,28 4,14 C8,4 12,4 20,2Z",
+                          "M26,6 C36,3 46,14 44,28 C42,40 30,47 16,44 C4,39 1,26 5,14 C9,5 18,8 26,6Z",
+                          "M22,3 C34,0 48,10 46,26 C44,40 32,48 18,46 C6,42 0,28 4,16 C8,6 14,5 22,3Z",
+                          "M28,5 C38,3 47,14 44,28 C40,42 28,47 14,44 C2,38 0,24 6,12 C12,3 20,7 28,5Z",
+                          "M20,5 C30,1 44,8 46,22 C48,36 36,47 22,46 C8,44 1,32 3,18 C5,6 13,7 20,5Z",
+                          "M24,3 C36,1 47,12 46,26 C44,42 30,48 16,46 C4,42 0,28 4,14 C8,4 16,5 24,3Z",
+                          "M22,5 C32,1 46,12 44,26 C42,40 28,47 14,44 C2,39 1,24 6,12 C12,3 16,7 22,5Z",
+                        ];
+
+                        return (
+                          <motion.button
+                            key={color.hex}
+                            initial={{
+                              scale: 0,
+                              opacity: 0,
+                              rotate: blobRotation,
+                            }}
+                            animate={{
+                              scale: 1,
+                              opacity: 1,
+                              rotate: blobRotation,
+                            }}
+                            transition={{
+                              delay: 0.3 + index * 0.06,
+                              type: "spring",
+                              stiffness: 200,
+                            }}
+                            whileHover={{
+                              scale: 1.15,
+                              rotate: blobRotation + 5,
+                            }}
+                            whileTap={{
+                              scaleX: 1.1,
+                              scaleY: 0.85,
+                              rotate: blobRotation - 3,
+                            }}
+                            onClick={() => handleDipBrush(color.hex)}
+                            className="relative flex-shrink-0 p-0 border-0 bg-transparent"
+                            style={{
+                              width: "clamp(44px, 10vw, 56px)",
+                              height: "clamp(44px, 10vw, 56px)",
+                            }}
+                            aria-label={color.name}
                           >
-                            ✓
-                          </motion.div>
-                        )}
-                      </motion.button>
-                    ))}
+                            <svg
+                              viewBox="0 0 48 48"
+                              className="w-full h-full drop-shadow-md"
+                            >
+                              <path
+                                d={blobPaths[index]}
+                                fill={color.hex}
+                                stroke={
+                                  isSelected ? "#1F2937" : "rgba(0,0,0,0.15)"
+                                }
+                                strokeWidth={isSelected ? 3 : 1.5}
+                              />
+                              {/* Highlight shine on blob */}
+                              <ellipse
+                                cx="18"
+                                cy="16"
+                                rx="5"
+                                ry="4"
+                                fill="white"
+                                opacity="0.35"
+                                transform="rotate(-20 18 16)"
+                              />
+                            </svg>
+                            {/* Selected checkmark */}
+                            {isSelected && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="absolute inset-0 flex items-center justify-center"
+                              >
+                                <span className="text-white text-base sm:text-lg font-bold drop-shadow-lg">
+                                  ✓
+                                </span>
+                              </motion.div>
+                            )}
+                          </motion.button>
+                        );
+                      })}
+                    </div>
                   </motion.div>
 
                   {/* Back Button */}
@@ -545,6 +651,73 @@ export default function LevelUpModal({
                     className="px-4 sm:px-5 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-gray-200 hover:bg-gray-300 rounded-lg md:rounded-xl font-semibold text-sm sm:text-base text-gray-700 transition-colors"
                   >
                     Tilbake
+                  </motion.button>
+                </div>
+              )}
+
+              {/* Step 3: Bloom Celebration — flower is complete! */}
+              {step === "bloom" && (
+                <div className="flex flex-col items-center justify-center space-y-4 sm:space-y-6 py-4 sm:py-6">
+                  {/* Rainbow celebration text */}
+                  <motion.h2
+                    initial={{ opacity: 0, scale: 0.5, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                      delay: 0.3,
+                      type: "spring",
+                      damping: 15,
+                      stiffness: 200,
+                    }}
+                    className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-transparent bg-clip-text text-center select-none"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(to right, #f87171, #facc15, #4ade80, #60a5fa, #a855f7)",
+                    }}
+                  >
+                    Ny blomst i hagen! 🌺
+                  </motion.h2>
+
+                  {/* Blooming flower */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="flex justify-center"
+                  >
+                    <FlowerPot
+                      size={
+                        typeof window !== "undefined" && window.innerWidth < 640
+                          ? 200
+                          : 280
+                      }
+                      petalsFilled={5}
+                      colors={bloomColorsSnapshot}
+                      isInteractive={false}
+                      hasPaint={false}
+                      isBloomAnimating={isBloomAnimating}
+                      onBloomComplete={handleBloomComplete}
+                    />
+                  </motion.div>
+
+                  {/* Flowers collected count */}
+                  <motion.p
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.2 }}
+                    className="text-base sm:text-lg text-gray-600 font-medium"
+                  >
+                    🌸🌺🌼
+                  </motion.p>
+
+                  {/* Dismiss button (appears after bloom animation) */}
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 2.5 }}
+                    onClick={handleClose}
+                    className="px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-pink-400 to-purple-500 hover:from-pink-500 hover:to-purple-600 text-white rounded-xl md:rounded-2xl font-bold text-sm sm:text-base shadow-lg transition-colors"
+                  >
+                    Fantastisk! ✨
                   </motion.button>
                 </div>
               )}

@@ -275,17 +275,19 @@ export function useTaskFlow({
       petalIndex?: number,
       rewardId?: string,
     ) => {
-      const success = await selectReward(
+      // Pass the pending level so selectReward clears it from the array
+      const result = await selectReward(
         rewardType,
         payload,
         petalIndex,
         rewardId,
+        newLevel, // forLevel — the level being rewarded
       );
-      if (success) {
+      if (result.success) {
         setShowLevelUpModal(false);
       }
     },
-    [selectReward],
+    [selectReward, newLevel],
   );
 
   // ── CompletionModal onBeforeConfirm ────────────────

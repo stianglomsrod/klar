@@ -192,6 +192,8 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 - Celebration animation, reward fetching, reward saving, color picker, flower painting, scroll management
 - Uses raw `window.innerWidth` in render (SSR issues)
 - ✅ One-time vs. recurring rewards implemented: `is_recurring` column on `rewards` table; `fetchRewards` filters out non-recurring rewards the student already earned (parallel `student_rewards` query). Teacher creates one-time rewards via `StudentRewardManager.tsx` ("Engangspremie" checkbox).
+- ✅ **Reward Persistence (2026-03-01):** Backdrop click dismissed disabled to prevent accidental loss. `pending_reward_levels` column on `student_profiles` tracks unclaimed rewards. Mid-paint browser refresh is safe — the pending level stays in the DB.
+- ✅ **Global Reward Awareness (2026-02-28):** Replaced dashboard-only `PendingRewardClaim` floating banner with a global gift icon (🎁) in `StudentFooter`. The indicator renders on all student pages via `StudentFooterWrapper` and opens `LevelUpModal` for the oldest pending level. Reward claiming works identically to the old banner but is now always visible.
 
 ---
 
@@ -312,7 +314,7 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 | `ClassesAccordion.tsx` (L221–247) | ~~"Add class"~~, ~~"Edit trinn"~~, ~~"Add student"~~, "Message class", ~~"Edit class name"~~, ~~"Move student"~~, ~~"Remove student"~~ | ✅ "Add class" wired (Phase 1), ✅ "Add student"/"Move student"/"Remove student" wired (Phase 3), ✅ "Edit trinn"/"Edit class name"/"Delete class" wired (Phase 4) |
 | `StudentTable.tsx` (L68–81)       | ~~"View student profile"~~, ~~"Move student"~~, ~~"Remove student"~~                                                                   | ✅ All wired (Phase 2)                                                                                                                                             |
 | `teacher/tasks/page.tsx` (L540)   | "Assign task clicked"                                                                                                                  |
-| `useTaskCompletion.ts` (L209)     | `// TODO: Implement reward claim logic`                                                                                                |
+| ~~`useTaskCompletion.ts` (L209)~~ | ~~`// TODO: Implement reward claim logic`~~ ✅ Implemented — `upsert` with `onConflict` for idempotent reward claims                   |
 
 ---
 
@@ -435,11 +437,11 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 
 ## 10. Architectural Inconsistencies
 
-### 10.1 🟡 `window.__refreshStudentProfile` global hack
+### ~~10.1 🟡 `window.__refreshStudentProfile` global hack~~ ✅ RESOLVED (2026-03-01)
 
-- **File:** `Navigation.tsx` (L21–22)
-- Pattern: `(window as any).__refreshStudentProfile = refresh`
-- **Fix:** Use a context method or custom event
+- **File:** `Navigation.tsx`
+- ~~Pattern: `(window as any).__refreshStudentProfile = refresh`~~
+- **Resolution:** Dead code removed. Context-based `refresh()` from `useStudentProfile` is used directly.
 
 ### 10.2 🟡 `student-actions.ts` uses raw `@supabase/supabase-js`
 

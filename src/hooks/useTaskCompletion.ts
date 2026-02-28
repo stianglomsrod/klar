@@ -13,6 +13,11 @@ export type CompletionResult = {
   newLevel: number;
 };
 
+export type RewardResult = {
+  success: boolean;
+  isFlowerComplete: boolean;
+};
+
 // ── Hook ─────────────────────────────────────────────
 
 /**
@@ -91,6 +96,17 @@ export function useTaskCompletion() {
 
         if (isNewHighLevel) {
           profileUpdates.max_level_reached = newLevel;
+
+          // Track pending reward levels so they survive page refreshes
+          const existingPending = profile.pending_reward_levels ?? [];
+          const newPendingLevels: number[] = [];
+          for (let l = maxLevelReached + 1; l <= newLevel; l++) {
+            newPendingLevels.push(l);
+          }
+          profileUpdates.pending_reward_levels = [
+            ...existingPending,
+            ...newPendingLevels,
+          ];
         }
 
         // 3. Persist profile updates
@@ -181,10 +197,25 @@ export function useTaskCompletion() {
             points_earned: newPointsEarned,
             current_xp: newCurrentXp,
             level: newLevel,
+            // Remove any pending rewards for levels being revoked
+            ...(newLevel < currentLevel && {
+              pending_reward_levels: (
+                profile.pending_reward_levels ?? []
+              ).filter((l) => l <= newLevel),
+            }),
           })
           .eq("id", profile.id);
 
         if (profileError) throw profileError;
+
+        // 4. Revoke rewards earned at levels that are being revoked
+        if (newLevel < currentLevel) {
+          await supabase
+            .from("student_rewards")
+            .delete()
+            .eq("student_id", profile.id)
+            .gt("earned_at_level", newLevel);
+        }
 
         await refreshProfile();
         return true;
@@ -202,8 +233,9 @@ export function useTaskCompletion() {
       payload?: string,
       petalIndex?: number,
       rewardId?: string,
-    ): Promise<boolean> => {
-      if (!profile) return false;
+      forLevel?: number,
+    ): Promise<RewardResult> => {
+      if (!profile) return { success: false, isFlowerComplete: false };
 
       const supabase = createClient();
 
@@ -234,6 +266,18 @@ export function useTaskCompletion() {
 
           if (isFlowerComplete) {
             profileUpdates.flowers_collected = profile.flowers_collected + 1;
+            // Persist the completed flower's colors permanently
+            profileUpdates.completed_flower_colors = [
+              ...(profile.completed_flower_colors ?? []),
+              normalizedColors,
+            ];
+          }
+
+          // Clear the pending reward for this level (atomic with petal update)
+          if (typeof forLevel === "number") {
+            profileUpdates.pending_reward_levels = (
+              profile.pending_reward_levels ?? []
+            ).filter((l) => l !== forLevel);
           }
 
           const { error } = await supabase
@@ -244,13 +288,40 @@ export function useTaskCompletion() {
           if (error) throw error;
 
           await refreshProfile();
+          return { success: true, isFlowerComplete };
         } else if (rewardType === "database" && rewardId) {
-          // TODO: Implement reward claim logic
+          // Claim a database reward (coupon) at the target level
+          const level = forLevel ?? profile.level ?? 1;
+          const { error } = await supabase.from("student_rewards").upsert(
+            {
+              student_id: profile.id,
+              reward_id: rewardId,
+              is_redeemed: false,
+              date_earned: new Date().toISOString(),
+              earned_at_level: level,
+            },
+            { onConflict: "student_id,reward_id,earned_at_level" },
+          );
+
+          if (error) throw error;
+
+          // Clear the pending reward for this level
+          if (typeof forLevel === "number") {
+            const updatedPending = (profile.pending_reward_levels ?? []).filter(
+              (l) => l !== forLevel,
+            );
+            await supabase
+              .from("student_profiles")
+              .update({ pending_reward_levels: updatedPending })
+              .eq("id", profile.id);
+          }
+
+          await refreshProfile();
         }
 
-        return true;
+        return { success: true, isFlowerComplete: false };
       } catch {
-        return false;
+        return { success: false, isFlowerComplete: false };
       }
     },
     [profile, refreshProfile],

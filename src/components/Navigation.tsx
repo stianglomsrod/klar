@@ -18,18 +18,6 @@ export default function Navigation() {
   const router = useRouter();
   const { profile, refresh } = useStudentProfile();
 
-  // Expose refresh via window for subject page to call
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      (window as any).__refreshStudentProfile = refresh;
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        delete (window as any).__refreshStudentProfile;
-      }
-    };
-  }, [refresh]);
-
   // Top-level student sections show the hamburger menu.
   // Deep routes (e.g. /student/lesson/[id], /subject/[id]) show the back button.
   const TOP_LEVEL_ROUTES = [

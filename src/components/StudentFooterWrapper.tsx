@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import StudentFooter from "./StudentFooter";
 import AvatarPickerModal from "./student/AvatarPickerModal";
+import LevelUpModal from "./LevelUpModal";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
+import { useTaskCompletion } from "@/hooks/useTaskCompletion";
 
 export default function StudentFooterWrapper() {
   const { profile, refresh } = useStudentProfile();
+  const { selectReward } = useTaskCompletion();
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [rewardModalOpen, setRewardModalOpen] = useState(false);
 
   // Use current_xp for progress bar (per-level accumulator)
   const userLevel = profile?.level ?? 1;
@@ -17,11 +21,43 @@ export default function StudentFooterWrapper() {
   const progressPercent = (currentXp / currentGoal) * 100;
   const userAvatar = profile?.avatar_url || "🦄";
 
+  // Pending reward levels
+  const pendingLevels = profile?.pending_reward_levels ?? [];
+  const nextPendingLevel =
+    pendingLevels.length > 0 ? Math.min(...pendingLevels) : null;
+
   // Get time tracking data
   const { currentActivity, timeRemaining, progress, loading } = useTimeTracker(
     profile?.id,
     profile?.class_id || undefined,
   );
+
+  const handleSelectReward = useCallback(
+    async (
+      rewardType: "petal" | "database",
+      payload?: string,
+      petalIndex?: number,
+      rewardId?: string,
+    ) => {
+      if (nextPendingLevel === null) return;
+
+      const result = await selectReward(
+        rewardType,
+        payload,
+        petalIndex,
+        rewardId,
+        nextPendingLevel,
+      );
+      if (result.success) {
+        setRewardModalOpen(false);
+      }
+    },
+    [selectReward, nextPendingLevel],
+  );
+
+  const handleCloseRewardModal = useCallback(() => {
+    setRewardModalOpen(false);
+  }, []);
 
   return (
     <>
@@ -36,6 +72,11 @@ export default function StudentFooterWrapper() {
         studentId={profile?.id}
         classId={profile?.class_id || undefined}
         onAvatarClick={() => setAvatarPickerOpen(true)}
+        showFlowerGarden={profile?.show_flower_garden ?? false}
+        petalsProgress={profile?.petals_progress ?? 0}
+        petalColors={profile?.petal_colors ?? []}
+        pendingRewardCount={pendingLevels.length}
+        onClaimReward={() => setRewardModalOpen(true)}
       />
 
       {/* Avatar Picker Modal */}
@@ -46,6 +87,20 @@ export default function StudentFooterWrapper() {
           currentAvatar={userAvatar}
           userId={profile.id}
           onAvatarChanged={refresh}
+        />
+      )}
+
+      {/* Global Pending Reward Modal */}
+      {nextPendingLevel !== null && profile && (
+        <LevelUpModal
+          isOpen={rewardModalOpen}
+          newLevel={nextPendingLevel}
+          onClose={handleCloseRewardModal}
+          onSelectReward={handleSelectReward}
+          existingPetals={profile.petals_progress}
+          existingColors={profile.petal_colors}
+          showFlowerGarden={profile.show_flower_garden}
+          studentId={profile.id}
         />
       )}
     </>

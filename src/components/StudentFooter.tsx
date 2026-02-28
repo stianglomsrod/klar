@@ -3,9 +3,11 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Timer } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import CircularProgress from "./ui/CircularProgress";
 import StudentHelpButton from "./student/StudentHelpButton";
+import FlowerPot from "./FlowerPot";
 
 type StudentFooterProps = {
   level?: number;
@@ -26,6 +28,13 @@ type StudentFooterProps = {
   classId?: string;
   /** Called when the student clicks their avatar to change it. */
   onAvatarClick?: () => void;
+  // Flower teaser props
+  showFlowerGarden?: boolean;
+  petalsProgress?: number;
+  petalColors?: string[];
+  // Pending reward props
+  pendingRewardCount?: number;
+  onClaimReward?: () => void;
 };
 
 export default function StudentFooter({
@@ -39,6 +48,11 @@ export default function StudentFooter({
   studentId,
   classId,
   onAvatarClick,
+  showFlowerGarden = false,
+  petalsProgress = 0,
+  petalColors = [],
+  pendingRewardCount = 0,
+  onClaimReward,
 }: StudentFooterProps) {
   const [toolEnabled, setToolEnabled] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -162,6 +176,28 @@ export default function StudentFooter({
   }, [classId, supabase]);
 
   const safeProgress = Math.max(0, Math.min(100, progressPercent));
+
+  // Flower teaser: normalize colors with defaults
+  const DEFAULT_PETAL_COLOR = "#E0E0E0";
+  const teaserColors = useMemo(() => {
+    const base =
+      petalColors.length > 0 ? petalColors : Array(5).fill(DEFAULT_PETAL_COLOR);
+    return [...base, ...Array(5).fill(DEFAULT_PETAL_COLOR)].slice(0, 5);
+  }, [petalColors]);
+  const teaserFilled = Math.max(0, Math.min(5, petalsProgress));
+
+  // Track petal changes for bounce animation
+  const [teaserBounce, setTeaserBounce] = useState(false);
+  const prevPetalsRef = useRef(petalsProgress);
+  useEffect(() => {
+    if (petalsProgress !== prevPetalsRef.current && petalsProgress > 0) {
+      setTeaserBounce(true);
+      const timer = setTimeout(() => setTeaserBounce(false), 600);
+      prevPetalsRef.current = petalsProgress;
+      return () => clearTimeout(timer);
+    }
+    prevPetalsRef.current = petalsProgress;
+  }, [petalsProgress]);
 
   // Juster denne for å sentrere avataren nøyaktig på prosent-streken
   const avatarOffset = `calc(${safeProgress}% - 0.75rem)`;
@@ -295,6 +331,84 @@ export default function StudentFooter({
               </motion.div>
             </div>
           </div>
+
+          {/* Flower Teaser — mini garden link */}
+          {showFlowerGarden && (
+            <Link
+              href="/belonninger/hage"
+              className="relative flex items-center justify-center flex-shrink-0"
+              title="Min blomsterhage"
+            >
+              <motion.div
+                animate={
+                  teaserBounce
+                    ? {
+                        scale: [1, 1.25, 0.9, 1.1, 1],
+                        rotate: [0, -6, 6, -3, 0],
+                      }
+                    : { scale: 1 }
+                }
+                transition={
+                  teaserBounce
+                    ? { duration: 0.55, ease: "easeOut" }
+                    : { duration: 0.2 }
+                }
+                className="relative"
+              >
+                <FlowerPot
+                  petalsFilled={teaserFilled}
+                  colors={teaserColors}
+                  size={44}
+                  isInteractive={false}
+                />
+                {/* Subtle petal count ring */}
+                <div className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 flex gap-[2px]">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`w-[5px] h-[5px] rounded-full transition-colors duration-300 ${
+                        i < teaserFilled
+                          ? "bg-green-500 shadow-[0_0_3px_rgba(34,197,94,0.6)]"
+                          : "bg-gray-300"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </motion.div>
+            </Link>
+          )}
+
+          {/* Pending Reward Gift Indicator */}
+          {pendingRewardCount > 0 && (
+            <motion.button
+              type="button"
+              onClick={onClaimReward}
+              className="relative flex items-center justify-center flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 shadow-lg cursor-pointer"
+              title="Du har premier å hente!"
+              animate={{
+                scale: [1, 1.12, 1],
+                boxShadow: [
+                  "0 0 0px rgba(251,191,36,0)",
+                  "0 0 16px rgba(251,191,36,0.6)",
+                  "0 0 0px rgba(251,191,36,0)",
+                ],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              whileTap={{ scale: 0.9 }}
+              aria-label={`Du har ${pendingRewardCount} ${pendingRewardCount === 1 ? "premie" : "premier"} å hente`}
+            >
+              <span className="text-xl leading-none select-none">🎁</span>
+              {pendingRewardCount > 1 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center shadow">
+                  {pendingRewardCount}
+                </span>
+              )}
+            </motion.button>
+          )}
 
           {/* Time Tool Toggle Button */}
           <button

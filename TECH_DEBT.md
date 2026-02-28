@@ -6,6 +6,27 @@
 
 ## Resolved Debt
 
+### ~~Garden Visual Overhaul — Hardcoded Palettes & Dashboard Cruft~~ ✅ RESOLVED (2026-02-28)
+
+The `/belonninger/hage` garden page was a static, text-heavy dashboard with hardcoded rotating color palettes (`gardenPalettes[]`), numerical progress bars ("2 av 5 kronblader"), and status cards. Completed flowers had no color memory — they cycled through 3 fixed palettes.
+
+**Resolution:** Complete rewrite as "The Living Meadow" — a full-screen landscape with sky gradient, drifting SVG clouds, rolling green hills, and a rotating sun. Historical flowers now render from `completed_flower_colors` (Chunk 3 data) with their actual student-chosen colors. Flowers are organically scattered using deterministic pseudo-random positioning (`getFlowerPlacement()`), with gentle sway animations and tap-to-sparkle micro-interactions. The current in-progress flower sits prominently in the foreground as the sole progress indicator (Show, Don't Tell).
+
+### ~~Reward Persistence — Lost Level-Up Rewards~~ ✅ RESOLVED (2026-03-01)
+
+Students could lose their earned reward by closing the `LevelUpModal` (backdrop click, X button, or browser refresh) before selecting a reward. The reward opportunity was silently discarded.
+
+| Change           | File(s)                                                   | Detail                                                                                                                                                                                                                                   |
+| ---------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DB column        | Migration `20260301000003_add_pending_reward_levels.sql`  | `pending_reward_levels integer[] NOT NULL DEFAULT '{}'` on `student_profiles`                                                                                                                                                            |
+| Atomic tracking  | `useTaskCompletion.ts` `completeTask`                     | New levels appended to `pending_reward_levels` in same profile update as the level-up                                                                                                                                                    |
+| Clearing         | `useTaskCompletion.ts` `selectReward`                     | New `forLevel` parameter; clears the level from `pending_reward_levels` on success                                                                                                                                                       |
+| Undo cleanup     | `useTaskCompletion.ts` `undoTask`                         | Removes demoted levels from `pending_reward_levels`                                                                                                                                                                                      |
+| Modal hardening  | `LevelUpModal.tsx`                                        | Backdrop click disabled (prevents accidental dismiss for young students)                                                                                                                                                                 |
+| Dashboard banner | ~~`PendingRewardClaim.tsx`~~ → `StudentFooterWrapper.tsx` | Replaced dashboard-only floating banner with global footer gift icon (🎁). Glowing/pulsing indicator visible on all student pages. Opens `LevelUpModal` for `Math.min(...pendingLevels)`. Badge count shown for multiple pending levels. |
+| Context type     | `StudentProfileContext.tsx`                               | `pending_reward_levels: number[]` added to `StudentProfile` type and all queries                                                                                                                                                         |
+| Flow wiring      | `useTaskFlow.ts`                                          | Passes `newLevel` as `forLevel` to `selectReward`                                                                                                                                                                                        |
+
 ### ~~Schedule & TimeTracker Logic~~ ✅ RESOLVED (2026-02-28)
 
 The following critical schedule bugs were identified in CODE_AUDIT.md §3.2–§3.5 and resolved:
@@ -36,6 +57,29 @@ Added `is_recurring` boolean column (default `true`) to the `rewards` table. Whe
 | Migration                  | `20260301000001_add_reward_recurrence.sql` | Adds `is_recurring boolean NOT NULL DEFAULT true` to `rewards`               |
 | `LevelUpModal.tsx`         | Filter non-recurring earned rewards        | Parallel `student_rewards` query filters out already-earned one-time rewards |
 | `StudentRewardManager.tsx` | Create/display one-time rewards            | "Engangspremie" checkbox + amber "Engangs" badge on one-time rewards         |
+
+### ~~Data Integrity — Reward Duplication & Logic Alignment~~ ✅ RESOLVED (2026-03-01)
+
+Six data-integrity and code-quality issues were closed:
+
+| ID  | Vulnerability                                                            | Resolution                                                                                                                                                                          |
+| --- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C4  | Reward duplication — no DB constraint prevented double-claiming          | Migration `20260301000002_student_rewards_one_time_unique.sql` adds `UNIQUE(student_id, reward_id, earned_at_level)` with pre-migration dedup                                       |
+| H1  | `useTimeTracker` diverged from `get_student_schedule` RPC                | Refactored to use `get_student_schedule` RPC when `studentId` is available; raw fallback for class-only mode. Removed stale `subjects` state.                                       |
+| H2  | `undoTask` demoted level but didn't revoke earned rewards                | Added `DELETE FROM student_rewards WHERE student_id = ? AND earned_at_level > newLevel` after level demotion                                                                        |
+| H3  | Reward insert lived in `LevelUpModal.tsx` instead of `useTaskCompletion` | Moved insert to `selectReward("database", ...)` in `useTaskCompletion.ts` with `upsert` + `onConflict` for idempotency. `LevelUpModal` now delegates via `onSelectReward` callback. |
+| M1  | `createClient()` called in render scope on every render                  | Memoized via `useMemo(() => createClient(), [])` + `useRef` for stable IDs                                                                                                          |
+| M2  | Dead `window.__refreshStudentProfile` global hack in `Navigation.tsx`    | Removed entirely — context-based refresh is already available                                                                                                                       |
+
+### ~~Route Protection & API Security~~ ✅ RESOLVED (2026-02-28)
+
+Three critical security gaps were closed:
+
+| Vulnerability                  | Description                                                                                      | Resolution                                                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No role-based route protection | Students could navigate to `/teacher` and access the full teacher dashboard                      | Added `src/middleware.ts` — checks `profiles.role` for `/teacher/*` and teacher API routes. Students → redirect to `/student`. Unauthenticated → redirect to `/login`. API routes → 401/403 JSON.               |
+| Seed API unguarded             | `/api/seed` had no auth — anyone could wipe+recreate users and read passwords via GET response   | Added dual guard: `NODE_ENV === 'development'` + `X-Seed-Secret` header. Removed password/email leaks from GET/POST responses. Fixed O(n²) `listUsers` call.                                                    |
+| Push secret leaked in payload  | `PUSH_REACT_SECRET` was embedded in push notification payload, exposable on the teacher's device | Replaced with per-notification HMAC tokens: `HMAC-SHA256(secret, taskId:studentId)`. Master secret never leaves server. Added `timingSafeEqual` verification + emoji allowlist validation in `/api/push/react`. |
 
 ---
 

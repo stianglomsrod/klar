@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { getISOWeekNumber, getISODayOfWeek } from "@/utils/week-number";
 
@@ -11,12 +11,8 @@ type ScheduleEntry = {
   end_time: string;
   type: string;
   custom_title: string | null;
-};
-
-type Subject = {
-  id: string;
-  title: string;
-  emoji: string;
+  subject_title?: string;
+  emoji?: string;
 };
 
 type ActivityType = "lesson" | "break" | "free" | "upcoming";
@@ -37,9 +33,14 @@ type TimeTrackerResult = {
 };
 
 /**
- * Hook to track the current schedule activity based on real-time
- * @param studentId - The student's ID
- * @param classId - The student's class ID
+ * Hook to track the current schedule activity based on real-time.
+ *
+ * Uses the `get_student_schedule` RPC for consistent deduplication
+ * (DISTINCT ON prefers week-specific entries over masterplan).
+ * Falls back to raw `schedule_entries` query when no studentId is available.
+ *
+ * @param studentId - The student's ID (used for RPC call)
+ * @param classId   - The student's class ID (fallback only)
  */
 export function useTimeTracker(
   studentId: string | undefined,
@@ -56,10 +57,18 @@ export function useTimeTracker(
   const [progress, setProgress] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [refetchTick, setRefetchTick] = useState(0);
 
-  const supabase = createClient();
+  // M1 fix: memoize the Supabase client so we don't create one per render
+  const supabase = useMemo(() => createClient(), []);
+
+  // Keep a stable ref for IDs to avoid stale closures in the interval
+  const studentIdRef = useRef(studentId);
+  const classIdRef = useRef(classId);
+  useEffect(() => {
+    studentIdRef.current = studentId;
+    classIdRef.current = classId;
+  }, [studentId, classId]);
 
   // Periodic schedule refetch every 5 minutes
   useEffect(() => {
@@ -70,55 +79,86 @@ export function useTimeTracker(
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch schedule data
+  // Fetch schedule data — uses RPC for consistent deduplication
   useEffect(() => {
-    if (!classId) return;
+    if (!studentId && !classId) return;
 
     const fetchSchedule = async () => {
       try {
-        // Fetch subjects
-        const { data: subjectsData } = await supabase
-          .from("subjects")
-          .select("id, title, emoji");
-
-        if (subjectsData) {
-          setSubjects(subjectsData);
-        }
-
-        // Fetch schedule entries for today (current week, fallback to masterplan)
         const now = new Date();
         const dayOfWeek = getISODayOfWeek(now);
         const weekNumber = getISOWeekNumber(now);
 
-        const buildQuery = (weekNum: number) => {
-          let q = supabase
-            .from("schedule_entries")
-            .select("*")
-            .eq("day_of_week", dayOfWeek)
-            .eq("week_number", weekNum);
+        if (studentId) {
+          // ── Primary path: use get_student_schedule RPC ──
+          // This gives us dedup'd entries with subject data already joined
+          const { data: rpcData } = await supabase.rpc("get_student_schedule", {
+            p_student_id: studentId,
+            p_current_week_number: weekNumber,
+          });
 
-          if (studentId) {
-            // Student mode: get class entries + personal entries
-            q = q.or(
-              `and(class_id.eq.${classId},student_id.is.null),student_id.eq.${studentId}`,
+          if (rpcData && rpcData.length > 0) {
+            // Filter to today only and map to our ScheduleEntry shape
+            const todayEntries: ScheduleEntry[] = rpcData
+              .filter(
+                (e: { day_of_week: number }) => e.day_of_week === dayOfWeek,
+              )
+              .map(
+                (e: {
+                  id: string;
+                  subject_id: string | null;
+                  start_time: string;
+                  end_time: string;
+                  custom_title: string | null;
+                  subject_title: string;
+                  emoji: string;
+                }) => ({
+                  id: e.id,
+                  subject_id: e.subject_id,
+                  start_time: e.start_time,
+                  end_time: e.end_time,
+                  type: "lesson" as const, // RPC only returns lessons
+                  custom_title: e.custom_title,
+                  subject_title: e.subject_title,
+                  emoji: e.emoji,
+                }),
+              );
+            setScheduleEntries(todayEntries);
+          } else {
+            setScheduleEntries([]);
+          }
+        } else if (classId) {
+          // ── Fallback path: raw query (teacher/class mode without studentId) ──
+          const buildQuery = (weekNum: number) =>
+            supabase
+              .from("schedule_entries")
+              .select("*, subjects(title, emoji)")
+              .eq("day_of_week", dayOfWeek)
+              .eq("week_number", weekNum)
+              .eq("class_id", classId)
+              .is("student_id", null)
+              .order("start_time");
+
+          const { data: weekEntries } = await buildQuery(weekNumber);
+
+          if (weekEntries && weekEntries.length > 0) {
+            setScheduleEntries(
+              weekEntries.map((e: Record<string, unknown>) => ({
+                ...e,
+                subject_title: (e.subjects as { title?: string })?.title,
+                emoji: (e.subjects as { emoji?: string })?.emoji,
+              })) as ScheduleEntry[],
             );
           } else {
-            // Class mode only
-            q = q.eq("class_id", classId).is("student_id", null);
+            const { data: masterEntries } = await buildQuery(0);
+            setScheduleEntries(
+              (masterEntries || []).map((e: Record<string, unknown>) => ({
+                ...e,
+                subject_title: (e.subjects as { title?: string })?.title,
+                emoji: (e.subjects as { emoji?: string })?.emoji,
+              })) as ScheduleEntry[],
+            );
           }
-
-          return q.order("start_time");
-        };
-
-        // Try current week first
-        const { data: weekEntries } = await buildQuery(weekNumber);
-
-        if (weekEntries && weekEntries.length > 0) {
-          setScheduleEntries(weekEntries);
-        } else {
-          // Fallback to masterplan (week_number = 0)
-          const { data: masterEntries } = await buildQuery(0);
-          setScheduleEntries(masterEntries || []);
         }
       } catch {
         // Silent — schedule fetch failure is non-critical
@@ -129,7 +169,7 @@ export function useTimeTracker(
 
     fetchSchedule();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, studentId, refetchTick]);
+  }, [classId, studentId, refetchTick, supabase]);
 
   // Update current activity every 30 seconds
   useEffect(() => {
@@ -168,7 +208,6 @@ export function useTimeTracker(
 
         // Check if we're currently in this time slot
         if (currentTime >= startMinutes && currentTime < endMinutes) {
-          const subject = subjects.find((s) => s.id === entry.subject_id);
           const totalDuration = endMinutes - startMinutes;
           const elapsed = currentTime - startMinutes;
           const remaining = endMinutes - currentTime;
@@ -178,8 +217,8 @@ export function useTimeTracker(
 
           if (entry.type === "lesson") {
             foundActivity = {
-              title: entry.custom_title || subject?.title || "Time",
-              emoji: subject?.emoji || "📚",
+              title: entry.custom_title || entry.subject_title || "Time",
+              emoji: entry.emoji || "📚",
               type: "lesson",
               endTime: entry.end_time,
               startTime: entry.start_time,
@@ -206,13 +245,12 @@ export function useTimeTracker(
 
         // Check if this is an upcoming activity
         if (currentTime < startMinutes) {
-          const subject = subjects.find((s) => s.id === entry.subject_id);
           const minutesUntil = startMinutes - currentTime;
           foundTimeRemaining = formatTimeRemaining(minutesUntil);
 
           foundActivity = {
-            title: entry.custom_title || subject?.title || "Neste time",
-            emoji: subject?.emoji || "📚",
+            title: entry.custom_title || entry.subject_title || "Neste time",
+            emoji: entry.emoji || "📚",
             type: "upcoming",
             endTime: entry.end_time,
             startTime: entry.start_time,
@@ -291,7 +329,7 @@ export function useTimeTracker(
     const interval = setInterval(updateActivity, 30000);
 
     return () => clearInterval(interval);
-  }, [scheduleEntries, subjects]);
+  }, [scheduleEntries]);
 
   return {
     currentActivity,

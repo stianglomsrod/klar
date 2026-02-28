@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import webpush from "web-push";
+import { createHmac } from "crypto";
 
 // Configure VAPID keys from environment
 webpush.setVapidDetails(
@@ -8,6 +9,18 @@ webpush.setVapidDetails(
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!,
 );
+
+/**
+ * Creates a per-notification HMAC token from taskId + studentId.
+ * The master secret never leaves the server — only the derived token
+ * is embedded in the push payload.
+ */
+function createReactionToken(taskId: string, studentId: string): string {
+  const secret = process.env.PUSH_REACT_SECRET || "";
+  return createHmac("sha256", secret)
+    .update(`${taskId}:${studentId}`)
+    .digest("base64url");
+}
 
 /**
  * POST /api/push/send
@@ -73,13 +86,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true }); // No devices — silent exit
     }
 
-    // 5. Build notification payload
+    // 5. Build notification payload (HMAC token — master secret never exposed)
+    const reactionToken = createReactionToken(taskId, studentId);
     const payload = JSON.stringify({
       title: `${studentName || "Elev"} leverte oppgave`,
       body: taskTitle || "En oppgave er fullført",
       taskId,
       studentId,
-      pushSecret: process.env.PUSH_REACT_SECRET || "",
+      reactionToken,
     });
 
     // 6. Send push to all teacher devices

@@ -1,5 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+
+// ── Security Gate ──────────────────────────────────────────────────
+// This endpoint is destructive (deletes + recreates auth users).
+// Two layers of protection:
+//   1. NODE_ENV must be "development"
+//   2. X-Seed-Secret header must match SEED_SECRET env var
+function guardSeedAccess(req: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV !== "development") {
+    return NextResponse.json(
+      { error: "Seed endpoint is disabled outside development" },
+      { status: 403 },
+    );
+  }
+
+  const seedSecret = process.env.SEED_SECRET;
+  if (seedSecret) {
+    const provided = req.headers.get("X-Seed-Secret");
+    if (provided !== seedSecret) {
+      return NextResponse.json(
+        { error: "Invalid or missing X-Seed-Secret header" },
+        { status: 403 },
+      );
+    }
+  }
+
+  return null; // Access granted
+}
 
 // Seed data structure
 const SEED_DATA = {
@@ -39,7 +66,11 @@ function getAvatarUrl(name: string): string {
   return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  // ── Security check ──
+  const blocked = guardSeedAccess(req);
+  if (blocked) return blocked;
+
   // Validate environment variables
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -73,16 +104,19 @@ export async function POST() {
     errors: [],
   };
 
+  // Pre-fetch all existing users once (instead of per-student)
+  const { data: existingUsersData } = await supabase.auth.admin.listUsers();
+  const existingUsersByEmail = new Map(
+    (existingUsersData?.users || []).map((u) => [u.email, u]),
+  );
+
   // Process each grade -> class -> student
   for (const grade of SEED_DATA.grades) {
     for (const cls of grade.classes) {
       for (const student of cls.students) {
         try {
           // Check if user already exists
-          const { data: existingUsers } = await supabase.auth.admin.listUsers();
-          const existingUser = existingUsers?.users?.find(
-            (u) => u.email === student.email,
-          );
+          const existingUser = existingUsersByEmail.get(student.email);
 
           let userId: string;
 
@@ -184,15 +218,15 @@ export async function POST() {
       errors: results.errors.length,
     },
     results,
-    credentials: {
-      password: SEED_DATA.password,
-      note: "All students use the same password",
-    },
   });
 }
 
 // Also support GET for easy browser testing (shows instructions)
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ── Security check ──
+  const blocked = guardSeedAccess(req);
+  if (blocked) return blocked;
+
   return NextResponse.json({
     message: "Database Seed Endpoint",
     usage: "Send a POST request to this endpoint to seed the database",
@@ -201,11 +235,11 @@ export async function GET() {
         name: g.name,
         classes: g.classes.map((c) => ({
           name: c.name,
-          students: c.students.map((s) => s.email),
+          studentCount: c.students.length,
         })),
       })),
     },
-    password: SEED_DATA.password,
-    curlExample: "curl -X POST http://localhost:3000/api/seed",
+    curlExample:
+      'curl -X POST -H "X-Seed-Secret: $SEED_SECRET" http://localhost:3000/api/seed',
   });
 }
