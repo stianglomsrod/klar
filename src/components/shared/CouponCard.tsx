@@ -48,7 +48,11 @@ export default function CouponCard({
           <div
             key={`top-${i}`}
             className={`w-2 h-2 rounded-full ${
-              isLocked ? "bg-gray-300" : isRedeemed ? "bg-white/30" : "bg-white/40"
+              isLocked
+                ? "bg-gray-300"
+                : isRedeemed
+                  ? "bg-white/30"
+                  : "bg-white/40"
             }`}
           />
         ))}
@@ -58,7 +62,11 @@ export default function CouponCard({
           <div
             key={`bottom-${i}`}
             className={`w-2 h-2 rounded-full ${
-              isLocked ? "bg-gray-300" : isRedeemed ? "bg-white/30" : "bg-white/40"
+              isLocked
+                ? "bg-gray-300"
+                : isRedeemed
+                  ? "bg-white/30"
+                  : "bg-white/40"
             }`}
           />
         ))}
@@ -131,7 +139,9 @@ export default function CouponCard({
         ) : (
           <div className="flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-50 border border-emerald-200">
             <span className="text-base">✅</span>
-            <span className="text-sm font-semibold text-emerald-700">Innløst</span>
+            <span className="text-sm font-semibold text-emerald-700">
+              Innløst
+            </span>
           </div>
         )}
       </div>
@@ -139,7 +149,11 @@ export default function CouponCard({
       {/* Dashed border effect */}
       <div
         className={`absolute inset-0 border-2 border-dashed rounded-2xl pointer-events-none ${
-          isLocked ? "border-gray-400" : isRedeemed ? "border-orange-200" : "border-orange-300"
+          isLocked
+            ? "border-gray-400"
+            : isRedeemed
+              ? "border-orange-200"
+              : "border-orange-300"
         }`}
         style={{ margin: "4px" }}
       />

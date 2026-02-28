@@ -246,9 +246,7 @@ export default function KupongerPage() {
             >
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🏆</span>
-                <h2 className="text-2xl font-bold text-gray-800">
-                  Premieskap
-                </h2>
+                <h2 className="text-2xl font-bold text-gray-800">Premieskap</h2>
                 <span className="text-sm font-normal text-gray-500 ml-2">
                   ({redeemedRewards.length})
                 </span>
