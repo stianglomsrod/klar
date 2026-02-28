@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
+import { isImageUrl } from "@/utils/avatar";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
 import {
@@ -362,12 +363,16 @@ export default function TeacherDashboard() {
                     <div className="flex items-center gap-3">
                       {/* Student avatar */}
                       <div className="shrink-0">
-                        {activity.student?.avatar_url ? (
+                        {isImageUrl(activity.student?.avatar_url) ? (
                           <img
                             src={activity.student.avatar_url}
                             alt={studentName}
                             className="w-9 h-9 rounded-full object-cover"
                           />
+                        ) : activity.student?.avatar_url ? (
+                          <div className="flex items-center justify-center w-9 h-9 text-xl">
+                            {activity.student.avatar_url}
+                          </div>
                         ) : (
                           <div className="flex items-center justify-center w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-xs">
                             {studentInitials}

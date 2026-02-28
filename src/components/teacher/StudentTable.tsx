@@ -3,6 +3,7 @@
 import { MoreVertical, ArrowUpDown } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { isImageUrl } from "@/utils/avatar";
 import {
   useReactTable,
   getCoreRowModel,
@@ -149,7 +150,7 @@ export default function StudentTable({
           return (
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-sm flex-shrink-0">
-                {student.avatar_url ? (
+                {isImageUrl(student.avatar_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={student.avatar_url}
@@ -157,7 +158,10 @@ export default function StudentTable({
                     className="w-full h-full rounded-full object-cover"
                   />
                 ) : (
-                  student.full_name.charAt(0).toUpperCase()
+                  <span className="text-lg">
+                    {student.avatar_url ||
+                      student.full_name.charAt(0).toUpperCase()}
+                  </span>
                 )}
               </div>
               <div className="min-w-0">

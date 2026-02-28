@@ -34,7 +34,9 @@ klar/
 ├── public/
 │   ├── file.svg
 │   ├── globe.svg
+│   ├── manifest.json
 │   ├── next.svg
+│   ├── sw.js
 │   ├── vercel.svg
 │   ├── window.svg
 │   └── sounds/
@@ -94,8 +96,15 @@ klar/
 │   │   │   └── shared-plan-utils.ts
 │   │   │
 │   │   ├── api/
-│   │   │   └── seed/
-│   │   │       └── route.ts
+│   │   │   ├── seed/
+│   │   │   │   └── route.ts
+│   │   │   └── push/
+│   │   │       ├── subscribe/
+│   │   │       │   └── route.ts
+│   │   │       ├── send/
+│   │   │       │   └── route.ts
+│   │   │       └── react/
+│   │   │           └── route.ts
 │   │   │
 │   │   ├── belonninger/
 │   │   │   ├── layout.tsx
@@ -119,6 +128,7 @@ klar/
 │   │   ├── Navigation.tsx
 │   │   ├── PaintBrushCursor.tsx
 │   │   ├── ResponsiveArchive.tsx
+│   │   ├── ServiceWorkerRegistration.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── StudentFooter.tsx
 │   │   ├── StudentFooterWrapper.tsx
@@ -193,6 +203,7 @@ klar/
 │   │   └── useTTS.ts
 │   │
 │   └── utils/
+│       ├── avatar.ts
 │       ├── constants.ts
 │       ├── format-time.ts
 │       ├── hero-gradients.ts
@@ -225,4 +236,6 @@ klar/
         ├── 20260222200000_add_current_password_plaintext.sql
         └── 20260228000000_add_class_unique_constraint.sql
         └── 20260228000001_add_class_delete_policy.sql
+        ├── 20260301000000_push_tables_rls.sql
+        └── 20260301000001_add_reward_recurrence.sql
 ```

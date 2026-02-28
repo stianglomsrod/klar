@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { CheckCircle, Clock } from "lucide-react";
+import { isImageUrl } from "@/utils/avatar";
 
 type HelpRequest = {
   id: string;
@@ -192,7 +193,7 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
                 {/* Avatar & Name */}
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-xs flex items-center justify-center">
-                    {request.avatar_url ? (
+                    {isImageUrl(request.avatar_url) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={request.avatar_url}
@@ -200,7 +201,10 @@ export default function HelpRequestQueue({ classId }: HelpRequestQueueProps) {
                         className="w-full h-full rounded-full object-cover"
                       />
                     ) : (
-                      request.full_name.charAt(0).toUpperCase()
+                      <span className="text-base">
+                        {request.avatar_url ||
+                          request.full_name.charAt(0).toUpperCase()}
+                      </span>
                     )}
                   </div>
                   <span className="text-sm font-medium text-slate-900 truncate">

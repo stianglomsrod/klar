@@ -46,6 +46,7 @@ export function useTaskCompletion() {
     async (
       taskId: string,
       pointsValue: number,
+      meta?: { studentName?: string; taskTitle?: string },
     ): Promise<CompletionResult | null> => {
       if (!profile) return null;
       setIsCompleting(true);
@@ -105,6 +106,20 @@ export function useTaskCompletion() {
 
         // 5. Sound
         playSuccessSound();
+
+        // 6. Push notification to teacher (fire-and-forget)
+        fetch("/api/push/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            taskId,
+            studentId: profile.id,
+            studentName: meta?.studentName ?? profile.full_name ?? "Elev",
+            taskTitle: meta?.taskTitle ?? "Oppgave",
+          }),
+        }).catch(() => {
+          /* Push is best-effort — silently ignore failures */
+        });
 
         return { shouldLevelUp, isNewHighLevel, newLevel };
       } catch {

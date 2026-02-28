@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { isImageUrl } from "@/utils/avatar";
 import {
   ChevronDown,
   ChevronRight,
@@ -686,7 +687,7 @@ export default function ClassesAccordion({
                                       className="flex-1 flex items-center gap-3 text-left"
                                     >
                                       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-xs flex-shrink-0">
-                                        {student.avatar_url ? (
+                                        {isImageUrl(student.avatar_url) ? (
                                           // eslint-disable-next-line @next/next/no-img-element
                                           <img
                                             src={student.avatar_url}
@@ -694,9 +695,12 @@ export default function ClassesAccordion({
                                             className="w-full h-full rounded-full object-cover"
                                           />
                                         ) : (
-                                          student.full_name
-                                            .charAt(0)
-                                            .toUpperCase()
+                                          <span className="text-base">
+                                            {student.avatar_url ||
+                                              student.full_name
+                                                .charAt(0)
+                                                .toUpperCase()}
+                                          </span>
                                         )}
                                       </div>
                                       <div className="flex-1 min-w-0">

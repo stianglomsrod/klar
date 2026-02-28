@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Menu, X, GraduationCap } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { isImageUrl } from "@/utils/avatar";
 import TeacherSidebar from "@/components/teacher/TeacherSidebar";
 import {
   TeacherProfileProvider,
@@ -44,12 +45,16 @@ function TeacherLayoutInner({ children }: { children: React.ReactNode }) {
           {/* Footer */}
           <div className="px-4 py-4 border-t border-slate-200">
             <div className="flex items-center gap-3 px-3 py-2">
-              {avatarUrl ? (
+              {isImageUrl(avatarUrl) ? (
                 <img
                   src={avatarUrl}
                   alt={displayName}
                   className="w-9 h-9 rounded-full object-cover"
                 />
+              ) : avatarUrl ? (
+                <div className="flex items-center justify-center w-9 h-9 text-xl">
+                  {avatarUrl}
+                </div>
               ) : (
                 <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
                   {loading ? "…" : initials}
@@ -137,12 +142,16 @@ function TeacherLayoutInner({ children }: { children: React.ReactNode }) {
                 {/* Drawer Footer */}
                 <div className="px-4 py-4 border-t border-slate-200">
                   <div className="flex items-center gap-3 px-3 py-2">
-                    {avatarUrl ? (
+                    {isImageUrl(avatarUrl) ? (
                       <img
                         src={avatarUrl}
                         alt={displayName}
                         className="w-9 h-9 rounded-full object-cover"
                       />
+                    ) : avatarUrl ? (
+                      <div className="flex items-center justify-center w-9 h-9 text-xl">
+                        {avatarUrl}
+                      </div>
                     ) : (
                       <div className="flex items-center justify-center w-9 h-9 rounded-full bg-slate-200 text-slate-600 font-semibold text-sm">
                         {loading ? "…" : initials}

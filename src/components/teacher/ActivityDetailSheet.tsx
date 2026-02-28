@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { isImageUrl } from "@/utils/avatar";
 import {
   X,
   Clock,
@@ -140,13 +141,17 @@ export default function ActivityDetailSheet({
             {/* ── Header ──────────────────────────────── */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                {activity.student?.avatar_url ? (
+                {isImageUrl(activity.student?.avatar_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activity.student.avatar_url}
                     alt={studentName}
                     className="w-10 h-10 rounded-full object-cover shrink-0"
                   />
+                ) : activity.student?.avatar_url ? (
+                  <div className="flex items-center justify-center w-10 h-10 text-2xl shrink-0">
+                    {activity.student.avatar_url}
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-semibold text-sm shrink-0">
                     {studentInitial}

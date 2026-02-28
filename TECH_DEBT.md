@@ -22,10 +22,20 @@ The following critical schedule bugs were identified in CODE_AUDIT.md §3.2–§
 
 Both Container A (`subject/[id]/page.tsx`) and Container B (`student/lesson/[id]/page.tsx`) fetched tasks without filtering by `student_id`. Since the `tasks` table has no RLS (see §3 below), all N copies of each task were returned (one per student in the class), causing visual duplication.
 
-| Container | File | Resolution |
-| --- | --- | --- |
-| A — Subject library | `src/app/subject/[id]/page.tsx` | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to both incomplete and completed task queries. Null-user guard redirects to `/login`. |
-| B — Lesson view | `src/app/(dashboard)/student/lesson/[id]/page.tsx` | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to the junction-fetched task query. Null-user guard redirects to `/login`. |
+| Container           | File                                               | Resolution                                                                                                                                           |
+| ------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A — Subject library | `src/app/subject/[id]/page.tsx`                    | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to both incomplete and completed task queries. Null-user guard redirects to `/login`. |
+| B — Lesson view     | `src/app/(dashboard)/student/lesson/[id]/page.tsx` | Added `supabase.auth.getUser()` + `.eq("student_id", user.id)` to the junction-fetched task query. Null-user guard redirects to `/login`.            |
+
+### ~~Reward Evolution — One-Time vs. Recurring Rewards~~ ✅ RESOLVED (2026-02-28)
+
+Added `is_recurring` boolean column (default `true`) to the `rewards` table. When `is_recurring = false`, a reward is a one-time reward that disappears from the level-up selection after a student picks it once.
+
+| Component                  | Change                                     | Detail                                                                       |
+| -------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| Migration                  | `20260301000001_add_reward_recurrence.sql` | Adds `is_recurring boolean NOT NULL DEFAULT true` to `rewards`               |
+| `LevelUpModal.tsx`         | Filter non-recurring earned rewards        | Parallel `student_rewards` query filters out already-earned one-time rewards |
+| `StudentRewardManager.tsx` | Create/display one-time rewards            | "Engangspremie" checkbox + amber "Engangs" badge on one-time rewards         |
 
 ---
 
@@ -106,14 +116,14 @@ We are running the MVP with **RLS disabled** on several public tables and with o
 
 The following tables have RLS **not enabled**, meaning the Supabase `anon` and `authenticated` keys grant unrestricted read/write access:
 
-| Table                             | Issue                  |
-| --------------------------------- | ---------------------- |
-| `public.tasks`                    | RLS Disabled in Public |
-| `public.feedback`                 | RLS Disabled in Public |
-| `public.weekly_updates`           | RLS Disabled in Public |
-| `public.push_subscriptions`       | RLS Disabled in Public |
-| `public.student_teacher_settings` | RLS Disabled in Public |
-| `public.task_schedule_entries`    | RLS Disabled in Public |
+| Table                                 | Issue                                                                              |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| `public.tasks`                        | RLS Disabled in Public                                                             |
+| `public.feedback`                     | RLS Disabled in Public                                                             |
+| `public.weekly_updates`               | RLS Disabled in Public                                                             |
+| ~~`public.push_subscriptions`~~       | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
+| ~~`public.student_teacher_settings`~~ | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
+| `public.task_schedule_entries`        | RLS Disabled in Public                                                             |
 
 Additionally, `public.tasks` has a separate "Policy Exists RLS Disabled" error — policies have been written for the table but RLS itself was never turned on, so the policies are inert.
 
@@ -144,8 +154,7 @@ Before **any** production or multi-school deployment, we **MUST**:
    ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
    ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
    ALTER TABLE public.weekly_updates ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE public.student_teacher_settings ENABLE ROW LEVEL SECURITY;
+   -- push_subscriptions & student_teacher_settings: ✅ Done (20260301000000_push_tables_rls.sql)
    ALTER TABLE public.task_schedule_entries ENABLE ROW LEVEL SECURITY;
    ```
 

@@ -31,6 +31,10 @@
 NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-anon-key>
 GEMINI_API_KEY=<google-gemini-api-key>
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=<vapid-public-key>
+VAPID_PRIVATE_KEY=<vapid-private-key>
+PUSH_REACT_SECRET=<shared-secret-for-sw-react-endpoint>
+SUPABASE_SERVICE_ROLE_KEY=<supabase-service-role-key>
 ```
 
 ### Scripts
@@ -71,6 +75,10 @@ src/app/
 │   └── save-weekly-plan.ts   # Class/subject normalization, hybrid splitting, auto-create flow, saves to DB
 │
 ├── api/seed/route.ts   # Seed data endpoint
+├── api/push/            # Push notification API
+│   ├── subscribe/route.ts  # Save teacher's PushSubscription to DB
+│   ├── send/route.ts       # Send push to teacher on task completion
+│   └── react/route.ts      # Receive emoji reaction from SW (X-Push-Secret auth)
 ├── belonninger/        # Rewards pages (garden, coupons)
 │   ├── layout.tsx, page.tsx, hage/, kuponger/
 │

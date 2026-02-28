@@ -13,6 +13,7 @@ type Reward = {
   name: string;
   emoji: string;
   cost: number;
+  is_recurring: boolean;
 };
 
 interface StudentRewardManagerProps {
@@ -32,7 +33,11 @@ export default function StudentRewardManager({
   const [rewardModalView, setRewardModalView] = useState<"list" | "create">(
     "list",
   );
-  const [newRewardForm, setNewRewardForm] = useState({ title: "", emoji: "" });
+  const [newRewardForm, setNewRewardForm] = useState({
+    title: "",
+    emoji: "",
+    is_recurring: true,
+  });
   const [selectedRewards, setSelectedRewards] = useState<string[]>([]);
   const [studentRewards, setStudentRewards] = useState<Reward[]>([]);
   const [availableRewards, setAvailableRewards] = useState<Reward[]>([]);
@@ -43,7 +48,7 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value")
+        .select("id, name:title, emoji, cost:cost_value, is_recurring")
         .contains("specific_student_ids", [studentId]);
 
       if (error) throw error;
@@ -57,7 +62,7 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value")
+        .select("id, name:title, emoji, cost:cost_value, is_recurring")
         .or(`specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`)
         .order("title");
 
@@ -179,6 +184,7 @@ export default function StudentRewardManager({
           specific_student_ids: [studentId],
           cost_type: "level",
           cost_value: 0,
+          is_recurring: newRewardForm.is_recurring,
         })
         .select()
         .single();
@@ -192,7 +198,7 @@ export default function StudentRewardManager({
         setSelectedRewards((prev) => [...prev, data.id]);
       }
 
-      setNewRewardForm({ title: "", emoji: "" });
+      setNewRewardForm({ title: "", emoji: "", is_recurring: true });
       setRewardModalView("list");
     } catch {
       showToast("Kunne ikke opprette belønning. Prøv igjen.", "error");
@@ -259,6 +265,11 @@ export default function StudentRewardManager({
                   <span className="text-sm font-medium text-slate-700">
                     {reward.name}
                   </span>
+                  {!reward.is_recurring && (
+                    <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
+                      Engangs
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => handleRemoveReward(reward.id)}
@@ -294,7 +305,11 @@ export default function StudentRewardManager({
                 onClick={() => {
                   setIsRewardModalOpen(false);
                   setRewardModalView("list");
-                  setNewRewardForm({ title: "", emoji: "" });
+                  setNewRewardForm({
+                    title: "",
+                    emoji: "",
+                    is_recurring: true,
+                  });
                 }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -337,6 +352,11 @@ export default function StudentRewardManager({
                               <span className="text-sm font-medium text-slate-700 flex-1">
                                 {reward.name}
                               </span>
+                              {!reward.is_recurring && (
+                                <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
+                                  Engangs
+                                </span>
+                              )}
                             </label>
                             <button
                               onClick={(e) => {
@@ -418,6 +438,32 @@ export default function StudentRewardManager({
                       </p>
                     </div>
 
+                    {/* Recurring toggle */}
+                    <div>
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!newRewardForm.is_recurring}
+                          onChange={(e) =>
+                            setNewRewardForm({
+                              ...newRewardForm,
+                              is_recurring: !e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                        />
+                        <div>
+                          <span className="text-sm font-semibold text-slate-700">
+                            Engangspremie
+                          </span>
+                          <p className="text-xs text-slate-500">
+                            Kan bare velges én gang per elev — forsvinner etter
+                            bruk
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-xs text-blue-800">
                         <strong>Merk:</strong> Denne belønningen vil kun være
@@ -454,7 +500,11 @@ export default function StudentRewardManager({
                   <button
                     onClick={() => {
                       setRewardModalView("list");
-                      setNewRewardForm({ title: "", emoji: "" });
+                      setNewRewardForm({
+                        title: "",
+                        emoji: "",
+                        is_recurring: true,
+                      });
                     }}
                     className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
                   >

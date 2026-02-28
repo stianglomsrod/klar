@@ -17,6 +17,7 @@ type Reward = {
   title: string;
   description?: string;
   emoji?: string;
+  is_recurring?: boolean;
 };
 
 type LevelUpModalProps = {
@@ -89,16 +90,31 @@ export default function LevelUpModal({
           // Fetch rewards that are either:
           // 1. Available to all students (specific_student_ids is empty array)
           // 2. Specifically assigned to this student (array contains studentId)
-          const { data, error } = await supabase
-            .from("rewards")
-            .select("*")
-            .or(
-              `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
-            )
-            .order("created_at", { ascending: true });
+          const [rewardsRes, earnedRes] = await Promise.all([
+            supabase
+              .from("rewards")
+              .select("*")
+              .or(
+                `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
+              )
+              .order("created_at", { ascending: true }),
+            // Also fetch reward_ids this student has already earned
+            supabase
+              .from("student_rewards")
+              .select("reward_id")
+              .eq("student_id", studentId ?? ""),
+          ]);
 
-          if (!error) {
-            setRewards(data || []);
+          if (!rewardsRes.error && rewardsRes.data) {
+            const earnedIds = new Set(
+              (earnedRes.data ?? []).map((r) => r.reward_id),
+            );
+
+            // Filter out one-time rewards the student already selected
+            const filtered = rewardsRes.data.filter(
+              (r) => r.is_recurring !== false || !earnedIds.has(r.id),
+            );
+            setRewards(filtered);
           }
         } catch {
           // Silent — reward fetch is non-critical
@@ -226,306 +242,317 @@ export default function LevelUpModal({
 
   return (
     <>
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          key="level-up-overlay"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center"
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={handleClose}
-          />
-
-          {/* Confetti (Step 1 only) */}
-          {step === "celebration" && (
-            <Confetti
-              width={typeof window !== "undefined" ? window.innerWidth : 300}
-              height={typeof window !== "undefined" ? window.innerHeight : 300}
-              recycle={false}
-              numberOfPieces={500}
-              gravity={0.3}
-            />
-          )}
-
-          {/* Modal Content */}
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            initial={{ scale: 0.8, y: 50 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.8 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className={`relative z-10 bg-white rounded-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full mx-3 sm:mx-4 md:mx-6 p-4 sm:p-6 md:p-8 lg:p-12 max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-y-auto ${
-              step === "colorPicker" ? "cursor-none [&_*]:cursor-none" : ""
-            }`}
+            key="level-up-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
           >
-          {/* Paint Brush Cursor (only in color picker) */}
-          {step === "colorPicker" && <PaintBrushCursor color={selectedColor} />}
-          {/* Close Button */}
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="h-6 w-6 text-gray-600" />
-          </button>
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={handleClose}
+            />
 
-          {/* Step 1: Celebration */}
-          {step === "celebration" && (
-            <div className="text-center flex flex-col overflow-hidden">
-              {/* Header - Fixed at top */}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="flex-shrink-0"
+            {/* Confetti (Step 1 only) */}
+            {step === "celebration" && (
+              <Confetti
+                width={typeof window !== "undefined" ? window.innerWidth : 300}
+                height={
+                  typeof window !== "undefined" ? window.innerHeight : 300
+                }
+                recycle={false}
+                numberOfPieces={500}
+                gravity={0.3}
+              />
+            )}
+
+            {/* Modal Content */}
+            <motion.div
+              initial={{ scale: 0.8, y: 50 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.8 }}
+              transition={{ type: "spring", damping: 20, stiffness: 300 }}
+              className={`relative z-10 bg-white rounded-2xl md:rounded-3xl shadow-2xl max-w-4xl w-full mx-3 sm:mx-4 md:mx-6 p-4 sm:p-6 md:p-8 lg:p-12 max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-y-auto ${
+                step === "colorPicker" ? "cursor-none [&_*]:cursor-none" : ""
+              }`}
+            >
+              {/* Paint Brush Cursor (only in color picker) */}
+              {step === "colorPicker" && (
+                <PaintBrushCursor color={selectedColor} />
+              )}
+              {/* Close Button */}
+              <button
+                onClick={handleClose}
+                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 mb-3 md:mb-4">
-                  GRATULERER! 🎉
-                </h1>
-                <motion.p
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2"
-                >
-                  Du er nå i Level {newLevel}!
-                </motion.p>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="text-base sm:text-lg text-gray-600 mb-4 md:mb-6"
-                >
-                  Velg din premie:
-                </motion.p>
-              </motion.div>
+                <X className="h-6 w-6 text-gray-600" />
+              </button>
 
-              {/* Scrollable Reward Grid */}
-              <div className="relative">
-                {/* Left Arrow */}
-                {canScrollLeft && (
-                  <button
-                    onClick={() => scroll("left")}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all"
-                    aria-label="Scroll left"
+              {/* Step 1: Celebration */}
+              {step === "celebration" && (
+                <div className="text-center flex flex-col overflow-hidden">
+                  {/* Header - Fixed at top */}
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                    className="flex-shrink-0"
                   >
-                    <ChevronLeft className="w-6 h-6 text-gray-700" />
-                  </button>
-                )}
+                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 mb-3 md:mb-4">
+                      GRATULERER! 🎉
+                    </h1>
+                    <motion.p
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.4 }}
+                      className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 mb-2"
+                    >
+                      Du er nå i Level {newLevel}!
+                    </motion.p>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                      className="text-base sm:text-lg text-gray-600 mb-4 md:mb-6"
+                    >
+                      Velg din premie:
+                    </motion.p>
+                  </motion.div>
 
-                {/* Right Arrow */}
-                {canScrollRight && (
-                  <button
-                    onClick={() => scroll("right")}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all"
-                    aria-label="Scroll right"
-                  >
-                    <ChevronRight className="w-6 h-6 text-gray-700" />
-                  </button>
-                )}
-
-                {/* Horizontal scroll container */}
-                <div
-                  ref={scrollContainerRef}
-                  className="overflow-x-auto overflow-y-hidden scrollbar-hide"
-                  style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                >
-                  <div className="flex gap-2 sm:gap-3 md:gap-6 px-4 sm:px-6 md:px-8 lg:px-10 py-3 md:py-4 min-w-min">
-                    {/* Flower Reward - Only show if enabled */}
-                    {showFlowerGarden && (
-                      <motion.button
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.7 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleRewardSelect("petal")}
-                        className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-pink-100 to-purple-100 border-2 border-pink-300 hover:border-pink-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                  {/* Scrollable Reward Grid */}
+                  <div className="relative">
+                    {/* Left Arrow */}
+                    {canScrollLeft && (
+                      <button
+                        onClick={() => scroll("left")}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all"
+                        aria-label="Scroll left"
                       >
-                        <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
-                          🌸
-                        </div>
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
-                          Fargelegg Kronblad
-                        </h3>
-                        <p className="text-xs sm:text-sm text-gray-600">
-                          Velg en farge til blomsten din
-                        </p>
-                      </motion.button>
+                        <ChevronLeft className="w-6 h-6 text-gray-700" />
+                      </button>
                     )}
 
-                    {/* Database Rewards */}
-                    {loadingRewards ? (
-                      <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-gray-500 text-center text-sm sm:text-base"
-                        >
-                          Laster premier...
-                        </motion.div>
-                      </div>
-                    ) : rewards.length === 0 && !showFlowerGarden ? (
-                      <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-gray-500 text-center text-sm sm:text-base"
-                        >
-                          Ingen premier tilgjengelig
-                        </motion.div>
-                      </div>
-                    ) : (
-                      rewards.map((reward, index) => (
-                        <motion.button
-                          key={reward.id}
-                          initial={{ opacity: 0, y: 30 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{
-                            delay:
-                              0.7 +
-                              (showFlowerGarden ? index * 0.1 : index * 0.1),
-                          }}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() =>
-                            handleRewardSelect("database", reward.id)
-                          }
-                          disabled={savingReward}
-                          className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-300 hover:border-blue-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
-                            {savingReward ? "⏳" : reward.emoji || "🎁"}
-                          </div>
-                          <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
-                            {reward.title}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-gray-600">
-                            {savingReward
-                              ? "Lagrer premie..."
-                              : reward.description || "En fantastisk premie!"}
-                          </p>
-                        </motion.button>
-                      ))
+                    {/* Right Arrow */}
+                    {canScrollRight && (
+                      <button
+                        onClick={() => scroll("right")}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white shadow-lg rounded-full p-3 transition-all"
+                        aria-label="Scroll right"
+                      >
+                        <ChevronRight className="w-6 h-6 text-gray-700" />
+                      </button>
                     )}
+
+                    {/* Horizontal scroll container */}
+                    <div
+                      ref={scrollContainerRef}
+                      className="overflow-x-auto overflow-y-hidden scrollbar-hide"
+                      style={{
+                        scrollbarWidth: "none",
+                        msOverflowStyle: "none",
+                      }}
+                    >
+                      <div className="flex gap-2 sm:gap-3 md:gap-6 px-4 sm:px-6 md:px-8 lg:px-10 py-3 md:py-4 min-w-min">
+                        {/* Flower Reward - Only show if enabled */}
+                        {showFlowerGarden && (
+                          <motion.button
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.7 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleRewardSelect("petal")}
+                            className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-pink-100 to-purple-100 border-2 border-pink-300 hover:border-pink-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer"
+                          >
+                            <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
+                              🌸
+                            </div>
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
+                              Fargelegg Kronblad
+                            </h3>
+                            <p className="text-xs sm:text-sm text-gray-600">
+                              Velg en farge til blomsten din
+                            </p>
+                          </motion.button>
+                        )}
+
+                        {/* Database Rewards */}
+                        {loadingRewards ? (
+                          <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-gray-500 text-center text-sm sm:text-base"
+                            >
+                              Laster premier...
+                            </motion.div>
+                          </div>
+                        ) : rewards.length === 0 && !showFlowerGarden ? (
+                          <div className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 flex items-center justify-center py-8 sm:py-10 md:py-12">
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="text-gray-500 text-center text-sm sm:text-base"
+                            >
+                              Ingen premier tilgjengelig
+                            </motion.div>
+                          </div>
+                        ) : (
+                          rewards.map((reward, index) => (
+                            <motion.button
+                              key={reward.id}
+                              initial={{ opacity: 0, y: 30 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{
+                                delay:
+                                  0.7 +
+                                  (showFlowerGarden
+                                    ? index * 0.1
+                                    : index * 0.1),
+                              }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() =>
+                                handleRewardSelect("database", reward.id)
+                              }
+                              disabled={savingReward}
+                              className="flex-shrink-0 w-48 sm:w-52 md:w-56 lg:w-64 bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-300 hover:border-blue-400 rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 shadow-lg hover:shadow-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <div className="text-4xl sm:text-5xl md:text-6xl mb-2 md:mb-3">
+                                {savingReward ? "⏳" : reward.emoji || "🎁"}
+                              </div>
+                              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1 md:mb-2">
+                                {reward.title}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-gray-600">
+                                {savingReward
+                                  ? "Lagrer premie..."
+                                  : reward.description ||
+                                    "En fantastisk premie!"}
+                              </p>
+                            </motion.button>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* Step 2: Color Picker */}
-          {step === "colorPicker" && (
-            <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4 md:space-y-6">
-              {/* Instructions */}
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center"
-              >
-                <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
-                  {selectedColor
-                    ? "Mal det ledige kronbladet! 🌸"
-                    : "Dypp penselen i en farge! 👇"}
-                </p>
-                {!selectedColor && (
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    Velg en farge fra paletten under
-                  </p>
-                )}
-              </motion.div>
-
-              {/* Flower Pot - Interactive */}
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="flex justify-center w-full max-w-[240px] sm:max-w-[260px] md:max-w-[300px]"
-              >
-                <FlowerPot
-                  size={
-                    typeof window !== "undefined" && window.innerWidth < 640
-                      ? 180
-                      : window.innerWidth < 768
-                        ? 220
-                        : 260
-                  }
-                  petalsFilled={
-                    modalColors.filter((c) => c && c.trim().length > 0).length
-                  }
-                  colors={modalColors}
-                  isInteractive={true}
-                  hasPaint={!!selectedColor}
-                  onPetalClick={handlePetalConfirm}
-                  hoveredPetalIndex={hoveredPetalIndex}
-                  setHoveredPetalIndex={setHoveredPetalIndex}
-                  isAnimatingSuccess={isAnimatingSuccess}
-                />
-              </motion.div>
-
-              {/* Color Palette - Dipping Area */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="flex flex-wrap justify-center items-center gap-2 sm:gap-2.5 md:gap-3 bg-gray-50 p-2.5 sm:p-3 md:p-4 rounded-xl md:rounded-2xl border-2 border-dashed border-gray-300 w-full max-w-xl mx-auto"
-              >
-                {colorPalette.map((color, index) => (
-                  <motion.button
-                    key={color.hex}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{
-                      delay: 0.3 + index * 0.05,
-                      type: "spring",
-                      stiffness: 200,
-                    }}
-                    whileHover={{ scale: 1.2 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => handleDipBrush(color.hex)}
-                    className={`h-11 w-11 sm:h-12 sm:w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 rounded-full shadow-lg transition-all flex-shrink-0 ${
-                      selectedColor === color.hex
-                        ? "ring-2 sm:ring-3 md:ring-4 ring-offset-2 ring-gray-800 scale-110"
-                        : "hover:shadow-xl"
-                    }`}
-                    style={{ backgroundColor: color.hex }}
+              {/* Step 2: Color Picker */}
+              {step === "colorPicker" && (
+                <div className="flex flex-col items-center justify-center space-y-3 sm:space-y-4 md:space-y-6">
+                  {/* Instructions */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center"
                   >
-                    {selectedColor === color.hex && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="flex items-center justify-center h-full text-white font-bold text-sm drop-shadow-lg"
-                      >
-                        ✓
-                      </motion.div>
+                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-gray-900 mb-1 md:mb-2">
+                      {selectedColor
+                        ? "Mal det ledige kronbladet! 🌸"
+                        : "Dypp penselen i en farge! 👇"}
+                    </p>
+                    {!selectedColor && (
+                      <p className="text-xs sm:text-sm text-gray-600">
+                        Velg en farge fra paletten under
+                      </p>
                     )}
-                  </motion.button>
-                ))}
-              </motion.div>
+                  </motion.div>
 
-              {/* Back Button */}
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                onClick={() => {
-                  setStep("celebration");
-                  setSelectedColor(null);
-                }}
-                className="px-4 sm:px-5 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-gray-200 hover:bg-gray-300 rounded-lg md:rounded-xl font-semibold text-sm sm:text-base text-gray-700 transition-colors"
-              >
-                Tilbake
-              </motion.button>
-            </div>
-          )}
-        </motion.div>
-      </motion.div>
-      )}
-    </AnimatePresence>
-    <Toast toast={toast} onClose={hideToast} />
+                  {/* Flower Pot - Interactive */}
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="flex justify-center w-full max-w-[240px] sm:max-w-[260px] md:max-w-[300px]"
+                  >
+                    <FlowerPot
+                      size={
+                        typeof window !== "undefined" && window.innerWidth < 640
+                          ? 180
+                          : window.innerWidth < 768
+                            ? 220
+                            : 260
+                      }
+                      petalsFilled={
+                        modalColors.filter((c) => c && c.trim().length > 0)
+                          .length
+                      }
+                      colors={modalColors}
+                      isInteractive={true}
+                      hasPaint={!!selectedColor}
+                      onPetalClick={handlePetalConfirm}
+                      hoveredPetalIndex={hoveredPetalIndex}
+                      setHoveredPetalIndex={setHoveredPetalIndex}
+                      isAnimatingSuccess={isAnimatingSuccess}
+                    />
+                  </motion.div>
+
+                  {/* Color Palette - Dipping Area */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="flex flex-wrap justify-center items-center gap-2 sm:gap-2.5 md:gap-3 bg-gray-50 p-2.5 sm:p-3 md:p-4 rounded-xl md:rounded-2xl border-2 border-dashed border-gray-300 w-full max-w-xl mx-auto"
+                  >
+                    {colorPalette.map((color, index) => (
+                      <motion.button
+                        key={color.hex}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          delay: 0.3 + index * 0.05,
+                          type: "spring",
+                          stiffness: 200,
+                        }}
+                        whileHover={{ scale: 1.2 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleDipBrush(color.hex)}
+                        className={`h-11 w-11 sm:h-12 sm:w-12 md:h-14 md:w-14 lg:h-16 lg:w-16 rounded-full shadow-lg transition-all flex-shrink-0 ${
+                          selectedColor === color.hex
+                            ? "ring-2 sm:ring-3 md:ring-4 ring-offset-2 ring-gray-800 scale-110"
+                            : "hover:shadow-xl"
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                      >
+                        {selectedColor === color.hex && (
+                          <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="flex items-center justify-center h-full text-white font-bold text-sm drop-shadow-lg"
+                          >
+                            ✓
+                          </motion.div>
+                        )}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+
+                  {/* Back Button */}
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    onClick={() => {
+                      setStep("celebration");
+                      setSelectedColor(null);
+                    }}
+                    className="px-4 sm:px-5 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-gray-200 hover:bg-gray-300 rounded-lg md:rounded-xl font-semibold text-sm sm:text-base text-gray-700 transition-colors"
+                  >
+                    Tilbake
+                  </motion.button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <Toast toast={toast} onClose={hideToast} />
     </>
   );
 }

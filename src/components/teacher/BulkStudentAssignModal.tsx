@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Plus, Loader2, X, Users, Check } from "lucide-react";
+import { isImageUrl } from "@/utils/avatar";
 import { updateStudentClass } from "@/app/actions/student-actions";
 
 type StudentRow = {
@@ -294,7 +295,7 @@ export default function BulkStudentAssignModal({
 
                     {/* Avatar */}
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-xs flex-shrink-0">
-                      {student.avatar_url ? (
+                      {isImageUrl(student.avatar_url) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={student.avatar_url}
@@ -302,7 +303,10 @@ export default function BulkStudentAssignModal({
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
-                        student.full_name.charAt(0).toUpperCase()
+                        <span className="text-base">
+                          {student.avatar_url ||
+                            student.full_name.charAt(0).toUpperCase()}
+                        </span>
                       )}
                     </div>
 

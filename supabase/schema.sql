@@ -122,6 +122,7 @@ CREATE TABLE public.rewards (
   created_at timestamp with time zone DEFAULT now(),
   emoji text DEFAULT '🎁'::text,
   specific_student_ids ARRAY DEFAULT '{}'::uuid[],
+  is_recurring boolean NOT NULL DEFAULT true,
   CONSTRAINT rewards_pkey PRIMARY KEY (id),
   CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
 );

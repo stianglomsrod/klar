@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, type ReactNode } from "react";
 import { Send, Loader2 } from "lucide-react";
+import { isImageUrl } from "@/utils/avatar";
 
 type CompletionModalProps = {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export default function CompletionModal({
                 }}
                 className="mb-6"
               >
-                {avatarUrl ? (
+                {isImageUrl(avatarUrl) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={avatarUrl}
@@ -95,7 +96,7 @@ export default function CompletionModal({
                     className="w-16 h-16 rounded-full object-cover mx-auto"
                   />
                 ) : (
-                  <div className="text-6xl">🦄</div>
+                  <div className="text-6xl">{avatarUrl || "🦄"}</div>
                 )}
               </motion.div>
               <h2 className="text-2xl font-bold text-gray-900 mb-3">

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { isImageUrl } from "@/utils/avatar";
 import type { TeacherStudent } from "@/types/shared";
 
 type Student = TeacherStudent;
@@ -77,7 +78,7 @@ export default function EditStudentSheet({
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold flex-shrink-0">
-                  {student.avatar_url ? (
+                  {isImageUrl(student.avatar_url) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={student.avatar_url}
@@ -85,7 +86,10 @@ export default function EditStudentSheet({
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
-                    student.full_name.charAt(0).toUpperCase()
+                    <span className="text-xl">
+                      {student.avatar_url ||
+                        student.full_name.charAt(0).toUpperCase()}
+                    </span>
                   )}
                 </div>
                 <div className="flex-1">

@@ -24,18 +24,41 @@ export default function SubjectsPage() {
     const fetchData = async () => {
       const supabase = createClient();
 
-      // Fetch subjects with all tasks
-      const { data: subjectsData, error: subjectsError } = await supabase.from(
-        "subjects",
-      ).select(`
-          *,
-          tasks (*)
-        `);
+      // Authenticate current student
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-      if (subjectsError) {
+      // Fetch subjects and this student's tasks in parallel
+      const [subjectsRes, tasksRes] = await Promise.all([
+        supabase.from("subjects").select("*"),
+        supabase.from("tasks").select("*").eq("student_id", user.id),
+      ]);
+
+      if (subjectsRes.error || tasksRes.error) {
         // Silent — subjects load failure handled by empty state UI
       } else {
-        setSubjects(subjectsData || []);
+        // Group tasks by subject_id
+        const tasksBySubject = new Map<string, typeof tasksRes.data>();
+        for (const task of tasksRes.data ?? []) {
+          const sid = task.subject_id;
+          if (!sid) continue;
+          if (!tasksBySubject.has(sid)) tasksBySubject.set(sid, []);
+          tasksBySubject.get(sid)!.push(task);
+        }
+
+        // Merge tasks into subjects
+        const merged: SubjectWithTasks[] = (subjectsRes.data ?? []).map(
+          (subject) => ({
+            ...subject,
+            tasks: tasksBySubject.get(subject.id) ?? [],
+          }),
+        );
+        setSubjects(merged);
       }
 
       setLoading(false);

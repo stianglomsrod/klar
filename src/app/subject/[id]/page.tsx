@@ -93,7 +93,9 @@ export default function SubjectDetailPage() {
       const supabase = createClient();
 
       // Authenticate current student
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) {
         router.push("/login");
         return;

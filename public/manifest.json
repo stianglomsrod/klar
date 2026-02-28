@@ -1,0 +1,17 @@
+{
+  "name": "Klar",
+  "short_name": "Klar",
+  "description": "Klar læringsplattform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "lang": "nb",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

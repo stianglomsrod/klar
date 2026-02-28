@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { Settings } from "lucide-react";
+
+/** Convert a URL-safe base64 VAPID key to the Uint8Array that PushManager wants */
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
 
 interface StudentSettingsCardProps {
   studentId: string;
@@ -16,10 +26,100 @@ export default function StudentSettingsCard({
   showToast,
 }: StudentSettingsCardProps) {
   const supabase = createClient();
+  const teacherIdRef = useRef<string | null>(null);
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true); // TODO: Wire to DB (student_teacher_settings)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
   const [flowerGameEnabled, setFlowerGameEnabled] = useState(true); // TODO: Wire to DB (student_profiles.show_flower_garden)
   const [welcomeMessage, setWelcomeMessage] = useState(initialWelcomeMessage);
+
+  // Load teacher id + current push_enabled state on mount
+  useEffect(() => {
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      teacherIdRef.current = user.id;
+
+      const { data } = await supabase
+        .from("student_teacher_settings")
+        .select("push_enabled")
+        .eq("student_id", studentId)
+        .eq("teacher_id", user.id)
+        .maybeSingle();
+
+      if (data) setNotificationsEnabled(data.push_enabled ?? false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentId]);
+
+  /** Toggle push notifications on/off */
+  const handleTogglePush = useCallback(async () => {
+    const teacherId = teacherIdRef.current;
+    if (!teacherId || pushLoading) return;
+    setPushLoading(true);
+
+    const newState = !notificationsEnabled;
+
+    try {
+      if (newState) {
+        // --- Enable ---
+        // 1. Ask browser permission
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          showToast("Du må tillate varsler i nettleseren.", "warning");
+          setPushLoading(false);
+          return;
+        }
+
+        // 2. Subscribe via PushManager
+        const registration = await navigator.serviceWorker.ready;
+        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidKey) throw new Error("VAPID key mangler");
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+
+        // 3. Save subscription on server
+        const res = await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subscription: subscription.toJSON(),
+            deviceType: /Mobi|Android/i.test(navigator.userAgent)
+              ? "mobile"
+              : "desktop",
+          }),
+        });
+
+        if (!res.ok) throw new Error("Kunne ikke lagre abonnement");
+      }
+
+      // 4. Persist toggle state in student_teacher_settings
+      const { error } = await supabase.from("student_teacher_settings").upsert(
+        {
+          student_id: studentId,
+          teacher_id: teacherId,
+          push_enabled: newState,
+        },
+        { onConflict: "student_id,teacher_id" },
+      );
+
+      if (error) throw error;
+      setNotificationsEnabled(newState);
+      showToast(
+        newState ? "Push-varsler aktivert 🔔" : "Push-varsler deaktivert",
+        "success",
+      );
+    } catch {
+      showToast("Kunne ikke endre varselinnstilling. Prøv igjen.", "error");
+    } finally {
+      setPushLoading(false);
+    }
+  }, [notificationsEnabled, pushLoading, studentId, supabase, showToast]);
 
   const handleSaveWelcomeMessage = async () => {
     try {
@@ -53,8 +153,9 @@ export default function StudentSettingsCard({
             <p className="text-xs text-slate-600">Varsle lærer ved levering</p>
           </div>
           <button
-            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+            onClick={handleTogglePush}
+            disabled={pushLoading}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
               notificationsEnabled ? "bg-indigo-600" : "bg-slate-300"
             }`}
           >

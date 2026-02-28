@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { isImageUrl } from "@/utils/avatar";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
 import ConfirmDialog, {
@@ -341,7 +342,7 @@ export default function StudentDashboardPage() {
             {/* Avatar & Name */}
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-xl flex-shrink-0">
-                {student.avatar_url ? (
+                {isImageUrl(student.avatar_url) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={student.avatar_url}
@@ -349,7 +350,10 @@ export default function StudentDashboardPage() {
                     className="w-full h-full rounded-full object-cover"
                   />
                 ) : (
-                  student.full_name.charAt(0).toUpperCase()
+                  <span className="text-2xl">
+                    {student.avatar_url ||
+                      student.full_name.charAt(0).toUpperCase()}
+                  </span>
                 )}
               </div>
               <div>

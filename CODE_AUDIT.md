@@ -110,7 +110,7 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 
 - 56 hardcoded emojis in an inline grid (existing `EmojiPickerButton` component ignored)
 - Inline task-edit modal duplicates `CreateTaskModal` functionality
-- `notificationsEnabled`/`flowerGameEnabled` toggled in state but never persisted to DB
+- ~~`notificationsEnabled`/`flowerGameEnabled` toggled in state but never persisted to DB~~ (`notificationsEnabled` ✅ wired to `student_teacher_settings` + push subscription; `flowerGameEnabled` 🟡 still TODO)
 - `handleTaskCreated` is an empty function
 - `selectedGrade` state set but never read
 
@@ -191,6 +191,7 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 
 - Celebration animation, reward fetching, reward saving, color picker, flower painting, scroll management
 - Uses raw `window.innerWidth` in render (SSR issues)
+- ✅ One-time vs. recurring rewards implemented: `is_recurring` column on `rewards` table; `fetchRewards` filters out non-recurring rewards the student already earned (parallel `student_rewards` query). Teacher creates one-time rewards via `StudentRewardManager.tsx` ("Engangspremie" checkbox).
 
 ---
 
@@ -291,18 +292,18 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 
 ### 6.2 ~~🟡 Unused functions/variables~~ ✅ MOSTLY RESOLVED (Expedition 4)
 
-| File                                 | Dead Code                                                                                                 | Status                                       |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| ~~`teacher/students/[id]/page.tsx`~~ | ~~`handleTaskCreated` (empty fn)~~                                                                        | ✅ Wired to `fetchTasks()`                   |
-| ~~`teacher/students/[id]/page.tsx`~~ | ~~`selectedGrade` (set but never read)~~                                                                  | ✅ Removed                                   |
-| `teacher/students/[id]/page.tsx`     | `notificationsEnabled`/`flowerGameEnabled` toggles — state never persisted to DB                          | 🟡 Kept with TODO comments (needs DB schema) |
-| `teacher/students/[id]/page.tsx`     | `taskForm.subject_id` (never populated from task data)                                                    | 🟡 Remaining                                 |
-| ~~`subject/[id]/page.tsx`~~          | ~~`Profile` type (never used), `playSuccessSound` (never called)~~                                        | ✅ Removed                                   |
-| ~~`StudentFooter.tsx`~~              | ~~`getActivityBgColor()` (never called)~~                                                                 | ✅ Removed                                   |
-| ~~`student/page.tsx`~~               | ~~`state` parameter in `handleLessonClick` (unused)~~                                                     | ✅ Removed                                   |
-| ~~`student/timeplan/page.tsx`~~      | ~~`isToday` prop on `TimeplanCard`/`DesktopLessonRow`, `selectedDay`/`onSelectDay` on `DesktopWeekGrid`~~ | ✅ Removed                                   |
-| ~~`teacher/tasks/page.tsx`~~         | ~~`TaskLibraryItem` type (never used)~~                                                                   | ✅ Removed                                   |
-| `teacher/classes/page.tsx`           | `class_name`/`class_id` set to `null` in transform                                                        | 🟡 Remaining                                 |
+| File                                 | Dead Code                                                                                                 | Status                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| ~~`teacher/students/[id]/page.tsx`~~ | ~~`handleTaskCreated` (empty fn)~~                                                                        | ✅ Wired to `fetchTasks()`                                                   |
+| ~~`teacher/students/[id]/page.tsx`~~ | ~~`selectedGrade` (set but never read)~~                                                                  | ✅ Removed                                                                   |
+| ~~`teacher/students/[id]/page.tsx`~~ | ~~`notificationsEnabled`/`flowerGameEnabled` toggles — state never persisted to DB~~                      | ✅ `notificationsEnabled` wired to DB + push; `flowerGameEnabled` still TODO |
+| `teacher/students/[id]/page.tsx`     | `taskForm.subject_id` (never populated from task data)                                                    | 🟡 Remaining                                                                 |
+| ~~`subject/[id]/page.tsx`~~          | ~~`Profile` type (never used), `playSuccessSound` (never called)~~                                        | ✅ Removed                                                                   |
+| ~~`StudentFooter.tsx`~~              | ~~`getActivityBgColor()` (never called)~~                                                                 | ✅ Removed                                                                   |
+| ~~`student/page.tsx`~~               | ~~`state` parameter in `handleLessonClick` (unused)~~                                                     | ✅ Removed                                                                   |
+| ~~`student/timeplan/page.tsx`~~      | ~~`isToday` prop on `TimeplanCard`/`DesktopLessonRow`, `selectedDay`/`onSelectDay` on `DesktopWeekGrid`~~ | ✅ Removed                                                                   |
+| ~~`teacher/tasks/page.tsx`~~         | ~~`TaskLibraryItem` type (never used)~~                                                                   | ✅ Removed                                                                   |
+| `teacher/classes/page.tsx`           | `class_name`/`class_id` set to `null` in transform                                                        | 🟡 Remaining                                                                 |
 
 ### 6.3 🟡 Stub actions (unimplemented features logged as console.log)
 

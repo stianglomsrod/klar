@@ -144,7 +144,10 @@ export function useTaskFlow({
       }
 
       // 2. Complete task via hook (marks done, XP, level, sound)
-      const result = await completeTask(selectedTaskId, task.points_value);
+      const result = await completeTask(selectedTaskId, task.points_value, {
+        studentName: profile.full_name ?? undefined,
+        taskTitle: task.title,
+      });
 
       // 3. Optimistic UI update (delegated to consumer)
       onTaskCompleted(selectedTaskId);
@@ -234,7 +237,10 @@ export function useTaskFlow({
         }
 
         // 3. Complete task via hook (marks done, XP, level, sound)
-        const result = await completeTask(quizTask.id, quizTask.points_value);
+        const result = await completeTask(quizTask.id, quizTask.points_value, {
+          studentName: profile.full_name ?? undefined,
+          taskTitle: quizTask.title,
+        });
 
         // 4. Optimistic UI update (delegated to consumer)
         onTaskCompleted(quizTask.id);

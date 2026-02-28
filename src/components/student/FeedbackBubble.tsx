@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import TTSButton from "@/components/ui/TTSButton";
+import { isImageUrl } from "@/utils/avatar";
 
 // ── Types ────────────────────────────────────────────
 export type FeedbackData = {
@@ -49,13 +50,17 @@ export default function FeedbackBubble({
     >
       {/* ── Teacher avatar + name (left-aligned) ── */}
       <div className="flex items-center gap-2.5 mb-2">
-        {feedback.teacher?.avatar_url ? (
+        {isImageUrl(feedback.teacher?.avatar_url) ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={feedback.teacher.avatar_url}
             alt={teacherName}
             className="w-8 h-8 rounded-full object-cover ring-2 ring-white/80 shadow-sm"
           />
+        ) : feedback.teacher?.avatar_url ? (
+          <div className="flex items-center justify-center w-8 h-8 text-lg">
+            {feedback.teacher.avatar_url}
+          </div>
         ) : (
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-200/60 text-amber-800 text-sm font-bold">
             {teacherInitial}

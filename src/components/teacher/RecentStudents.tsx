@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Users, Search, ArrowRight } from "lucide-react";
+import { isImageUrl } from "@/utils/avatar";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
@@ -161,13 +162,17 @@ export default function RecentStudents() {
       .toUpperCase()
       .slice(0, 2);
 
-    return avatarUrl ? (
+    return isImageUrl(avatarUrl) ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={avatarUrl}
         alt={name}
         className="w-8 h-8 rounded-full object-cover"
       />
+    ) : avatarUrl ? (
+      <div className="flex items-center justify-center w-8 h-8 text-lg">
+        {avatarUrl}
+      </div>
     ) : (
       <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
         {initials}
