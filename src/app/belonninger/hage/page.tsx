@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
@@ -28,9 +28,9 @@ function getFlowerPlacement(index: number, _total: number) {
   const x = Math.min(92, Math.max(8, baseX + jitterX));
 
   const row = Math.floor(index / 7);
-  const baseY = 20 + row * 22;
+  const baseY = 30 + row * 18;
   const jitterY = ((Math.cos(index * 3.927) + 1) / 2) * 12 - 6;
-  const y = Math.min(85, Math.max(12, baseY + jitterY));
+  const y = Math.min(85, Math.max(25, baseY + jitterY));
 
   const scale = 0.55 + (1 - y / 100) * 0.45;
   const rotation = Math.sin(index * 1.337) * 6;
@@ -45,8 +45,24 @@ function clamp(value: number, min: number, max: number) {
 
 export default function GardenPage() {
   const { profile, loading, setProfile } = useStudentProfile();
-  const [tappedFlower, setTappedFlower] = useState<number | null>(null);
+  const [sparklingFlower, setSparklingFlower] = useState<number | null>(null);
+  const sparkleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const gardenRef = useRef<HTMLDivElement>(null);
+
+  /** Trigger a transient sparkle that auto-clears after 1.2s. */
+  const triggerSparkle = useCallback((index: number) => {
+    if (sparkleTimer.current) clearTimeout(sparkleTimer.current);
+    setSparklingFlower(index);
+    sparkleTimer.current = setTimeout(() => setSparklingFlower(null), 1200);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sparkleTimer.current) clearTimeout(sparkleTimer.current);
+    };
+  }, []);
 
   const petalsFilled = Math.max(0, Math.min(5, profile?.petals_progress ?? 0));
   const petalColors = useMemo(() => {
@@ -90,20 +106,21 @@ export default function GardenPage() {
   );
 
   /**
-   * Handle drag end: convert pixel offset to percentage
-   * relative to the garden container.
+   * Handle drag end: convert absolute pointer coordinates to
+   * percentage position relative to the garden container.
+   * Uses info.point (viewport coords) to avoid FM offset drift.
    */
   const handleDragEnd = useCallback(
-    (index: number, info: PanInfo, startX: number, startY: number) => {
+    (index: number, info: PanInfo) => {
       const container = gardenRef.current;
       if (!container) return;
 
       const rect = container.getBoundingClientRect();
-      const pxX = (startX / 100) * rect.width + info.offset.x;
-      const pxY = (startY / 100) * rect.height + info.offset.y;
+      const relX = info.point.x - rect.left;
+      const relY = info.point.y - rect.top;
 
-      const newX = clamp((pxX / rect.width) * 100, 4, 96);
-      const newY = clamp((pxY / rect.height) * 100, 4, 96);
+      const newX = clamp((relX / rect.width) * 100, 4, 96);
+      const newY = clamp((relY / rect.height) * 100, 25, 96);
 
       saveFlowerPosition(index, newX, newY);
     },
@@ -168,6 +185,35 @@ export default function GardenPage() {
         }}
       />
 
+      {/* ═══ Sun (behind clouds) ═══ */}
+      <motion.div
+        className="absolute pointer-events-none"
+        style={{ top: "3%", right: "8%" }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
+      >
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="18" fill="#FFD700" />
+          <circle cx="40" cy="40" r="22" fill="#FFD700" opacity="0.3" />
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i * 45 * Math.PI) / 180;
+            return (
+              <line
+                key={i}
+                x1={40 + Math.cos(angle) * 24}
+                y1={40 + Math.sin(angle) * 24}
+                x2={40 + Math.cos(angle) * 34}
+                y2={40 + Math.sin(angle) * 34}
+                stroke="#FFD700"
+                strokeWidth="3"
+                strokeLinecap="round"
+                opacity="0.7"
+              />
+            );
+          })}
+        </svg>
+      </motion.div>
+
       {/* ═══ Clouds ═══ */}
       <motion.div
         className="absolute pointer-events-none"
@@ -210,35 +256,6 @@ export default function GardenPage() {
             fill="white"
             opacity="0.65"
           />
-        </svg>
-      </motion.div>
-
-      {/* ═══ Sun ═══ */}
-      <motion.div
-        className="absolute pointer-events-none"
-        style={{ top: "3%", right: "8%" }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-      >
-        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-          <circle cx="40" cy="40" r="18" fill="#FFD700" />
-          <circle cx="40" cy="40" r="22" fill="#FFD700" opacity="0.3" />
-          {Array.from({ length: 8 }).map((_, i) => {
-            const angle = (i * 45 * Math.PI) / 180;
-            return (
-              <line
-                key={i}
-                x1={40 + Math.cos(angle) * 24}
-                y1={40 + Math.sin(angle) * 24}
-                x2={40 + Math.cos(angle) * 34}
-                y2={40 + Math.sin(angle) * 34}
-                stroke="#FFD700"
-                strokeWidth="3"
-                strokeLinecap="round"
-                opacity="0.7"
-              />
-            );
-          })}
         </svg>
       </motion.div>
 
@@ -293,9 +310,11 @@ export default function GardenPage() {
             const posX = saved?.x ?? fallback.x;
             const posY = saved?.y ?? fallback.y;
 
-            const scale = 0.55 + (1 - posY / 100) * 0.45;
+            // Depth-of-field: larger posY (lower on screen / nearer) → bigger flower
+            const depthScale = 0.45 + (posY / 100) * 0.55;
             const rotation = saved ? 0 : fallback.rotation;
-            const zIndex = Math.round(posY);
+            const zIndex =
+              draggingIndex === index ? 200 : Math.round(posY);
 
             const normalizedColors = [
               ...flowerColors,
@@ -303,9 +322,11 @@ export default function GardenPage() {
             ].slice(0, 5);
 
             return (
+              /* Outer layer: stable key, CSS positioning + entrance fade.
+                 x/y anchoring lives here (no drag → FM won't mutate them). */
               <motion.div
                 key={`garden-flower-${index}`}
-                className="absolute cursor-grab active:cursor-grabbing touch-none"
+                className="absolute"
                 style={{
                   left: `${posX}%`,
                   top: `${posY}%`,
@@ -313,56 +334,65 @@ export default function GardenPage() {
                   x: "-50%",
                   y: "-100%",
                 }}
-                drag
-                dragMomentum={false}
-                dragElastic={0.1}
-                onDragEnd={(_e, info) => handleDragEnd(index, info, posX, posY)}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale, opacity: 1 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
                 transition={{
                   delay: 0.08 * index,
-                  type: "spring",
-                  stiffness: 180,
-                  damping: 14,
+                  duration: 0.4,
                 }}
-                whileDrag={{ scale: scale * 1.15, zIndex: 100 }}
-                onTap={() =>
-                  setTappedFlower(tappedFlower === index ? null : index)
-                }
               >
-                {/* Gentle idle sway */}
+                {/* Inner drag layer — keyed by position to reset FM drag state after drop */}
                 <motion.div
-                  animate={{
-                    rotate: [rotation - 2, rotation + 2, rotation - 2],
+                  key={`drag-${posX.toFixed(1)}-${posY.toFixed(1)}`}
+                  className="cursor-grab active:cursor-grabbing touch-none"
+                  drag
+                  dragConstraints={gardenRef}
+                  dragMomentum={false}
+                  dragElastic={0.1}
+                  onDragStart={() => setDraggingIndex(index)}
+                  onDragEnd={(_e, info) => {
+                    setDraggingIndex(null);
+                    handleDragEnd(index, info);
+                    triggerSparkle(index);
                   }}
-                  transition={{
-                    duration: 3 + (index % 3),
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                  }}
+                  whileDrag={{ scale: 1.12 }}
+                  style={{ transformOrigin: "50% 100%" }}
+                  onTap={() => triggerSparkle(index)}
                 >
-                  <FlowerPot
-                    petalsFilled={5}
-                    colors={normalizedColors}
-                    size={Math.round(70 * scale)}
-                    isInteractive={false}
-                  />
-                </motion.div>
+                  {/* Gentle idle sway */}
+                  <motion.div
+                    animate={{
+                      rotate: [rotation - 2, rotation + 2, rotation - 2],
+                    }}
+                    transition={{
+                      duration: 3 + (index % 3),
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  >
+                    <FlowerPot
+                      petalsFilled={5}
+                      colors={normalizedColors}
+                      size={Math.round(85 * depthScale)}
+                      isInteractive={false}
+                    />
+                  </motion.div>
 
-                {/* Sparkle on tap */}
-                <AnimatePresence>
-                  {tappedFlower === index && (
-                    <motion.div
-                      className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none"
-                      initial={{ opacity: 0, y: 4, scale: 0.5 }}
-                      animate={{ opacity: 1, y: -8, scale: 1 }}
-                      exit={{ opacity: 0, y: -20, scale: 0.3 }}
-                      transition={{ duration: 0.6 }}
-                    >
-                      <span className="text-lg drop-shadow">✨</span>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  {/* Transient sparkle — appears on tap or drop, auto-fades */}
+                  <AnimatePresence>
+                    {sparklingFlower === index && (
+                      <motion.div
+                        className="absolute -top-2 left-1/2 -translate-x-1/2 pointer-events-none"
+                        initial={{ opacity: 0, y: 0, scale: 0.4 }}
+                        animate={{ opacity: 1, y: -12, scale: 1.1 }}
+                        exit={{ opacity: 0, y: -28, scale: 0.3 }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                      >
+                        <span className="text-xl drop-shadow-lg">✨</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               </motion.div>
             );
           })}
