@@ -104,6 +104,47 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 
+-- Helper function: bypasses RLS via SECURITY DEFINER to check teacher role
+-- without causing infinite recursion on the profiles table.
+CREATE OR REPLACE FUNCTION public.is_teacher()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'teacher'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_teacher() TO authenticated;
+
+-- RLS for profiles
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Students can view own profile" ON public.profiles
+  FOR SELECT TO authenticated
+  USING (auth.uid() = id);
+
+CREATE POLICY "Students can update own profile" ON public.profiles
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Teachers can view all profiles" ON public.profiles
+  FOR SELECT TO authenticated
+  USING (public.is_teacher());
+
+CREATE POLICY "Teachers can update all profiles" ON public.profiles
+  FOR UPDATE TO authenticated
+  USING (public.is_teacher());
+
+CREATE POLICY "Users can insert own profile" ON public.profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = id);
+
 CREATE TABLE public.push_subscriptions (
   user_id uuid NOT NULL,
   subscription_data jsonb NOT NULL,
@@ -164,6 +205,40 @@ CREATE TABLE public.student_profiles (
   CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
 );
 
+-- RLS for student_profiles
+ALTER TABLE public.student_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Students can view own student_profile" ON public.student_profiles
+  FOR SELECT TO authenticated
+  USING (auth.uid() = id);
+
+CREATE POLICY "Students can insert own student_profile" ON public.student_profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Students can update own student_profile" ON public.student_profiles
+  FOR UPDATE TO authenticated
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Teachers can view all student_profiles" ON public.student_profiles
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can update all student_profiles" ON public.student_profiles
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
+CREATE POLICY "Teachers can insert student_profiles" ON public.student_profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
+  );
+
 CREATE TABLE public.student_rewards (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   student_id uuid,
@@ -210,6 +285,10 @@ CREATE POLICY "Teachers can insert subjects" ON public.subjects
   WITH CHECK (
     EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'teacher')
   );
+
+CREATE POLICY "Students can view all subjects" ON public.subjects
+  FOR SELECT TO authenticated
+  USING (true);
 
 -- Daily announcements for targeted messages
 CREATE TABLE IF NOT EXISTS public.daily_announcements (

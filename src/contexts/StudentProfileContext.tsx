@@ -162,7 +162,9 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return mergedProfile;
     } catch (err) {
-      setError(err instanceof Error ? err : new Error("Unknown error"));
+      const error = err instanceof Error ? err : new Error("Unknown error");
+      console.error("[StudentProfileContext] Profildata kunne ikke lastes:", error.message, err);
+      setError(error);
       setLoading(false);
       return null;
     }

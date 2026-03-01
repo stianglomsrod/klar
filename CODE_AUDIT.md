@@ -90,6 +90,13 @@ The refactoring is organized into **8 Expeditions**, each scoped to fit safely w
 - **Impact:** Both containers fetched tasks by `subject_id` only, without filtering by `student_id`. With no RLS on the `tasks` table, all N student copies were returned (N = number of students in class), causing visual duplication.
 - **Resolution:** Added `supabase.auth.getUser()` at the start of each `fetchData` function with null-user guard (redirect to `/login`). Applied `.eq("student_id", user.id)` to all task queries: both incomplete and completed in Container A, and the junction-fetched query in Container B.
 
+### 3.8 ~~🔴 `profiles` & `student_profiles` — RLS enabled with no student policies (showstopper)~~ ✅ FIXED (2026-03-01)
+
+- **Files:** `supabase/migrations/20260301000006_fix_student_rls_policies.sql`, `src/contexts/StudentProfileContext.tsx`, `src/hooks/useTaskFlow.ts`
+- **Impact:** RLS was enabled on both `profiles` and `student_profiles` (verified: `relrowsecurity = true`) but zero policies existed for the student role. All student SELECTs returned zero rows. `StudentProfileContext` fell through to defaults (Level 1, Unicorn, 0 XP). `handleConfirmCompletion` silently early-returned on `!profile`, making the FULLFØR button completely dead. Teachers were unaffected (had working policies or used service-role).
+- **Resolution:** Migration `20260301000006` creates SELECT/INSERT/UPDATE policies for students (`auth.uid() = id`) and SELECT/UPDATE/INSERT for teachers on both tables. Added missing student SELECT on `subjects`. Hardened error handling: `StudentProfileContext` now logs errors; `useTaskFlow` shows error toast instead of silent return.
+- **Follow-up hotfix (`20260301000007`):** The teacher policies on `profiles` self-referenced `profiles` in their `USING` clause, causing infinite recursion (500 on every login). Fixed by creating a `SECURITY DEFINER` function `is_teacher()` that bypasses RLS for the role check, then replacing the recursive policies.
+
 ---
 
 ## 4. Monoliths (SRP Violations)

@@ -103,7 +103,11 @@ export function useTaskFlow({
 
   // ── Standard task completion ───────────────────────
   const handleConfirmCompletion = useCallback(async () => {
-    if (!selectedTaskId || !profile) return;
+    if (!selectedTaskId) return;
+    if (!profile) {
+      showToast("Kunne ikke lagre: Fant ikke brukerprofilen.", "error");
+      return;
+    }
 
     const task = tasks.find((t) => t.id === selectedTaskId);
     if (!task) return;
@@ -180,7 +184,11 @@ export function useTaskFlow({
   // ── Quiz submission ────────────────────────────────
   const handleQuizSubmit = useCallback(
     async (responses: QuizResponses, audioBlobs: QuizAudioBlobs) => {
-      if (!quizTask || !profile) return;
+      if (!quizTask) return;
+      if (!profile) {
+        showToast("Kunne ikke lagre: Fant ikke brukerprofilen.", "error");
+        return;
+      }
 
       const supabase = createClient();
 

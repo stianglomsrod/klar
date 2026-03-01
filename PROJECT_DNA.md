@@ -521,6 +521,8 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 | `20260301000003` | Add pending_reward_levels column                      |
 | `20260301000004` | Add completed_flower_colors jsonb column              |
 | `20260301000005` | Add garden_positions jsonb column to student_profiles |
+| `20260301000006` | Fix student RLS policies (profiles, student_profiles, subjects) |
+| `20260301000007` | Hotfix: profiles RLS infinite recursion → `is_teacher()` helper |
 
 ---
 
