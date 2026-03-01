@@ -175,12 +175,12 @@ Additionally, `public.tasks` has a separate "Policy Exists RLS Disabled" error �
 
 RLS was enabled on both `profiles` and `student_profiles` but **no policies existed for the student role**. This caused a showstopper: all student SELECTs returned zero rows, `StudentProfileContext` fell through to Level 1 / Unicorn / 0 XP defaults, and `handleConfirmCompletion` silently early-returned on `!profile`, making the FULLFØR button completely dead. Teachers were unaffected because they had working policies or bypassed via service-role.
 
-| Change | Detail |
-| --- | --- |
-| Migration `20260301000006_fix_student_rls_policies.sql` | Drops broken policies, creates SELECT/INSERT/UPDATE for students (`auth.uid() = id`) and SELECT/UPDATE/INSERT for teachers on both `profiles` and `student_profiles`. Adds missing student SELECT on `subjects`. |
+| Change                                                    | Detail                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Migration `20260301000006_fix_student_rls_policies.sql`   | Drops broken policies, creates SELECT/INSERT/UPDATE for students (`auth.uid() = id`) and SELECT/UPDATE/INSERT for teachers on both `profiles` and `student_profiles`. Adds missing student SELECT on `subjects`.                                               |
 | Migration `20260301000007_fix_profiles_rls_recursion.sql` | Hotfix: the teacher policies on `profiles` self-referenced `profiles` in their USING clause, causing infinite recursion (500 on login). Fixed by creating a `SECURITY DEFINER` helper `is_teacher()` that bypasses RLS, then replacing the recursive policies. |
-| `StudentProfileContext.tsx` | Added `console.error` logging when profile fetch fails — no more silent swallowing. |
-| `useTaskFlow.ts` | `handleConfirmCompletion` and `handleQuizSubmit` now show error toast when profile is null instead of silent return. |
+| `StudentProfileContext.tsx`                               | Added `console.error` logging when profile fetch fails — no more silent swallowing.                                                                                                                                                                            |
+| `useTaskFlow.ts`                                          | `handleConfirmCompletion` and `handleQuizSubmit` now show error toast when profile is null instead of silent return.                                                                                                                                           |
 
 ### Warnings
 

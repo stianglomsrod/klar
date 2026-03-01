@@ -163,7 +163,11 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
       return mergedProfile;
     } catch (err) {
       const error = err instanceof Error ? err : new Error("Unknown error");
-      console.error("[StudentProfileContext] Profildata kunne ikke lastes:", error.message, err);
+      console.error(
+        "[StudentProfileContext] Profildata kunne ikke lastes:",
+        error.message,
+        err,
+      );
       setError(error);
       setLoading(false);
       return null;

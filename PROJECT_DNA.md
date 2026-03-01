@@ -498,29 +498,29 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 ## 8. Migration History
 
-| Migration        | Description                                           |
-| ---------------- | ----------------------------------------------------- |
-| `20260102000000` | Add emoji column to rewards                           |
-| `20260102000001` | Add rewards RLS policies                              |
-| `20260102000002` | Add delete_reward RPC                                 |
-| `20260112000000` | Add get_student_schedule RPC                          |
-| `20260121000000` | Fix get_student_schedule task counts                  |
-| `20260220000000` | Add task_library RLS policies                         |
-| `20260220000001` | Rewards multi-student support                         |
-| `20260221000001` | Activity feed updates                                 |
-| `20260221000002` | Add quiz and media support                            |
-| `20260221000003` | Add feedback task unique constraint                   |
-| `20260222000000` | Add earned_at_level to student_rewards                |
-| `20260222000001` | Add max_level_reached column                          |
-| `20260222000002` | Create student-media storage bucket                   |
-| `20260222100000` | Add teacher_id & read_at to feedback                  |
-| `20260222200000` | Add current_password_plaintext column                 |
-| `20260228000000` | Add class unique constraint + UPDATE RLS              |
-| `20260228000001` | Add DELETE RLS policy for classes table               |
-| `20260301000002` | Unique constraint on student_rewards                  |
-| `20260301000003` | Add pending_reward_levels column                      |
-| `20260301000004` | Add completed_flower_colors jsonb column              |
-| `20260301000005` | Add garden_positions jsonb column to student_profiles |
+| Migration        | Description                                                     |
+| ---------------- | --------------------------------------------------------------- |
+| `20260102000000` | Add emoji column to rewards                                     |
+| `20260102000001` | Add rewards RLS policies                                        |
+| `20260102000002` | Add delete_reward RPC                                           |
+| `20260112000000` | Add get_student_schedule RPC                                    |
+| `20260121000000` | Fix get_student_schedule task counts                            |
+| `20260220000000` | Add task_library RLS policies                                   |
+| `20260220000001` | Rewards multi-student support                                   |
+| `20260221000001` | Activity feed updates                                           |
+| `20260221000002` | Add quiz and media support                                      |
+| `20260221000003` | Add feedback task unique constraint                             |
+| `20260222000000` | Add earned_at_level to student_rewards                          |
+| `20260222000001` | Add max_level_reached column                                    |
+| `20260222000002` | Create student-media storage bucket                             |
+| `20260222100000` | Add teacher_id & read_at to feedback                            |
+| `20260222200000` | Add current_password_plaintext column                           |
+| `20260228000000` | Add class unique constraint + UPDATE RLS                        |
+| `20260228000001` | Add DELETE RLS policy for classes table                         |
+| `20260301000002` | Unique constraint on student_rewards                            |
+| `20260301000003` | Add pending_reward_levels column                                |
+| `20260301000004` | Add completed_flower_colors jsonb column                        |
+| `20260301000005` | Add garden_positions jsonb column to student_profiles           |
 | `20260301000006` | Fix student RLS policies (profiles, student_profiles, subjects) |
 | `20260301000007` | Hotfix: profiles RLS infinite recursion → `is_teacher()` helper |
 
