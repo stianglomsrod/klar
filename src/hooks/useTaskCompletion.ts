@@ -215,7 +215,8 @@ export function useTaskCompletion() {
             current_xp: newCurrentXp,
             level: newLevel,
             // Reset halfway celebration if XP drops below threshold
-            ...(newCurrentXp < Math.floor((profile.current_goal_total ?? 1000) / 2) && {
+            ...(newCurrentXp <
+              Math.floor((profile.current_goal_total ?? 1000) / 2) && {
               halfway_celebrated_level: Math.max(0, newLevel - 1),
             }),
             // Remove any pending rewards for levels being revoked

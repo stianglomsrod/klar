@@ -436,7 +436,9 @@ export default function RewardsLibraryPage() {
                       </div>
                       {reward.max_uses !== null && (
                         <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded-full">
-                          {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
+                          {reward.max_uses === 1
+                            ? "Engangs"
+                            : `Maks ${reward.max_uses}×`}
                         </span>
                       )}
                     </div>
@@ -538,9 +540,7 @@ export default function RewardsLibraryPage() {
                 </label>
                 <EmojiPickerButton
                   value={formData.emoji}
-                  onChange={(emoji) =>
-                    setFormData({ ...formData, emoji })
-                  }
+                  onChange={(emoji) => setFormData({ ...formData, emoji })}
                   placeholder="🎁"
                 />
                 <p className="mt-1 text-xs text-slate-500">
@@ -602,9 +602,7 @@ export default function RewardsLibraryPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, max_uses: null })
-                    }
+                    onClick={() => setFormData({ ...formData, max_uses: null })}
                     className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
                       formData.max_uses === null
                         ? "bg-indigo-50 border-indigo-500 text-indigo-700"
@@ -615,9 +613,7 @@ export default function RewardsLibraryPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, max_uses: 1 })
-                    }
+                    onClick={() => setFormData({ ...formData, max_uses: 1 })}
                     className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
                       formData.max_uses !== null
                         ? "bg-indigo-50 border-indigo-500 text-indigo-700"

@@ -50,7 +50,9 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value, is_recurring, max_uses")
+        .select(
+          "id, name:title, emoji, cost:cost_value, is_recurring, max_uses",
+        )
         .contains("specific_student_ids", [studentId]);
 
       if (error) throw error;
@@ -64,7 +66,9 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value, is_recurring, max_uses")
+        .select(
+          "id, name:title, emoji, cost:cost_value, is_recurring, max_uses",
+        )
         .or(`specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`)
         .order("title");
 
@@ -201,7 +205,12 @@ export default function StudentRewardManager({
         setSelectedRewards((prev) => [...prev, data.id]);
       }
 
-      setNewRewardForm({ title: "", emoji: "", is_recurring: true, max_uses: null });
+      setNewRewardForm({
+        title: "",
+        emoji: "",
+        is_recurring: true,
+        max_uses: null,
+      });
       setRewardModalView("list");
     } catch {
       showToast("Kunne ikke opprette belønning. Prøv igjen.", "error");
@@ -270,7 +279,9 @@ export default function StudentRewardManager({
                   </span>
                   {reward.max_uses !== null && (
                     <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
-                      {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
+                      {reward.max_uses === 1
+                        ? "Engangs"
+                        : `Maks ${reward.max_uses}×`}
                     </span>
                   )}
                 </div>
@@ -358,7 +369,9 @@ export default function StudentRewardManager({
                               </span>
                               {reward.max_uses !== null && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
-                                  {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
+                                  {reward.max_uses === 1
+                                    ? "Engangs"
+                                    : `Maks ${reward.max_uses}×`}
                                 </span>
                               )}
                             </label>

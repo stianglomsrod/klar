@@ -112,7 +112,10 @@ export default function LevelUpModal({
             // Count how many times each reward has been earned
             const earnedCounts = new Map<string, number>();
             for (const r of earnedRes.data ?? []) {
-              earnedCounts.set(r.reward_id, (earnedCounts.get(r.reward_id) ?? 0) + 1);
+              earnedCounts.set(
+                r.reward_id,
+                (earnedCounts.get(r.reward_id) ?? 0) + 1,
+              );
             }
 
             // Filter out rewards that have reached their max_uses limit

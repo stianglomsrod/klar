@@ -428,7 +428,11 @@ export default function LessonDetailPage() {
         studentId={profile?.id ?? ""}
         showFlowerGarden={profile?.show_flower_garden ?? false}
         incompleteTasks={tasks.filter((t) => !t.is_completed)}
-        subjectContext={meta ? { id: meta.subject_id ?? "", title: meta.subject_title } : undefined}
+        subjectContext={
+          meta
+            ? { id: meta.subject_id ?? "", title: meta.subject_title }
+            : undefined
+        }
       />
       <Toast toast={toast} onClose={hideToast} />
     </main>

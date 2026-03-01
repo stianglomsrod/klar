@@ -475,7 +475,9 @@ export default function SubjectDetailPage() {
         studentId={profile?.id ?? ""}
         showFlowerGarden={profile?.show_flower_garden ?? false}
         incompleteTasks={tasks}
-        subjectContext={subject ? { id: subject.id, title: subject.title } : undefined}
+        subjectContext={
+          subject ? { id: subject.id, title: subject.title } : undefined
+        }
       />
       <Toast toast={toast} onClose={hideToast} />
     </main>

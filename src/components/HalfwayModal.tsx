@@ -121,7 +121,10 @@ export default function HalfwayModal({
   }, [isOpen, studentId]);
 
   // ── Fastest path calculation ───────────────────────
-  const remainingXp = useMemo(() => goalTotal - currentXp, [goalTotal, currentXp]);
+  const remainingXp = useMemo(
+    () => goalTotal - currentXp,
+    [goalTotal, currentXp],
+  );
 
   const fastestPath = useMemo(() => {
     const available = incompleteTasks
