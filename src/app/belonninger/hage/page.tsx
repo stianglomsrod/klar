@@ -313,8 +313,7 @@ export default function GardenPage() {
             // Depth-of-field: larger posY (lower on screen / nearer) → bigger flower
             const depthScale = 0.45 + (posY / 100) * 0.55;
             const rotation = saved ? 0 : fallback.rotation;
-            const zIndex =
-              draggingIndex === index ? 200 : Math.round(posY);
+            const zIndex = draggingIndex === index ? 200 : Math.round(posY);
 
             const normalizedColors = [
               ...flowerColors,
