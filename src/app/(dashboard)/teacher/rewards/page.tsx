@@ -18,6 +18,7 @@ import {
   X,
   User,
 } from "lucide-react";
+import { EmojiPickerButton } from "@/components/ui/emoji-picker";
 
 type Reward = {
   id: string;
@@ -29,6 +30,7 @@ type Reward = {
   created_by: string;
   created_at: string;
   specific_student_ids: string[];
+  max_uses: number | null;
 };
 
 type RewardFormData = {
@@ -38,6 +40,7 @@ type RewardFormData = {
   cost: number;
   cost_type: "points" | "flowers" | "petals" | "level";
   selectedStudentIds: string[];
+  max_uses: number | null;
 };
 
 type StudentOption = {
@@ -62,6 +65,7 @@ export default function RewardsLibraryPage() {
     cost: 50,
     cost_type: "points",
     selectedStudentIds: [],
+    max_uses: null,
   });
 
   useEffect(() => {
@@ -104,7 +108,7 @@ export default function RewardsLibraryPage() {
       const { data, error } = await supabase
         .from("rewards")
         .select(
-          "id, title, description, emoji, cost_value, cost_type, created_by, created_at, specific_student_ids",
+          "id, title, description, emoji, cost_value, cost_type, created_by, created_at, specific_student_ids, max_uses",
         )
         .eq("created_by", user.id)
         .order("created_at", { ascending: false });
@@ -133,6 +137,7 @@ export default function RewardsLibraryPage() {
         cost: reward.cost,
         cost_type: reward.cost_type,
         selectedStudentIds: reward.specific_student_ids || [],
+        max_uses: reward.max_uses ?? null,
       });
     } else {
       setEditingReward(null);
@@ -143,6 +148,7 @@ export default function RewardsLibraryPage() {
         cost: 50,
         cost_type: "points",
         selectedStudentIds: [],
+        max_uses: null,
       });
     }
     setIsDialogOpen(true);
@@ -158,6 +164,7 @@ export default function RewardsLibraryPage() {
       cost: 50,
       cost_type: "points",
       selectedStudentIds: [],
+      max_uses: null,
     });
   };
 
@@ -190,6 +197,8 @@ export default function RewardsLibraryPage() {
             cost_value: formData.cost,
             cost_type: formData.cost_type,
             specific_student_ids: formData.selectedStudentIds,
+            max_uses: formData.max_uses,
+            is_recurring: formData.max_uses !== 1,
           })
           .eq("id", editingReward.id);
 
@@ -223,6 +232,8 @@ export default function RewardsLibraryPage() {
               cost_type: formData.cost_type,
               created_by: user.id,
               specific_student_ids: formData.selectedStudentIds,
+              max_uses: formData.max_uses,
+              is_recurring: formData.max_uses !== 1,
             },
           ])
           .select()
@@ -414,13 +425,20 @@ export default function RewardsLibraryPage() {
                   {/* Bottom row: Cost Badge + Assignment */}
                   <div className="flex items-center justify-between gap-2">
                     {/* Cost Badge */}
-                    <div
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${getCostColor(
-                        reward.cost_type,
-                      )}`}
-                    >
-                      {getCostIcon(reward.cost_type)}
-                      <span>{getCostLabel(reward.cost_type)}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm font-semibold ${getCostColor(
+                          reward.cost_type,
+                        )}`}
+                      >
+                        {getCostIcon(reward.cost_type)}
+                        <span>{getCostLabel(reward.cost_type)}</span>
+                      </div>
+                      {reward.max_uses !== null && (
+                        <span className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded-full">
+                          {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
+                        </span>
+                      )}
                     </div>
 
                     {/* Student assignment badge */}
@@ -513,23 +531,20 @@ export default function RewardsLibraryPage() {
                 />
               </div>
 
-              {/* Emoji Field */}
+              {/* Emoji Field — EmojiPickerButton */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
                   Ikon (Emoji) <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.emoji || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, emoji: e.target.value })
+                <EmojiPickerButton
+                  value={formData.emoji}
+                  onChange={(emoji) =>
+                    setFormData({ ...formData, emoji })
                   }
                   placeholder="🎁"
-                  maxLength={2}
-                  className="w-full px-4 py-2.5 text-2xl text-center border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  Lim inn en emoji (f.eks. 🎁 🍕 ⏰ 🎨)
+                  Klikk for å velge emoji
                 </p>
               </div>
 
@@ -577,6 +592,64 @@ export default function RewardsLibraryPage() {
                   step="5"
                   className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
+              </div>
+
+              {/* Max Uses Field */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Antall ganger per elev
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({ ...formData, max_uses: null })
+                    }
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                      formData.max_uses === null
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    Ubegrenset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({ ...formData, max_uses: 1 })
+                    }
+                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                      formData.max_uses !== null
+                        ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                    }`}
+                  >
+                    Begrenset
+                  </button>
+                </div>
+                {formData.max_uses !== null && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={formData.max_uses}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        setFormData({
+                          ...formData,
+                          max_uses: isNaN(val) || val < 1 ? 1 : val,
+                        });
+                      }}
+                      className="w-20 px-3 py-2 text-sm text-center border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <span className="text-sm text-slate-500">
+                      {formData.max_uses === 1
+                        ? "gang — forsvinner etter bruk"
+                        : "ganger per elev"}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Student Assignment Field - Multi-select */}

@@ -17,6 +17,7 @@ export type StudentProfile = {
   petal_colors: string[];
   show_flower_garden: boolean;
   custom_welcome_message: string | null;
+  halfway_celebrated_level: number;
 };
 
 export function useStudentProfile() {
@@ -63,7 +64,8 @@ export function useStudentProfile() {
             flowers_collected,
             petal_colors,
             show_flower_garden,
-            custom_welcome_message
+            custom_welcome_message,
+            halfway_celebrated_level
           `,
         )
         .eq("id", user.id)
@@ -84,6 +86,7 @@ export function useStudentProfile() {
             flowers_collected: 0,
             petal_colors: [...DEFAULT_PETAL_COLORS],
             show_flower_garden: true,
+            halfway_celebrated_level: 0,
           });
 
         if (insertError) {
@@ -102,7 +105,8 @@ export function useStudentProfile() {
                 flowers_collected,
                 petal_colors,
                 show_flower_garden,
-                custom_welcome_message
+                custom_welcome_message,
+                halfway_celebrated_level
               `,
             )
             .eq("id", user.id)
@@ -127,6 +131,7 @@ export function useStudentProfile() {
         petal_colors: studentData?.petal_colors ?? [...DEFAULT_PETAL_COLORS],
         show_flower_garden: studentData?.show_flower_garden ?? true,
         custom_welcome_message: studentData?.custom_welcome_message || null,
+        halfway_celebrated_level: studentData?.halfway_celebrated_level ?? 0,
       };
 
       setProfile(mergedProfile);

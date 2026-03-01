@@ -11,6 +11,7 @@ export type CompletionResult = {
   shouldLevelUp: boolean;
   isNewHighLevel: boolean;
   newLevel: number;
+  crossedHalfway: boolean;
 };
 
 export type RewardResult = {
@@ -109,6 +110,22 @@ export function useTaskCompletion() {
           ];
         }
 
+        // Detect 50% milestone crossing (only when NOT leveling up on this task)
+        const halfwayThreshold = Math.floor(goalTotal / 2);
+        const previousXp = profile.current_xp;
+        const celebratedLevel = profile.halfway_celebrated_level ?? 0;
+        let crossedHalfway = false;
+
+        if (
+          !shouldLevelUp &&
+          finalCurrentXp >= halfwayThreshold &&
+          previousXp < halfwayThreshold &&
+          celebratedLevel < newLevel
+        ) {
+          crossedHalfway = true;
+          profileUpdates.halfway_celebrated_level = newLevel;
+        }
+
         // 3. Persist profile updates
         const { error: profileError } = await supabase
           .from("student_profiles")
@@ -137,7 +154,7 @@ export function useTaskCompletion() {
           /* Push is best-effort — silently ignore failures */
         });
 
-        return { shouldLevelUp, isNewHighLevel, newLevel };
+        return { shouldLevelUp, isNewHighLevel, newLevel, crossedHalfway };
       } catch {
         return null;
       } finally {
@@ -197,6 +214,10 @@ export function useTaskCompletion() {
             points_earned: newPointsEarned,
             current_xp: newCurrentXp,
             level: newLevel,
+            // Reset halfway celebration if XP drops below threshold
+            ...(newCurrentXp < Math.floor((profile.current_goal_total ?? 1000) / 2) && {
+              halfway_celebrated_level: Math.max(0, newLevel - 1),
+            }),
             // Remove any pending rewards for levels being revoked
             ...(newLevel < currentLevel && {
               pending_reward_levels: (

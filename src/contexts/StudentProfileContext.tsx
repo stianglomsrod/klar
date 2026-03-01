@@ -28,6 +28,7 @@ export type StudentProfile = {
   pending_reward_levels: number[];
   completed_flower_colors: string[][];
   garden_positions: Record<string, { x: number; y: number }>;
+  halfway_celebrated_level: number;
 };
 
 type StudentProfileContextType = {
@@ -84,7 +85,8 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             max_level_reached,
             pending_reward_levels,
             completed_flower_colors,
-            garden_positions
+            garden_positions,
+            halfway_celebrated_level
           `,
         )
         .eq("id", user.id)
@@ -107,6 +109,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             pending_reward_levels: [],
             completed_flower_colors: [],
             garden_positions: {},
+            halfway_celebrated_level: 0,
           });
 
         if (!insertError) {
@@ -127,7 +130,8 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
                 max_level_reached,
                 pending_reward_levels,
                 completed_flower_colors,
-                garden_positions
+                garden_positions,
+                halfway_celebrated_level
               `,
             )
             .eq("id", user.id)
@@ -156,6 +160,7 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         pending_reward_levels: studentData?.pending_reward_levels ?? [],
         completed_flower_colors: studentData?.completed_flower_colors ?? [],
         garden_positions: studentData?.garden_positions ?? {},
+        halfway_celebrated_level: studentData?.halfway_celebrated_level ?? 0,
       };
 
       setProfile(mergedProfile);

@@ -14,6 +14,7 @@ type Reward = {
   emoji: string;
   cost: number;
   is_recurring: boolean;
+  max_uses: number | null;
 };
 
 interface StudentRewardManagerProps {
@@ -37,6 +38,7 @@ export default function StudentRewardManager({
     title: "",
     emoji: "",
     is_recurring: true,
+    max_uses: null as number | null,
   });
   const [selectedRewards, setSelectedRewards] = useState<string[]>([]);
   const [studentRewards, setStudentRewards] = useState<Reward[]>([]);
@@ -48,7 +50,7 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value, is_recurring")
+        .select("id, name:title, emoji, cost:cost_value, is_recurring, max_uses")
         .contains("specific_student_ids", [studentId]);
 
       if (error) throw error;
@@ -62,7 +64,7 @@ export default function StudentRewardManager({
     try {
       const { data, error } = await supabase
         .from("rewards")
-        .select("id, name:title, emoji, cost:cost_value, is_recurring")
+        .select("id, name:title, emoji, cost:cost_value, is_recurring, max_uses")
         .or(`specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`)
         .order("title");
 
@@ -184,7 +186,8 @@ export default function StudentRewardManager({
           specific_student_ids: [studentId],
           cost_type: "level",
           cost_value: 0,
-          is_recurring: newRewardForm.is_recurring,
+          is_recurring: newRewardForm.max_uses === 1 ? false : true,
+          max_uses: newRewardForm.max_uses,
         })
         .select()
         .single();
@@ -198,7 +201,7 @@ export default function StudentRewardManager({
         setSelectedRewards((prev) => [...prev, data.id]);
       }
 
-      setNewRewardForm({ title: "", emoji: "", is_recurring: true });
+      setNewRewardForm({ title: "", emoji: "", is_recurring: true, max_uses: null });
       setRewardModalView("list");
     } catch {
       showToast("Kunne ikke opprette belønning. Prøv igjen.", "error");
@@ -265,9 +268,9 @@ export default function StudentRewardManager({
                   <span className="text-sm font-medium text-slate-700">
                     {reward.name}
                   </span>
-                  {!reward.is_recurring && (
+                  {reward.max_uses !== null && (
                     <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
-                      Engangs
+                      {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
                     </span>
                   )}
                 </div>
@@ -309,6 +312,7 @@ export default function StudentRewardManager({
                     title: "",
                     emoji: "",
                     is_recurring: true,
+                    max_uses: null,
                   });
                 }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
@@ -352,9 +356,9 @@ export default function StudentRewardManager({
                               <span className="text-sm font-medium text-slate-700 flex-1">
                                 {reward.name}
                               </span>
-                              {!reward.is_recurring && (
+                              {reward.max_uses !== null && (
                                 <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
-                                  Engangs
+                                  {reward.max_uses === 1 ? "Engangs" : `Maks ${reward.max_uses}×`}
                                 </span>
                               )}
                             </label>
@@ -438,30 +442,71 @@ export default function StudentRewardManager({
                       </p>
                     </div>
 
-                    {/* Recurring toggle */}
+                    {/* Max uses selector */}
                     <div>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={!newRewardForm.is_recurring}
-                          onChange={(e) =>
+                      <label className="block text-sm font-semibold text-slate-700 mb-2">
+                        Antall ganger per elev
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
                             setNewRewardForm({
                               ...newRewardForm,
-                              is_recurring: !e.target.checked,
+                              max_uses: null,
+                              is_recurring: true,
                             })
                           }
-                          className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-                        />
-                        <div>
-                          <span className="text-sm font-semibold text-slate-700">
-                            Engangspremie
+                          className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            newRewardForm.max_uses === null
+                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                              : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                          }`}
+                        >
+                          Ubegrenset
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNewRewardForm({
+                              ...newRewardForm,
+                              max_uses: 1,
+                              is_recurring: false,
+                            })
+                          }
+                          className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
+                            newRewardForm.max_uses !== null
+                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                              : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
+                          }`}
+                        >
+                          Begrenset
+                        </button>
+                      </div>
+                      {newRewardForm.max_uses !== null && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <input
+                            type="number"
+                            min={1}
+                            max={99}
+                            value={newRewardForm.max_uses}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              setNewRewardForm({
+                                ...newRewardForm,
+                                max_uses: isNaN(val) || val < 1 ? 1 : val,
+                                is_recurring: val !== 1,
+                              });
+                            }}
+                            className="w-20 px-3 py-2 text-sm text-center border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          />
+                          <span className="text-sm text-slate-500">
+                            {newRewardForm.max_uses === 1
+                              ? "gang — forsvinner etter bruk"
+                              : "ganger per elev"}
                           </span>
-                          <p className="text-xs text-slate-500">
-                            Kan bare velges én gang per elev — forsvinner etter
-                            bruk
-                          </p>
                         </div>
-                      </label>
+                      )}
                     </div>
 
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -504,6 +549,7 @@ export default function StudentRewardManager({
                         title: "",
                         emoji: "",
                         is_recurring: true,
+                        max_uses: null,
                       });
                     }}
                     className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"

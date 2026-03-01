@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
 import CompletionModal from "@/components/CompletionModal";
 import LevelUpModal from "@/components/LevelUpModal";
+import HalfwayModal from "@/components/HalfwayModal";
 import SubjectProgress from "@/components/student/SubjectProgress";
 import StudentQuizView from "@/components/student/StudentQuizView";
 import { ArrowLeft, Archive, X, Undo2 } from "lucide-react";
@@ -57,6 +58,8 @@ export default function SubjectDetailPage() {
     closeCompletionModal,
     closeQuiz,
     closeLevelUpModal,
+    showHalfwayModal,
+    closeHalfwayModal,
   } = useTaskFlow({
     tasks,
     onTaskCompleted: (taskId) => {
@@ -460,6 +463,19 @@ export default function SubjectDetailPage() {
         existingColors={profile?.petal_colors || []}
         showFlowerGarden={profile?.show_flower_garden || false}
         studentId={profile?.id}
+      />
+
+      {/* Halfway Celebration Modal */}
+      <HalfwayModal
+        isOpen={showHalfwayModal}
+        onClose={closeHalfwayModal}
+        currentXp={profile?.current_xp ?? 0}
+        goalTotal={profile?.current_goal_total ?? 100}
+        level={profile?.current_level ?? 1}
+        studentId={profile?.id ?? ""}
+        showFlowerGarden={profile?.show_flower_garden ?? false}
+        incompleteTasks={tasks}
+        subjectContext={subject ? { id: subject.id, title: subject.title } : undefined}
       />
       <Toast toast={toast} onClose={hideToast} />
     </main>

@@ -50,13 +50,14 @@ Both Container A (`subject/[id]/page.tsx`) and Container B (`student/lesson/[id]
 
 ### ~~Reward Evolution — One-Time vs. Recurring Rewards~~ ✅ RESOLVED (2026-02-28)
 
-Added `is_recurring` boolean column (default `true`) to the `rewards` table. When `is_recurring = false`, a reward is a one-time reward that disappears from the level-up selection after a student picks it once.
+Added `is_recurring` boolean column (default `true`) to the `rewards` table. When `is_recurring = false`, a reward is a one-time reward that disappears from the level-up selection after a student picks it once. **Upgraded (2026-03-01):** Added `max_uses integer DEFAULT NULL` column. `null` = unlimited, positive integer = per-student claim limit. The `is_recurring` column is kept in sync (`max_uses=1` → `is_recurring=false`) but `max_uses` is now the source of truth for `LevelUpModal` filtering.
 
 | Component                  | Change                                     | Detail                                                                       |
 | -------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
 | Migration                  | `20260301000001_add_reward_recurrence.sql` | Adds `is_recurring boolean NOT NULL DEFAULT true` to `rewards`               |
-| `LevelUpModal.tsx`         | Filter non-recurring earned rewards        | Parallel `student_rewards` query filters out already-earned one-time rewards |
-| `StudentRewardManager.tsx` | Create/display one-time rewards            | "Engangspremie" checkbox + amber "Engangs" badge on one-time rewards         |
+| Migration                  | `20260301000008_add_reward_max_uses.sql`   | Adds `max_uses integer DEFAULT NULL` + CHECK constraint + backfill           |
+| `LevelUpModal.tsx`         | Filter by earned count vs max_uses         | Counts earned per reward_id; hides rewards where count >= max_uses           |
+| `StudentRewardManager.tsx` | Create/display limited-use rewards         | "Ubegrenset"/"Begrenset" toggle + number input; badges show "Engangs"/"Maks N×" |
 
 ### ~~Data Integrity — Reward Duplication & Logic Alignment~~ ✅ RESOLVED (2026-03-01)
 

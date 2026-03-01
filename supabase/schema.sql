@@ -164,8 +164,10 @@ CREATE TABLE public.rewards (
   emoji text DEFAULT '🎁'::text,
   specific_student_ids ARRAY DEFAULT '{}'::uuid[],
   is_recurring boolean NOT NULL DEFAULT true,
+  max_uses integer DEFAULT NULL,
   CONSTRAINT rewards_pkey PRIMARY KEY (id),
-  CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id)
+  CONSTRAINT rewards_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id),
+  CONSTRAINT rewards_max_uses_positive CHECK (max_uses IS NULL OR max_uses > 0)
 );
 
 CREATE TABLE public.schedule_entries (
@@ -199,6 +201,7 @@ CREATE TABLE public.student_profiles (
   show_flower_garden boolean DEFAULT true,
   custom_welcome_message text,
   max_level_reached integer NOT NULL DEFAULT 1,
+  halfway_celebrated_level integer NOT NULL DEFAULT 0,
   current_password_plaintext text,
   CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),

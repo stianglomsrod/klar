@@ -86,6 +86,9 @@ export function useTaskFlow({
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [newLevel, setNewLevel] = useState(0);
 
+  // ── Halfway modal state ────────────────────────────
+  const [showHalfwayModal, setShowHalfwayModal] = useState(false);
+
   // ── Quiz state ─────────────────────────────────────
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizTask, setQuizTask] = useState<StudentTask | null>(null);
@@ -165,6 +168,8 @@ export function useTaskFlow({
       if (result?.shouldLevelUp && result.isNewHighLevel) {
         setNewLevel(result.newLevel);
         setShowLevelUpModal(true);
+      } else if (result?.crossedHalfway) {
+        setShowHalfwayModal(true);
       }
     } catch {
       showToast("Noe gikk galt. Prøv igjen.", "error");
@@ -261,6 +266,8 @@ export function useTaskFlow({
         if (result?.shouldLevelUp && result.isNewHighLevel) {
           setNewLevel(result.newLevel);
           setShowLevelUpModal(true);
+        } else if (result?.crossedHalfway) {
+          setShowHalfwayModal(true);
         }
       } catch (error: unknown) {
         const msg =
@@ -326,6 +333,10 @@ export function useTaskFlow({
     setShowLevelUpModal(false);
   }, []);
 
+  const closeHalfwayModal = useCallback(() => {
+    setShowHalfwayModal(false);
+  }, []);
+
   // ── Return ─────────────────────────────────────────
   return {
     // From useTaskCompletion (pass-through)
@@ -348,6 +359,7 @@ export function useTaskFlow({
     isModalOpen,
     showLevelUpModal,
     newLevel,
+    showHalfwayModal,
 
     // Quiz state
     isQuizOpen,
@@ -364,5 +376,6 @@ export function useTaskFlow({
     closeCompletionModal,
     closeQuiz,
     closeLevelUpModal,
+    closeHalfwayModal,
   };
 }
