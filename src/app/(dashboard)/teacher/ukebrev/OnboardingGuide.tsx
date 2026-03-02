@@ -79,11 +79,10 @@ export default function OnboardingGuide() {
               </h3>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Dokumentet trenger <strong>ikke</strong> å være perfekt
-              formatert. Inneholder det ekstra tekst, overskrifter, bilder
-              eller annen informasjon som ikke er relevant, filtrerer AI-en
-              bort støyen og trekker kun ut det som er nødvendig. Bare last opp
-              som det er!
+              Dokumentet trenger <strong>ikke</strong> å være perfekt formatert.
+              Inneholder det ekstra tekst, overskrifter, bilder eller annen
+              informasjon som ikke er relevant, filtrerer AI-en bort støyen og
+              trekker kun ut det som er nødvendig. Bare last opp som det er!
             </p>
           </div>
 
@@ -102,8 +101,7 @@ export default function OnboardingGuide() {
               klasser, og beskjeder lagres som ukens informasjon. For{" "}
               <strong>undervisningsplaner</strong>: Oppgaver opprettes
               automatisk for hver elev og kobles til riktig time i timeplanen.
-              Du får alltid se en forhåndsvisning og kan redigere før du
-              lagrer.
+              Du får alltid se en forhåndsvisning og kan redigere før du lagrer.
             </p>
           </div>
         </div>

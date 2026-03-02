@@ -66,46 +66,44 @@ export default function ScheduleHeader({
           </div>
         )}
         {/* Make masterplan — only shown when viewing a specific week with entries */}
-        {selectedWeekNumber > 0 &&
-          scheduleEntries.length > 0 &&
-          !studentId && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm">
-                  <Copy size={16} />
-                  Sett som fast timeplan
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>
-                    Sett uke {selectedWeekNumber} som fast timeplan?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Dette vil overskrive klassens nåværende faste timeplan med
-                    innholdet fra uke {selectedWeekNumber}. Alle fremtidige uker
-                    uten egne endringer vil bruke denne som utgangspunkt.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={onMakeMasterplan}
-                    disabled={isMakingMasterplan}
-                  >
-                    {isMakingMasterplan ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin mr-1" />
-                        Kopierer...
-                      </>
-                    ) : (
-                      "Ja, sett som fast"
-                    )}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+        {selectedWeekNumber > 0 && scheduleEntries.length > 0 && !studentId && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm">
+                <Copy size={16} />
+                Sett som fast timeplan
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  Sett uke {selectedWeekNumber} som fast timeplan?
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  Dette vil overskrive klassens nåværende faste timeplan med
+                  innholdet fra uke {selectedWeekNumber}. Alle fremtidige uker
+                  uten egne endringer vil bruke denne som utgangspunkt.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Avbryt</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onMakeMasterplan}
+                  disabled={isMakingMasterplan}
+                >
+                  {isMakingMasterplan ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin mr-1" />
+                      Kopierer...
+                    </>
+                  ) : (
+                    "Ja, sett som fast"
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         <button
           onClick={onAddEntry}
           className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"

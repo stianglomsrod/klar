@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Megaphone,
-  GraduationCap,
-  BookOpen,
-  CheckCircle2,
-} from "lucide-react";
+import { Megaphone, GraduationCap, BookOpen, CheckCircle2 } from "lucide-react";
 import type { WeeklyPlanData } from "@/app/actions/parse-weekly-plan";
 import type { EditState } from "./useUkebrevMutators";
 import PreviewScheduleGrid from "@/components/teacher/PreviewScheduleGrid";

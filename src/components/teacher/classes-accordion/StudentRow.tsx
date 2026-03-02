@@ -40,8 +40,7 @@ export default function StudentRow({
             />
           ) : (
             <span className="text-base">
-              {student.avatar_url ||
-                student.full_name.charAt(0).toUpperCase()}
+              {student.avatar_url || student.full_name.charAt(0).toUpperCase()}
             </span>
           )}
         </div>
@@ -56,9 +55,7 @@ export default function StudentRow({
             <span>•</span>
             <span>Nivå {student.level}</span>
             <span>•</span>
-            <span>
-              {student.show_flower_garden ? "🌱 Hage" : "🏆 Poeng"}
-            </span>
+            <span>{student.show_flower_garden ? "🌱 Hage" : "🏆 Poeng"}</span>
           </div>
         </div>
       </button>

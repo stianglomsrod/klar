@@ -57,9 +57,7 @@ export default function FlowerTeaser({
             : { scale: 1 }
         }
         transition={
-          teaserBounce
-            ? { duration: 0.55, ease: "easeOut" }
-            : { duration: 0.2 }
+          teaserBounce ? { duration: 0.55, ease: "easeOut" } : { duration: 0.2 }
         }
         className="relative"
       >

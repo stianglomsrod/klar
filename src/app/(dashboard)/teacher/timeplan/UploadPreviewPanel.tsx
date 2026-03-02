@@ -41,9 +41,7 @@ export default function UploadPreviewPanel({
           <div>
             <h2 className="text-lg font-bold">
               Forhåndsvisning — {className || "Timeplan"}
-              {mode === "weekly"
-                ? `, uke ${weekNumber}`
-                : " (fast timeplan)"}
+              {mode === "weekly" ? `, uke ${weekNumber}` : " (fast timeplan)"}
             </h2>
             <p className="text-purple-100 text-xs mt-0.5 flex items-center gap-1">
               <Pencil className="h-3 w-3" />
@@ -53,10 +51,7 @@ export default function UploadPreviewPanel({
         </div>
       </div>
 
-      <PreviewScheduleGrid
-        schedule={schedule}
-        onEditEntry={onEditEntry}
-      />
+      <PreviewScheduleGrid schedule={schedule} onEditEntry={onEditEntry} />
 
       <div className="space-y-3">
         {mode === "weekly" && (

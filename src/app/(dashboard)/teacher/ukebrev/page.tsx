@@ -254,8 +254,13 @@ export default function UkebrevPage() {
   );
 
   // ── Edit state + mutators (extracted) ──
-  const { editState, setEditState, handleEditSave, editDialogTitle, updateLessonTask } =
-    useUkebrevMutators(setData);
+  const {
+    editState,
+    setEditState,
+    handleEditSave,
+    editDialogTitle,
+    updateLessonTask,
+  } = useUkebrevMutators(setData);
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">

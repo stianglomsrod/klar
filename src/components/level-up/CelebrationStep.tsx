@@ -176,9 +176,7 @@ export default function CelebrationStep({
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
-                    delay:
-                      0.7 +
-                      (showFlowerGarden ? index * 0.1 : index * 0.1),
+                    delay: 0.7 + (showFlowerGarden ? index * 0.1 : index * 0.1),
                   }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}

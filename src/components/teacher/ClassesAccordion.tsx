@@ -27,7 +27,12 @@ import {
 } from "@/app/actions/student-actions";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
-import type { Student, Class, Trinn, OpenMenu } from "./classes-accordion/types";
+import type {
+  Student,
+  Class,
+  Trinn,
+  OpenMenu,
+} from "./classes-accordion/types";
 import { groupClassesByTrinn } from "./classes-accordion/class-helpers";
 import CreateClassDialog from "./classes-accordion/CreateClassDialog";
 import MoveStudentDialog from "./classes-accordion/MoveStudentDialog";
@@ -619,10 +624,7 @@ export default function ClassesAccordion({
 
       {/* Context Menu Dropdown */}
       {openMenu && (
-        <ContextMenu
-          openMenu={openMenu}
-          onAction={handleMenuAction}
-        />
+        <ContextMenu openMenu={openMenu} onAction={handleMenuAction} />
       )}
 
       {/* Create Class Dialog */}

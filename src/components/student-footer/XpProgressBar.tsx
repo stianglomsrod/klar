@@ -26,8 +26,7 @@ export default function XpProgressBar({
   const [xpDisplayMode, setXpDisplayMode] = useState<"percent" | "xp">(() => {
     if (typeof window === "undefined") return "percent";
     return (
-      (localStorage.getItem("xp-display-mode") as "percent" | "xp") ||
-      "percent"
+      (localStorage.getItem("xp-display-mode") as "percent" | "xp") || "percent"
     );
   });
 

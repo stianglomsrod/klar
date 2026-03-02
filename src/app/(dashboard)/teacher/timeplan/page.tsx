@@ -2,11 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
-import {
-  AlertCircle,
-  Upload,
-  Loader2,
-} from "lucide-react";
+import { AlertCircle, Upload, Loader2 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
 import type {
   ScheduleEntry,

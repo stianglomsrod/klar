@@ -118,8 +118,7 @@ export default function ColorPickerStep({
         <div
           className="absolute bottom-2 right-3 sm:bottom-3 sm:right-4 w-8 h-10 sm:w-10 sm:h-12 rounded-full border-2 border-[#8B5A2B]/40 pointer-events-none"
           style={{
-            background:
-              "radial-gradient(ellipse, #B8860B 0%, #A0826D 100%)",
+            background: "radial-gradient(ellipse, #B8860B 0%, #A0826D 100%)",
           }}
         />
         {/* Paint blob swatches */}

@@ -1,4 +1,9 @@
-import { useState, useCallback, type Dispatch, type SetStateAction } from "react";
+import {
+  useState,
+  useCallback,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type {
   ScheduleEntry,
   LessonPlanTask,
@@ -143,13 +148,21 @@ export function useUkebrevMutators(
         updateGoalSubject(editState.index, editState.value);
         break;
       case "goalItem":
-        updateGoalItem(editState.goalIndex, editState.itemIndex, editState.value);
+        updateGoalItem(
+          editState.goalIndex,
+          editState.itemIndex,
+          editState.value,
+        );
         break;
       case "homeworkSubject":
         updateHomeworkSubject(editState.index, editState.value);
         break;
       case "homeworkTask":
-        updateHomeworkTask(editState.hwIndex, editState.taskIndex, editState.value);
+        updateHomeworkTask(
+          editState.hwIndex,
+          editState.taskIndex,
+          editState.value,
+        );
         break;
       case "schedule":
         updateScheduleEntry(editState.index, editState.entry);

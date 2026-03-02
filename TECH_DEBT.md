@@ -10,32 +10,33 @@
 
 Two large teacher page-level components were decomposed:
 
-| Extraction | Before | After | New Files |
-|---|---|---|---|
+| Extraction                  | Before    | After     | New Files                                                                           |
+| --------------------------- | --------- | --------- | ----------------------------------------------------------------------------------- |
 | `teacher/timeplan/page.tsx` | 961 lines | 598 lines | `useClassStudentSelection.ts`, `ClassStudentSelector.tsx`, `UploadPreviewPanel.tsx` |
-| `teacher/ukebrev/page.tsx` | 933 lines | 522 lines | `OnboardingGuide.tsx`, `useUkebrevMutators.ts`, `UkebrevPreview.tsx` |
+| `teacher/ukebrev/page.tsx`  | 933 lines | 522 lines | `OnboardingGuide.tsx`, `useUkebrevMutators.ts`, `UkebrevPreview.tsx`                |
 
 ### ~~Chunk 3A — Teacher Mega-Monolith Decomposition~~ ✅ RESOLVED (2026-03-03)
 
 Two large teacher-facing components were decomposed into focused sub-components:
 
-| Extraction | Before | After | New Files |
-|---|---|---|---|
-| `WeeklyScheduleEditor.tsx` | 1136 lines | 577 lines | `schedule-editor/types.ts`, `schedule-helpers.ts`, `ScheduleEntryModal.tsx`, `ScheduleEntryCard.tsx`, `ScheduleHeader.tsx` |
-| `ClassesAccordion.tsx` | 1146 lines | 773 lines | `classes-accordion/types.ts`, `class-helpers.ts`, `CreateClassDialog.tsx`, `MoveStudentDialog.tsx`, `ContextMenu.tsx`, `StudentRow.tsx` |
+| Extraction                 | Before     | After     | New Files                                                                                                                               |
+| -------------------------- | ---------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `WeeklyScheduleEditor.tsx` | 1136 lines | 577 lines | `schedule-editor/types.ts`, `schedule-helpers.ts`, `ScheduleEntryModal.tsx`, `ScheduleEntryCard.tsx`, `ScheduleHeader.tsx`              |
+| `ClassesAccordion.tsx`     | 1146 lines | 773 lines | `classes-accordion/types.ts`, `class-helpers.ts`, `CreateClassDialog.tsx`, `MoveStudentDialog.tsx`, `ContextMenu.tsx`, `StudentRow.tsx` |
 
 ### ~~Chunk 2A — Student-Side Monolith Extraction~~ ✅ RESOLVED (2026-03-02)
 
 Six student-facing files were decomposed to improve maintainability and reduce file sizes:
 
-| Extraction | Before | After | New Files |
-|---|---|---|---|
-| `LevelUpModal.tsx` step JSX | ~700 lines | 278 lines | `level-up/CelebrationStep.tsx`, `ColorPickerStep.tsx`, `BloomStep.tsx` |
-| `StudentFooter.tsx` sections | 465 lines | 169 lines | `student-footer/XpProgressBar.tsx`, `FlowerTeaser.tsx`, `PendingRewardBadge.tsx`, `TimeTrackerWidget.tsx` |
-| Archive duplication (subject + lesson pages) | ~65 lines duplicated in each | Shared component | `student/ArchiveModal.tsx` (exports `ArchiveModal`, `ArchiveButton`, `useArchivePulse`) |
-| Reward fetch duplication (LevelUpModal + HalfwayModal) | ~40 lines duplicated in each | Shared hook | `hooks/useAvailableRewards.ts` |
+| Extraction                                             | Before                       | After            | New Files                                                                                                 |
+| ------------------------------------------------------ | ---------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `LevelUpModal.tsx` step JSX                            | ~700 lines                   | 278 lines        | `level-up/CelebrationStep.tsx`, `ColorPickerStep.tsx`, `BloomStep.tsx`                                    |
+| `StudentFooter.tsx` sections                           | 465 lines                    | 169 lines        | `student-footer/XpProgressBar.tsx`, `FlowerTeaser.tsx`, `PendingRewardBadge.tsx`, `TimeTrackerWidget.tsx` |
+| Archive duplication (subject + lesson pages)           | ~65 lines duplicated in each | Shared component | `student/ArchiveModal.tsx` (exports `ArchiveModal`, `ArchiveButton`, `useArchivePulse`)                   |
+| Reward fetch duplication (LevelUpModal + HalfwayModal) | ~40 lines duplicated in each | Shared hook      | `hooks/useAvailableRewards.ts`                                                                            |
 
 Additional fixes included in this chunk:
+
 - **StudentQuizView crash fix:** `currentQuestion.options.length` and `.map()` crashed on text-type questions where `options` is `undefined`. Guarded with optional chaining (`?.`).
 - **FlowerTeaser React 19 fix:** Deferred `setState` in effect body via `setTimeout` to satisfy React 19 strict-mode rules (no synchronous `setState` inside effects).
 - **HalfwayModal emoji fallback:** Added `reward.emoji || "🎁"` guard after switching to shared `useAvailableRewards` hook.

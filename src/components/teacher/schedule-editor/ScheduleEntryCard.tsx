@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Edit2,
-  Trash2,
-  Clock,
-  RotateCcw,
-  User,
-  Eraser,
-} from "lucide-react";
+import { Edit2, Trash2, Clock, RotateCcw, User, Eraser } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -49,7 +42,9 @@ export default function ScheduleEntryCard({
     highlightOverrides && selectedWeekNumber > 0 && !entry.isFallback;
 
   const subjectMeta = getSubjectMeta(entry.subject_id, subjects);
-  const borderColor = subjectMeta ? subjectMeta.theme.border : "border-slate-300";
+  const borderColor = subjectMeta
+    ? subjectMeta.theme.border
+    : "border-slate-300";
 
   // Prefix: always computed from time slot
   const prefix = getDefaultTitle(entry) || "Uten tittel";
@@ -83,7 +78,10 @@ export default function ScheduleEntryCard({
         className={`flex items-start justify-between gap-1 border-l-4 ${borderColor} pl-3 transition-colors duration-150 group-hover:border-l-[6px] group-hover:pl-[11px]`}
       >
         {isPersonal && (
-          <div className="absolute top-1 right-1 text-indigo-500/80" aria-hidden>
+          <div
+            className="absolute top-1 right-1 text-indigo-500/80"
+            aria-hidden
+          >
             <User size={14} />
           </div>
         )}

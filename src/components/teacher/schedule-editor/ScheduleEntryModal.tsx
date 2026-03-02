@@ -203,9 +203,7 @@ export default function ScheduleEntryModal({
             <label className="text-sm font-medium text-slate-900">Start:</label>
             <TimePicker
               value={formData.start_time}
-              onChange={(val) =>
-                setFormData({ ...formData, start_time: val })
-              }
+              onChange={(val) => setFormData({ ...formData, start_time: val })}
               className="w-full"
             />
           </div>
@@ -213,9 +211,7 @@ export default function ScheduleEntryModal({
             <label className="text-sm font-medium text-slate-900">Slutt:</label>
             <TimePicker
               value={formData.end_time}
-              onChange={(val) =>
-                setFormData({ ...formData, end_time: val })
-              }
+              onChange={(val) => setFormData({ ...formData, end_time: val })}
               className="w-full"
             />
           </div>
@@ -226,9 +222,7 @@ export default function ScheduleEntryModal({
           <label className="text-sm font-medium text-slate-900">Type:</label>
           <select
             value={formData.type}
-            onChange={(e) =>
-              setFormData({ ...formData, type: e.target.value })
-            }
+            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
             className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             {SCHEDULE_TYPES.map((type) => (

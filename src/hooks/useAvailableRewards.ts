@@ -37,7 +37,9 @@ export function useAvailableRewards(
         const [rewardsRes, earnedRes] = await Promise.all([
           supabase
             .from("rewards")
-            .select("id, title, description, emoji, is_recurring, max_uses, specific_student_ids")
+            .select(
+              "id, title, description, emoji, is_recurring, max_uses, specific_student_ids",
+            )
             .or(
               `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
             )

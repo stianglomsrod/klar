@@ -103,9 +103,7 @@ export default function ClassStudentSelector({
                     type="button"
                     onClick={() => onStudentSelect(student)}
                     className={`flex w-full items-center gap-2 px-3 py-2 text-sm text-left hover:bg-indigo-50 ${
-                      active
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-800"
+                      active ? "bg-indigo-50 text-indigo-700" : "text-slate-800"
                     }`}
                   >
                     <User className="h-4 w-4" />

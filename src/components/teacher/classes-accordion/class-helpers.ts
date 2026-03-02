@@ -3,9 +3,7 @@ import type { Student, Class, Trinn } from "./types";
 /**
  * Extract the leading numeric portion of a class name (e.g. "5A" → "5").
  */
-export const extractTrinnFromClassName = (
-  className: string,
-): string | null => {
+export const extractTrinnFromClassName = (className: string): string | null => {
   const match = className.match(/^(\d+)/);
   return match ? match[1] : null;
 };

@@ -14,10 +14,7 @@ import type {
   ClassInfo,
   ScheduleFormData,
 } from "./schedule-editor/types";
-import {
-  DAYS_OF_WEEK,
-  parseGradeFromClassName,
-} from "./schedule-editor/types";
+import { DAYS_OF_WEEK, parseGradeFromClassName } from "./schedule-editor/types";
 import {
   getDefaultTitle,
   getEntriesForDay,

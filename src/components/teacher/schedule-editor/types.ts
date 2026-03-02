@@ -32,9 +32,7 @@ export const DAYS_OF_WEEK = WEEKDAYS;
 export const SCHEDULE_TYPES = ["lesson", "break", "activity"];
 
 // ── Helpers ──────────────────────────────────────────
-export const parseGradeFromClassName = (
-  name: string | null,
-): number | null => {
+export const parseGradeFromClassName = (name: string | null): number | null => {
   if (!name) return null;
   const match = name.match(/\d+/);
   if (!match) return null;
