@@ -82,9 +82,15 @@ klar/
 │   │   │       ├── tasks/
 │   │   │       │   └── page.tsx
 │   │   │       ├── timeplan/
-│   │   │       │   └── page.tsx
+│   │   │       │   ├── page.tsx                      ← Teacher schedule page (598 lines, was 961)
+│   │   │       │   ├── useClassStudentSelection.ts   ← Hook: class/student/week state + URL sync + Supabase fetch
+│   │   │       │   ├── ClassStudentSelector.tsx       ← Class dropdown + student search with autocomplete
+│   │   │       │   └── UploadPreviewPanel.tsx         ← Upload preview grid + save/discard controls
 │   │   │       └── ukebrev/
-│   │   │           └── page.tsx
+│   │   │           ├── page.tsx                       ← AI planner page (522 lines, was 933)
+│   │   │           ├── OnboardingGuide.tsx             ← Self-contained 4-card AI guide
+│   │   │           ├── useUkebrevMutators.ts           ← Hook: edit state + all data mutators
+│   │   │           └── UkebrevPreview.tsx              ← Ukebrev preview (messages, goals, homework, schedule)
 │   │   │
 │   │   ├── actions/
 │   │   │   ├── student-actions.ts
@@ -124,6 +130,7 @@ klar/
 │   │   ├── CompletionModal.tsx
 │   │   ├── ConditionalLayout.tsx
 │   │   ├── FlowerPot.tsx
+│   │   ├── HalfwayModal.tsx
 │   │   ├── LevelUpModal.tsx
 │   │   ├── Navigation.tsx
 │   │   ├── PaintBrushCursor.tsx
@@ -136,16 +143,30 @@ klar/
 │   │   ├── TaskCard.tsx
 │   │   ├── WelcomeOverlay.tsx
 │   │   │
+│   │   ├── level-up/
+│   │   │   ├── BloomStep.tsx
+│   │   │   ├── CelebrationStep.tsx
+│   │   │   └── ColorPickerStep.tsx
+│   │   │
 │   │   ├── shared/
 │   │   │   └── CouponCard.tsx
 │   │   │
 │   │   ├── student/
+│   │   │   ├── ArchiveModal.tsx
 │   │   │   ├── AvatarPickerModal.tsx
 │   │   │   ├── FeedbackBubble.tsx
 │   │   │   ├── FeedbackSheet.tsx
 │   │   │   ├── StudentHelpButton.tsx
 │   │   │   ├── StudentQuizView.tsx
-│   │   │   └── SubjectProgress.tsx
+│   │   │   ├── SubjectHero.tsx
+│   │   │   ├── SubjectProgress.tsx
+│   │   │   └── TaskFlowModals.tsx
+│   │   │
+│   │   ├── student-footer/
+│   │   │   ├── FlowerTeaser.tsx
+│   │   │   ├── PendingRewardBadge.tsx
+│   │   │   ├── TimeTrackerWidget.tsx
+│   │   │   └── XpProgressBar.tsx
 │   │   │
 │   │   ├── teacher/
 │   │   │   ├── ActivityDetailSheet.tsx
@@ -153,6 +174,13 @@ klar/
 │   │   │   ├── BulkStudentAssignModal.tsx
 │   │   │   ├── ClassCombobox.tsx
 │   │   │   ├── ClassesAccordion.tsx
+│   │   │   ├── classes-accordion/
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── class-helpers.ts
+│   │   │   │   ├── CreateClassDialog.tsx
+│   │   │   │   ├── MoveStudentDialog.tsx
+│   │   │   │   ├── ContextMenu.tsx
+│   │   │   │   └── StudentRow.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
 │   │   │   ├── CreateTaskButton.tsx
 │   │   │   ├── CreateTaskModal.tsx
@@ -163,6 +191,12 @@ klar/
 │   │   │   ├── MissingDataDialog.tsx
 │   │   │   ├── PreviewLessonPlan.tsx
 │   │   │   ├── PreviewScheduleGrid.tsx
+│   │   │   ├── schedule-editor/
+│   │   │   │   ├── types.ts
+│   │   │   │   ├── schedule-helpers.ts
+│   │   │   │   ├── ScheduleEntryModal.tsx
+│   │   │   │   ├── ScheduleEntryCard.tsx
+│   │   │   │   └── ScheduleHeader.tsx
 │   │   │   ├── ScheduleEntryEditDialog.tsx
 │   │   │   ├── SchedulePicker.tsx
 │   │   │   ├── StudentPasswordCard.tsx
@@ -193,6 +227,7 @@ klar/
 │   │   └── TeacherProfileContext.tsx
 │   │
 │   ├── hooks/
+│   │   ├── useAvailableRewards.ts
 │   │   ├── useMediaQuery.ts
 │   │   ├── useStudentProfile.ts
 │   │   ├── useTaskCompletion.ts

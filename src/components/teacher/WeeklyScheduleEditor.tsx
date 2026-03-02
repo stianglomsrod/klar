@@ -1,68 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
-import { getSubjectTheme } from "@/utils/subject-colors";
-import {
-  Plus,
-  Edit2,
-  Clock,
-  Check,
-  User,
-  RotateCcw,
-  Eraser,
-  Trash2,
-  Copy,
-  Loader2,
-} from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogFooter,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
-import TimePicker from "@/components/ui/time-picker";
+import { Plus } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import { getISOWeekNumber } from "@/utils/week-number";
-import { WEEKDAYS } from "@/utils/constants";
 import { useToast } from "@/hooks/useToast";
 import { fetchMergedSchedule } from "@/utils/supabase/schedule-queries";
 import type {
-  TeacherScheduleEntry,
-  Subject as SharedSubject,
-} from "@/types/shared";
-
-type ScheduleEntry = TeacherScheduleEntry;
-
-type MergedEntry = ScheduleEntry & {
-  isOverride?: boolean;
-  isFallback?: boolean;
-};
-
-type Subject = SharedSubject;
-
-type ClassInfo = {
-  name: string | null;
-  grade: number | null;
-};
-
-const DAYS_OF_WEEK = WEEKDAYS;
-
-const SCHEDULE_TYPES = ["lesson", "break", "activity"];
-
-const parseGradeFromClassName = (name: string | null): number | null => {
-  if (!name) return null;
-  const match = name.match(/\d+/);
-  if (!match) return null;
-  const grade = parseInt(match[0], 10);
-  return Number.isNaN(grade) ? null : grade;
-};
+  ScheduleEntry,
+  MergedEntry,
+  Subject,
+  ClassInfo,
+  ScheduleFormData,
+} from "./schedule-editor/types";
+import {
+  DAYS_OF_WEEK,
+  parseGradeFromClassName,
+} from "./schedule-editor/types";
+import {
+  getDefaultTitle,
+  getEntriesForDay,
+} from "./schedule-editor/schedule-helpers";
+import ScheduleHeader from "./schedule-editor/ScheduleHeader";
+import ScheduleEntryCard from "./schedule-editor/ScheduleEntryCard";
+import ScheduleEntryModal from "./schedule-editor/ScheduleEntryModal";
 
 type WeeklyScheduleEditorProps = {
   classId: string;
@@ -102,7 +64,7 @@ export default function WeeklyScheduleEditor({
     () => externalWeekNumber ?? getISOWeekNumber(new Date()),
   );
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<ScheduleFormData>({
     subject_id: "",
     selected_days: [1] as number[],
     start_time: "09:00",
@@ -234,15 +196,6 @@ export default function WeeklyScheduleEditor({
       });
     }
     setIsModalOpen(true);
-  };
-
-  const toggleDay = (day: number) => {
-    setFormData((prev) => {
-      const days = prev.selected_days.includes(day)
-        ? prev.selected_days.filter((d) => d !== day)
-        : [...prev.selected_days, day].sort((a, b) => a - b);
-      return { ...prev, selected_days: days };
-    });
   };
 
   const handleSave = async () => {
@@ -482,58 +435,6 @@ export default function WeeklyScheduleEditor({
     }
   };
 
-  const getDefaultTitle = (entry: ScheduleEntry) => {
-    const start = entry.start_time?.slice(0, 5) || "";
-    switch (start) {
-      case "08:30":
-        return "1. time";
-      case "09:15":
-        return "2. time";
-      case "10:00":
-        return "Friminutt";
-      case "10:10":
-        return "3. time";
-      case "10:55":
-        return "Lunsj";
-      case "11:15":
-        return "Friminutt";
-      case "11:45":
-        return "4. time";
-      case "12:30":
-        return "Friminutt";
-      case "12:40":
-        return "5. time";
-      case "13:25":
-        return "6. time";
-      default:
-        return "";
-    }
-  };
-
-  const getSubjectMeta = (subjectId: string | null) => {
-    if (!subjectId) return null;
-    const subject = subjects.find((s) => s.id === subjectId);
-    if (!subject) return null;
-    const theme = getSubjectTheme(subject.color_theme || "blue");
-    return {
-      name: subject.title,
-      theme,
-    };
-  };
-
-  const getEntriesForDay = (dayNumber: number) => {
-    const hideSixth = classInfo.grade !== null && classInfo.grade < 5;
-    return scheduleEntries
-      .filter((e) => e.day_of_week === dayNumber)
-      .filter((e) => {
-        if (!hideSixth) return true;
-        const isSixthPeriodStart = e.start_time?.startsWith("13:25");
-        const isSixthPeriodEnd = e.end_time?.startsWith("14:10");
-        return !(isSixthPeriodStart && isSixthPeriodEnd);
-      })
-      .sort((a, b) => a.start_time.localeCompare(b.start_time));
-  };
-
   const handleMakeMasterplan = async () => {
     if (selectedWeekNumber === 0 || isMakingMasterplan) return;
     setIsMakingMasterplan(true);
@@ -586,91 +487,25 @@ export default function WeeklyScheduleEditor({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-xl font-semibold text-slate-900">
-          {studentId ? "Personlig timeplan" : "Klassens timeplan"}
-        </h2>
-        <div className="flex items-center gap-3">
-          {!hideWeekSelector && (
-            <div className="flex items-center gap-2 bg-slate-100 text-slate-800 px-3 py-1.5 rounded-lg border border-slate-200">
-              <span className="text-sm font-semibold">Uke</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleWeekNumberChange(selectedWeekNumber - 1)}
-                  className="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-50"
-                  aria-label="Forrige uke"
-                >
-                  –
-                </button>
-                <span className="min-w-[36px] text-center font-semibold">
-                  {selectedWeekNumber}
-                </span>
-                <button
-                  onClick={() => handleWeekNumberChange(selectedWeekNumber + 1)}
-                  className="px-2 py-1 rounded bg-white border border-slate-200 hover:bg-slate-50"
-                  aria-label="Neste uke"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Make masterplan — only shown when viewing a specific week with entries */}
-          {selectedWeekNumber > 0 &&
-            scheduleEntries.length > 0 &&
-            !studentId && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium shadow-sm">
-                    <Copy size={16} />
-                    Sett som fast timeplan
-                  </button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Sett uke {selectedWeekNumber} som fast timeplan?
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Dette vil overskrive klassens nåværende faste timeplan med
-                      innholdet fra uke {selectedWeekNumber}. Alle fremtidige
-                      uker uten egne endringer vil bruke denne som utgangspunkt.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Avbryt</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleMakeMasterplan}
-                      disabled={isMakingMasterplan}
-                    >
-                      {isMakingMasterplan ? (
-                        <>
-                          <Loader2 size={16} className="animate-spin mr-1" />
-                          Kopierer...
-                        </>
-                      ) : (
-                        "Ja, sett som fast"
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          <button
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={20} />
-            Legg til time
-          </button>
-        </div>
-      </div>
+      <ScheduleHeader
+        studentId={studentId}
+        selectedWeekNumber={selectedWeekNumber}
+        onWeekNumberChange={handleWeekNumberChange}
+        hideWeekSelector={hideWeekSelector}
+        scheduleEntries={scheduleEntries}
+        onAddEntry={() => handleOpenModal()}
+        onMakeMasterplan={handleMakeMasterplan}
+        isMakingMasterplan={isMakingMasterplan}
+      />
 
       {/* Weekly Grid */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {DAYS_OF_WEEK.map((day) => {
-          const dayEntries = getEntriesForDay(day.number);
+          const dayEntries = getEntriesForDay(
+            day.number,
+            scheduleEntries,
+            classInfo,
+          );
           return (
             <div
               key={day.number}
@@ -697,160 +532,19 @@ export default function WeeklyScheduleEditor({
                     Ingen timer
                   </div>
                 ) : (
-                  dayEntries.map((entry) => {
-                    const isPersonal = !!entry.student_id;
-                    const isWeekOverride =
-                      highlightOverrides &&
-                      selectedWeekNumber > 0 &&
-                      !entry.isFallback;
-
-                    return (
-                      <div
-                        key={entry.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleOpenModal(entry)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleOpenModal(entry);
-                          }
-                        }}
-                        className={`p-2 rounded text-xs group relative border shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all duration-150 hover:-translate-y-[2px] hover:shadow-md ${
-                          isPersonal
-                            ? "bg-indigo-50/70 border-indigo-100"
-                            : "bg-white border-slate-200 hover:bg-slate-50/80"
-                        } ${
-                          isWeekOverride
-                            ? "border-amber-400 bg-amber-50/60"
-                            : ""
-                        }`}
-                      >
-                        {(() => {
-                          const subjectMeta = getSubjectMeta(entry.subject_id);
-                          const borderColor = subjectMeta
-                            ? subjectMeta.theme.border
-                            : "border-slate-300";
-                          // Prefix: always computed from time slot
-                          const prefix =
-                            getDefaultTitle(entry) || "Uten tittel";
-                          // Suffix: subject name OR actual custom title (not matching default label)
-                          const defaultLabel = getDefaultTitle(entry);
-                          const actualCustom =
-                            entry.custom_title &&
-                            entry.custom_title !== defaultLabel
-                              ? entry.custom_title
-                              : null;
-                          const suffix =
-                            subjectMeta?.name || actualCustom || null;
-                          const topLine = suffix
-                            ? `${prefix} · ${suffix}`
-                            : prefix;
-
-                          return (
-                            <div
-                              className={`flex items-start justify-between gap-1 border-l-4 ${borderColor} pl-3 transition-colors duration-150 group-hover:border-l-[6px] group-hover:pl-[11px]`}
-                            >
-                              {isPersonal && (
-                                <div
-                                  className="absolute top-1 right-1 text-indigo-500/80"
-                                  aria-hidden
-                                >
-                                  <User size={14} />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0 space-y-1">
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  {isPersonal && (
-                                    <span className="inline-block px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded text-[10px] font-medium">
-                                      Personlig
-                                    </span>
-                                  )}
-                                  {isWeekOverride && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-semibold">
-                                      Endret
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="font-semibold text-slate-900 truncate leading-tight">
-                                  {topLine}
-                                </p>
-                                <p className="text-slate-600 flex items-center gap-1">
-                                  <Clock size={12} />
-                                  {entry.start_time.slice(0, 5)} -{" "}
-                                  {entry.end_time.slice(0, 5)}
-                                </p>
-                              </div>
-                              <div
-                                className="hidden group-hover:flex gap-1 flex-shrink-0 items-center"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {isWeekOverride && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleResetOverride(entry);
-                                    }}
-                                    className="p-1 text-amber-800 hover:bg-amber-100 rounded transition-colors flex items-center gap-1"
-                                    title="Tilbakestill til master"
-                                  >
-                                    <RotateCcw size={14} />
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => handleOpenModal(entry)}
-                                  className="p-1 hover:bg-slate-200 rounded transition-colors"
-                                  title="Rediger"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleClearSlot(entry)}
-                                  className="p-1 text-slate-600 hover:bg-slate-200 rounded transition-colors"
-                                  title="Tøm innhold"
-                                >
-                                  <Eraser size={14} />
-                                </button>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <button
-                                      className="p-1 text-slate-600 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
-                                      title="Slett time"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>
-                                        Slett time?
-                                      </AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Er du sikker på at du vil fjerne denne
-                                        timen fra timeplanen? Dette kan ikke
-                                        angres.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>
-                                        Avbryt
-                                      </AlertDialogCancel>
-                                      <AlertDialogAction
-                                        variant="destructive"
-                                        onClick={() => handleDeleteEntry(entry)}
-                                      >
-                                        Slett
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })
+                  dayEntries.map((entry) => (
+                    <ScheduleEntryCard
+                      key={entry.id}
+                      entry={entry}
+                      subjects={subjects}
+                      highlightOverrides={highlightOverrides}
+                      selectedWeekNumber={selectedWeekNumber}
+                      onEdit={handleOpenModal}
+                      onClear={handleClearSlot}
+                      onReset={handleResetOverride}
+                      onDelete={handleDeleteEntry}
+                    />
+                  ))
                 )}
               </div>
             </div>
@@ -859,276 +553,24 @@ export default function WeeklyScheduleEditor({
       </div>
 
       {/* Add/Edit Modal */}
-      {isModalOpen &&
-        createPortal(
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => {
-              setIsModalOpen(false);
-              setAlsoSaveAsMasterplan(false);
-            }}
-          >
-            <div
-              className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-slate-900">
-                {editingEntry ? "Rediger time" : "Legg til time"}
-                {selectedWeekNumber === 0
-                  ? " (Fast Timeplan)"
-                  : ` (Uke ${selectedWeekNumber})`}
-              </h3>
-
-              {/* Target Selector (if studentId is available) */}
-              {studentId && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900">
-                    For hvem:
-                  </label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        value="class"
-                        checked={formData.target === "class"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            target: e.target.value,
-                          })
-                        }
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm text-slate-700">
-                        Hele klassen
-                      </span>
-                    </label>
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="radio"
-                        value="student"
-                        checked={formData.target === "student"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            target: e.target.value,
-                          })
-                        }
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm text-slate-700">
-                        Kun {studentName || "denne eleven"}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {/* Subject Selector */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900">
-                  Fag (valgfritt hvis tittel er satt):
-                </label>
-                <select
-                  value={formData.subject_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, subject_id: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Velg fag</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.emoji} {subject.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Custom Title — disabled when a subject is selected */}
-              <div className="space-y-2">
-                <label
-                  className={`text-sm font-medium ${
-                    formData.subject_id ? "text-slate-400" : "text-slate-900"
-                  }`}
-                >
-                  Eller skriv tittel:
-                </label>
-                <input
-                  type="text"
-                  value={formData.subject_id ? "" : formData.custom_title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, custom_title: e.target.value })
-                  }
-                  disabled={!!formData.subject_id}
-                  placeholder={
-                    formData.subject_id
-                      ? "Deaktivert — fag er valgt"
-                      : "f.eks. Logoped"
-                  }
-                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${
-                    formData.subject_id
-                      ? "border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed"
-                      : "border-slate-200 bg-white"
-                  }`}
-                />
-              </div>
-
-              {/* Day Selection — multi-select toggle buttons */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900">
-                  Dager:
-                </label>
-                <div className="flex gap-2">
-                  {DAYS_OF_WEEK.map((day) => {
-                    const isSelected = formData.selected_days.includes(
-                      day.number,
-                    );
-                    return (
-                      <button
-                        key={day.number}
-                        type="button"
-                        onClick={() => toggleDay(day.number)}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
-                          isSelected
-                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:bg-indigo-50"
-                        }`}
-                      >
-                        {day.label.slice(0, 3)}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2 mt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        selected_days: [1, 2, 3, 4, 5],
-                      })
-                    }
-                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                  >
-                    Alle dager
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, selected_days: [] })
-                    }
-                    className="text-xs text-slate-500 hover:text-slate-700 font-medium"
-                  >
-                    Ingen
-                  </button>
-                </div>
-              </div>
-
-              {/* Time Selection */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900">
-                    Start:
-                  </label>
-                  <TimePicker
-                    value={formData.start_time}
-                    onChange={(val) =>
-                      setFormData({ ...formData, start_time: val })
-                    }
-                    className="w-full"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-900">
-                    Slutt:
-                  </label>
-                  <TimePicker
-                    value={formData.end_time}
-                    onChange={(val) =>
-                      setFormData({ ...formData, end_time: val })
-                    }
-                    className="w-full"
-                  />
-                </div>
-              </div>
-
-              {/* Type Selection */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-900">
-                  Type:
-                </label>
-                <select
-                  value={formData.type}
-                  onChange={(e) =>
-                    setFormData({ ...formData, type: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  {SCHEDULE_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type === "lesson"
-                        ? "Time"
-                        : type === "break"
-                          ? "Pause"
-                          : "Aktivitet"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Masterplan toggle — only when saving to a specific week (not week 0) */}
-              {selectedWeekNumber > 0 && (
-                <label className="flex items-center gap-3 pt-1 cursor-pointer">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={alsoSaveAsMasterplan}
-                    onClick={() =>
-                      setAlsoSaveAsMasterplan(!alsoSaveAsMasterplan)
-                    }
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                      alsoSaveAsMasterplan ? "bg-indigo-600" : "bg-slate-300"
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                        alsoSaveAsMasterplan
-                          ? "translate-x-[18px]"
-                          : "translate-x-[3px]"
-                      }`}
-                    />
-                  </button>
-                  <span className="text-sm text-slate-700">
-                    Lagre også som fast timeplan
-                  </span>
-                </label>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setAlsoSaveAsMasterplan(false);
-                  }}
-                  className="flex-1 px-4 py-2 text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors font-medium"
-                >
-                  Avbryt
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 px-4 py-2 text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors font-medium flex items-center justify-center gap-2"
-                >
-                  <Check size={18} />
-                  Lagre
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {isModalOpen && (
+        <ScheduleEntryModal
+          formData={formData}
+          setFormData={setFormData}
+          subjects={subjects}
+          isEditing={!!editingEntry}
+          selectedWeekNumber={selectedWeekNumber}
+          studentId={studentId}
+          studentName={studentName}
+          alsoSaveAsMasterplan={alsoSaveAsMasterplan}
+          setAlsoSaveAsMasterplan={setAlsoSaveAsMasterplan}
+          onSave={handleSave}
+          onClose={() => {
+            setIsModalOpen(false);
+            setAlsoSaveAsMasterplan(false);
+          }}
+        />
+      )}
       <Toast toast={toast} onClose={hideToast} />
     </div>
   );

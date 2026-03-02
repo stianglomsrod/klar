@@ -5,20 +5,17 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import TaskCard from "@/components/TaskCard";
-import CompletionModal from "@/components/CompletionModal";
-import LevelUpModal from "@/components/LevelUpModal";
-import HalfwayModal from "@/components/HalfwayModal";
-import SubjectProgress from "@/components/student/SubjectProgress";
-import StudentQuizView from "@/components/student/StudentQuizView";
+import SubjectHero from "@/components/student/SubjectHero";
+import TaskFlowModals from "@/components/student/TaskFlowModals";
+import ArchiveModal, {
+  ArchiveButton,
+  useArchivePulse,
+} from "@/components/student/ArchiveModal";
 import { ArrowRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "@/hooks/useToast";
-import Toast from "@/components/ui/Toast";
 import { useTaskFlow } from "@/hooks/useTaskFlow";
-import { getSubjectTheme } from "@/utils/subject-colors";
-import { getHeroGradient } from "@/utils/hero-gradients";
 import { formatTime } from "@/utils/format-time";
-import MediaUploadToolbar from "@/components/ui/MediaUploadToolbar";
 import type { StudentTask } from "@/types/shared";
 
 // ── Types ────────────────────────────────────────────
@@ -50,11 +47,13 @@ export default function LessonDetailPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const { toast, showToast, hideToast } = useToast();
 
   const {
     profile,
+    undoTask,
     mediaToolbarRef,
     mediaImage,
     setMediaImage,
@@ -91,6 +90,23 @@ export default function LessonDetailPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [scheduleEntryId]);
+
+  // Completed tasks derived from single array
+  const completedTasksList = useMemo(
+    () => tasks.filter((t) => t.is_completed),
+    [tasks],
+  );
+
+  const isStackPulsing = useArchivePulse(completedTasksList.length);
+
+  const handleUndoTask = async (taskId: string) => {
+    const success = await undoTask(taskId);
+    if (success) {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, is_completed: false } : t)),
+      );
+    }
+  };
 
   // ── Fetch schedule entry + linked tasks ──────────
   useEffect(() => {
@@ -226,7 +242,6 @@ export default function LessonDetailPage() {
 
   // ── Derived state ────────────────────────────────
 
-  const theme = getSubjectTheme(meta.subject_color);
   const incompleteTasks = tasks.filter((t) => !t.is_completed);
   const completedCount = tasks.filter((t) => t.is_completed).length;
   const totalTasks = tasks.length;
@@ -236,77 +251,29 @@ export default function LessonDetailPage() {
 
   return (
     <main className="bg-gradient-to-b from-gray-50 to-white pb-32">
-      <style jsx>{`
-        @keyframes bounce-settle {
-          0% {
-            transform: translateY(-20px);
-            opacity: 0;
-          }
-          10% {
-            opacity: 1;
-          }
-          20% {
-            transform: translateY(0);
-          }
-          30% {
-            transform: translateY(-15px);
-          }
-          40% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-          60% {
-            transform: translateY(0);
-          }
-          70% {
-            transform: translateY(-5px);
-          }
-          80%,
-          100% {
-            transform: translateY(0);
-          }
-        }
-        .animate-bounce-settle {
-          animation: bounce-settle 1.5s ease-out forwards;
-        }
-      `}</style>
-
       <div className="max-w-5xl mx-auto w-full px-4 space-y-4">
         {/* Hero Section */}
-        <section className="pb-2 pt-3">
-          <div
-            className="w-full text-center rounded-3xl shadow-sm px-4 py-5 md:py-6 flex flex-col items-center relative"
-            style={{ background: getHeroGradient(meta.subject_color) }}
-          >
-            {/* Subject Icon */}
-            <div className="flex justify-center mb-2 md:mb-3">
-              <div className="text-6xl drop-shadow-md animate-bounce-settle">
-                {meta.subject_emoji}
-              </div>
-            </div>
+        <SubjectHero
+          emoji={meta.subject_emoji}
+          title={meta.subject_title}
+          colorTheme={meta.subject_color}
+          completedCount={completedCount}
+          totalTasks={totalTasks}
+          subtitle={subtitle}
+        >
+          <ArchiveButton
+            completedCount={completedCount}
+            isStackPulsing={isStackPulsing}
+            onOpen={() => setIsArchiveOpen(true)}
+          />
+        </SubjectHero>
 
-            {/* Subject Title */}
-            <h1
-              className={`text-3xl font-extrabold tracking-tight md:text-4xl mb-2 ${theme.text}`}
-            >
-              {meta.subject_title}
-            </h1>
-
-            {/* Subtitle — time slot */}
-            <p className="text-sm text-gray-600 font-medium mb-1">{subtitle}</p>
-
-            {/* Progress Pill */}
-            {totalTasks > 0 && (
-              <SubjectProgress
-                completed={completedCount}
-                total={totalTasks}
-                colorTheme={meta.subject_color}
-              />
-            )}
-          </div>
-        </section>
+        <ArchiveModal
+          isOpen={isArchiveOpen}
+          onClose={() => setIsArchiveOpen(false)}
+          completedTasks={completedTasksList}
+          onUndo={handleUndoTask}
+        />
 
         {/* Tasks Grid */}
         <section className="w-full">
@@ -331,6 +298,14 @@ export default function LessonDetailPage() {
                   >
                     Tilbake
                   </button>
+                  {completedCount > 0 && (
+                    <button
+                      onClick={() => setIsArchiveOpen(true)}
+                      className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold py-3 px-6 rounded-xl transition-colors border border-amber-200"
+                    >
+                      📂 Se utførte oppgaver
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -376,65 +351,39 @@ export default function LessonDetailPage() {
         )}
       </div>
 
-      {/* Completion Modal */}
-      <CompletionModal
-        isOpen={isModalOpen}
-        onClose={closeCompletionModal}
-        onConfirm={handleConfirmCompletion}
-        onBeforeConfirm={handleBeforeConfirm}
-        avatarUrl={profile?.avatar_url}
-      >
-        <MediaUploadToolbar
-          ref={mediaToolbarRef}
-          onImageChange={setMediaImage}
-          onAudioRecorded={handleAudioRecorded}
-          onAudioRemove={handleAudioRemove}
-          hasAudio={!!mediaAudioBlob}
-          audioUrl={mediaAudioUrl}
-          imageFile={mediaImage}
-        />
-      </CompletionModal>
-
-      {/* Student Quiz View */}
-      {quizTask && quizTask.quiz_data && (
-        <StudentQuizView
-          isOpen={isQuizOpen}
-          questions={quizTask.quiz_data}
-          taskTitle={quizTask.title}
-          onClose={closeQuiz}
-          onSubmit={handleQuizSubmit}
-        />
-      )}
-
-      {/* Level Up Modal */}
-      <LevelUpModal
-        isOpen={showLevelUpModal}
+      {/* Task Flow Modal Stack */}
+      <TaskFlowModals
+        profile={profile}
+        isModalOpen={isModalOpen}
+        closeCompletionModal={closeCompletionModal}
+        handleConfirmCompletion={handleConfirmCompletion}
+        handleBeforeConfirm={handleBeforeConfirm}
+        mediaToolbarRef={mediaToolbarRef}
+        mediaImage={mediaImage}
+        setMediaImage={setMediaImage}
+        mediaAudioBlob={mediaAudioBlob}
+        mediaAudioUrl={mediaAudioUrl}
+        handleAudioRecorded={handleAudioRecorded}
+        handleAudioRemove={handleAudioRemove}
+        isQuizOpen={isQuizOpen}
+        quizTask={quizTask}
+        closeQuiz={closeQuiz}
+        handleQuizSubmit={handleQuizSubmit}
+        showLevelUpModal={showLevelUpModal}
         newLevel={newLevel}
-        onClose={closeLevelUpModal}
-        onSelectReward={handleRewardSelection}
-        existingPetals={profile?.petals_progress || 0}
-        existingColors={profile?.petal_colors || []}
-        showFlowerGarden={profile?.show_flower_garden || false}
-        studentId={profile?.id}
-      />
-
-      {/* Halfway Celebration Modal */}
-      <HalfwayModal
-        isOpen={showHalfwayModal}
-        onClose={closeHalfwayModal}
-        currentXp={profile?.current_xp ?? 0}
-        goalTotal={profile?.current_goal_total ?? 100}
-        level={profile?.current_level ?? 1}
-        studentId={profile?.id ?? ""}
-        showFlowerGarden={profile?.show_flower_garden ?? false}
-        incompleteTasks={tasks.filter((t) => !t.is_completed)}
+        closeLevelUpModal={closeLevelUpModal}
+        handleRewardSelection={handleRewardSelection}
+        showHalfwayModal={showHalfwayModal}
+        closeHalfwayModal={closeHalfwayModal}
+        incompleteTasks={incompleteTasks}
         subjectContext={
           meta
             ? { id: meta.subject_id ?? "", title: meta.subject_title }
             : undefined
         }
+        toast={toast}
+        hideToast={hideToast}
       />
-      <Toast toast={toast} onClose={hideToast} />
     </main>
   );
 }

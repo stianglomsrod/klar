@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { Zap, Trophy, ArrowRight, Sparkles } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
+import { useAvailableRewards } from "@/hooks/useAvailableRewards";
 import type { StudentTask } from "@/types/shared";
 
-// ── Types ────────────────────────────────────────────
-
-type RewardTeaser = {
-  id: string;
-  title: string;
-  emoji: string;
-};
+// ── Types ────────────────────────────────────────────────────
 
 type HalfwayModalProps = {
   isOpen: boolean;
@@ -40,8 +34,10 @@ export default function HalfwayModal({
   incompleteTasks,
   subjectContext,
 }: HalfwayModalProps) {
-  const [rewards, setRewards] = useState<RewardTeaser[]>([]);
-  const [loadingRewards, setLoadingRewards] = useState(false);
+  const { rewards, loading: loadingRewards } = useAvailableRewards(
+    studentId,
+    isOpen,
+  );
 
   // ── Confetti burst on open ─────────────────────────
   useEffect(() => {
@@ -61,64 +57,6 @@ export default function HalfwayModal({
 
     return () => clearTimeout(timer);
   }, [isOpen]);
-
-  // ── Fetch reward teasers ───────────────────────────
-  useEffect(() => {
-    if (!isOpen || !studentId) return;
-
-    const fetchRewards = async () => {
-      setLoadingRewards(true);
-      try {
-        const supabase = createClient();
-
-        const [rewardsRes, earnedRes] = await Promise.all([
-          supabase
-            .from("rewards")
-            .select("id, title, emoji, max_uses, specific_student_ids")
-            .or(
-              `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
-            )
-            .order("created_at", { ascending: true }),
-          supabase
-            .from("student_rewards")
-            .select("reward_id")
-            .eq("student_id", studentId),
-        ]);
-
-        if (!rewardsRes.error && rewardsRes.data) {
-          // Count earned per reward
-          const earnedCounts = new Map<string, number>();
-          for (const r of earnedRes.data ?? []) {
-            earnedCounts.set(
-              r.reward_id,
-              (earnedCounts.get(r.reward_id) ?? 0) + 1,
-            );
-          }
-
-          // Filter out exhausted rewards
-          const available = rewardsRes.data.filter((r) => {
-            if (r.max_uses == null) return true;
-            const used = earnedCounts.get(r.id) ?? 0;
-            return used < r.max_uses;
-          });
-
-          setRewards(
-            available.map((r) => ({
-              id: r.id,
-              title: r.title,
-              emoji: r.emoji || "🎁",
-            })),
-          );
-        }
-      } catch {
-        // Silent — teasers are non-critical
-      } finally {
-        setLoadingRewards(false);
-      }
-    };
-
-    fetchRewards();
-  }, [isOpen, studentId]);
 
   // ── Fastest path calculation ───────────────────────
   const remainingXp = useMemo(
@@ -262,7 +200,7 @@ export default function HalfwayModal({
                       key={reward.id}
                       className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full"
                     >
-                      <span className="text-base">{reward.emoji}</span>
+                      <span className="text-base">{reward.emoji || "🎁"}</span>
                       <span className="text-xs font-medium text-indigo-700 truncate max-w-[120px]">
                         {reward.title}
                       </span>

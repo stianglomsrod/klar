@@ -50,13 +50,13 @@ export default function Toast({ toast, onClose }: ToastProps) {
       {toast && (
         <motion.div
           key="toast"
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: -24 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 24 }}
+          exit={{ opacity: 0, y: -24 }}
           transition={{ duration: 0.25 }}
           role="status"
           aria-live="polite"
-          className={`fixed bottom-6 right-6 z-50 max-w-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 ${VARIANT_STYLES[toast.variant].bg} text-white`}
+          className={`fixed top-6 right-6 z-50 max-w-sm px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 ${VARIANT_STYLES[toast.variant].bg} text-white`}
         >
           {(() => {
             const Icon = VARIANT_STYLES[toast.variant].icon;

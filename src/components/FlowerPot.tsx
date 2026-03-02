@@ -141,14 +141,14 @@ export default function FlowerPot({
             ? { scale: [1, 0.6], y: [0, -60], opacity: [1, 0] }
             : isAnimatingSuccess
               ? { scale: [1, 1.08, 1] }
-              : {}
+              : { scale: 1, y: 0, opacity: 1 }
         }
         transition={
           bloomStage === 3
             ? { duration: 1.2, ease: "easeInOut" }
             : isAnimatingSuccess
               ? { duration: 0.6, repeat: 2, ease: "easeInOut" }
-              : {}
+              : { duration: 0.3 }
         }
       >
         <svg

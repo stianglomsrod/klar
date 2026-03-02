@@ -249,8 +249,8 @@ export default function StudentQuizView({
                         </h2>
                         <TTSButton
                           text={
-                            currentQuestion.options.length > 0
-                              ? `${currentQuestion.text}. Alternativer: ${currentQuestion.options.join(", ")}`
+                            (currentQuestion.options?.length ?? 0) > 0
+                              ? `${currentQuestion.text}. Alternativer: ${currentQuestion.options!.join(", ")}`
                               : currentQuestion.text
                           }
                         />
@@ -275,7 +275,7 @@ export default function StudentQuizView({
                         )}
 
                         {currentQuestion.answerType === "radio" &&
-                          currentQuestion.options.map((option, optIdx) => {
+                          currentQuestion.options?.map((option, optIdx) => {
                             const selected =
                               responses[currentQuestion.id] === option;
                             return (
@@ -312,7 +312,7 @@ export default function StudentQuizView({
                           })}
 
                         {currentQuestion.answerType === "checkbox" &&
-                          currentQuestion.options.map((option, optIdx) => {
+                          currentQuestion.options?.map((option, optIdx) => {
                             const currentSelections =
                               (responses[currentQuestion.id] as string[]) || [];
                             const selected = currentSelections.includes(option);

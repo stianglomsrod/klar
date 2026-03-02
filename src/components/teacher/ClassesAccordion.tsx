@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { isImageUrl } from "@/utils/avatar";
 import {
   ChevronDown,
   ChevronRight,
@@ -11,13 +10,10 @@ import {
   GraduationCap,
   MoreVertical,
   Plus,
-  Loader2,
-  X,
 } from "lucide-react";
 import ClassMonitorToggle from "./ClassMonitorToggle";
 import HelpRequestQueue from "./HelpRequestQueue";
 import BulkStudentAssignModal from "./BulkStudentAssignModal";
-import ClassCombobox from "./ClassCombobox";
 import ConfirmDialog, {
   type ConfirmDialogState,
 } from "@/components/ui/ConfirmDialog";
@@ -31,33 +27,17 @@ import {
 } from "@/app/actions/student-actions";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
-import type { TeacherStudent } from "@/types/shared";
-
-type Student = TeacherStudent;
-
-type Class = {
-  id: string;
-  name: string;
-  grade_id: string | null;
-  students: Student[];
-};
-
-type Trinn = {
-  id: string;
-  name: string;
-  grade_id: string | null;
-  classes: Class[];
-};
+import type { Student, Class, Trinn, OpenMenu } from "./classes-accordion/types";
+import { groupClassesByTrinn } from "./classes-accordion/class-helpers";
+import CreateClassDialog from "./classes-accordion/CreateClassDialog";
+import MoveStudentDialog from "./classes-accordion/MoveStudentDialog";
+import ContextMenu from "./classes-accordion/ContextMenu";
+import StudentRow from "./classes-accordion/StudentRow";
 
 type ClassesAccordionProps = {
   onStudentClick?: (student: Student) => void;
   teacherId?: string;
   searchQuery?: string;
-};
-
-type DropdownPosition = {
-  x: number;
-  y: number;
 };
 
 export default function ClassesAccordion({
@@ -72,12 +52,7 @@ export default function ClassesAccordion({
   const [expandedClasses, setExpandedClasses] = useState<Set<string>>(
     new Set(),
   );
-  const [openMenu, setOpenMenu] = useState<{
-    type: "trinn" | "class" | "student";
-    id: string;
-    student?: Student;
-    position: DropdownPosition;
-  } | null>(null);
+  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
 
   // ── Create class dialog state ──────────────────────
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -118,59 +93,6 @@ export default function ClassesAccordion({
   const [editTrinnName, setEditTrinnName] = useState("");
 
   const supabase = createClient();
-
-  // Helper function to extract trinn number from class name
-  const extractTrinnFromClassName = (className: string): string | null => {
-    const match = className.match(/^(\d+)/);
-    return match ? match[1] : null;
-  };
-
-  // Helper function to group classes by trinn
-  const groupClassesByTrinn = (
-    classes: { id: string; name: string; grade_id: string | null }[],
-    students: Student[],
-  ): Trinn[] => {
-    // Assign students to classes
-    const classesWithStudents: Class[] = classes.map((cls) => ({
-      ...cls,
-      students: students.filter((student) => student.class_id === cls.id),
-    }));
-
-    // Group classes by trinn
-    const trinnMap = new Map<string, Class[]>();
-
-    classesWithStudents.forEach((cls) => {
-      const trinnNumber = extractTrinnFromClassName(cls.name);
-      const trinnKey = trinnNumber || "andre";
-
-      if (!trinnMap.has(trinnKey)) {
-        trinnMap.set(trinnKey, []);
-      }
-      trinnMap.get(trinnKey)!.push(cls);
-    });
-
-    // Convert map to array and sort
-    const trinnArray: Trinn[] = Array.from(trinnMap.entries())
-      .map(([trinnKey, classes]) => {
-        // Get grade_id from the first class in this group (all share same grade)
-        const gradeId = classes[0]?.grade_id ?? null;
-        return {
-          id: trinnKey,
-          name: trinnKey === "andre" ? "Andre" : `${trinnKey}. Trinn`,
-          grade_id: gradeId,
-          classes: classes.sort((a, b) => a.name.localeCompare(b.name)),
-        };
-      })
-      .sort((a, b) => {
-        // "Andre" always goes last
-        if (a.id === "andre") return 1;
-        if (b.id === "andre") return -1;
-        // Sort numerically
-        return parseInt(a.id) - parseInt(b.id);
-      });
-
-    return trinnArray;
-  };
 
   const fetchClassStructure = useCallback(async () => {
     setLoading(true);
@@ -674,70 +596,12 @@ export default function ClassesAccordion({
                                 </div>
                               ) : (
                                 cls.students.map((student) => (
-                                  <div
+                                  <StudentRow
                                     key={student.id}
-                                    className="w-full px-4 py-2 pl-20 flex items-center gap-3 hover:bg-slate-50 transition-colors cursor-pointer"
-                                  >
-                                    <button
-                                      onClick={() =>
-                                        router.push(
-                                          `/teacher/students/${student.id}`,
-                                        )
-                                      }
-                                      className="flex-1 flex items-center gap-3 text-left"
-                                    >
-                                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 text-white font-semibold text-xs flex-shrink-0">
-                                        {isImageUrl(student.avatar_url) ? (
-                                          // eslint-disable-next-line @next/next/no-img-element
-                                          <img
-                                            src={student.avatar_url}
-                                            alt={student.full_name}
-                                            className="w-full h-full rounded-full object-cover"
-                                          />
-                                        ) : (
-                                          <span className="text-base">
-                                            {student.avatar_url ||
-                                              student.full_name
-                                                .charAt(0)
-                                                .toUpperCase()}
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-900 truncate">
-                                          {student.full_name}
-                                        </p>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">
-                                            {student.class_name || cls.name}
-                                          </span>
-                                          <span>•</span>
-                                          <span>Nivå {student.level}</span>
-                                          <span>•</span>
-                                          <span>
-                                            {student.show_flower_garden
-                                              ? "🌱 Hage"
-                                              : "🏆 Poeng"}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMenuClick(
-                                          e,
-                                          "student",
-                                          student.id,
-                                          student,
-                                        );
-                                      }}
-                                      className="ml-2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
-                                      title="More actions"
-                                    >
-                                      <MoreVertical className="h-4 w-4 text-slate-600" />
-                                    </button>
-                                  </div>
+                                    student={student}
+                                    fallbackClassName={cls.name}
+                                    onMenuClick={handleMenuClick}
+                                  />
                                 ))
                               )}
                             </div>
@@ -755,94 +619,10 @@ export default function ClassesAccordion({
 
       {/* Context Menu Dropdown */}
       {openMenu && (
-        <div
-          className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[180px]"
-          style={{ top: openMenu.position.y, left: openMenu.position.x }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {openMenu.type === "trinn" && (
-            <>
-              <button
-                onClick={() => handleMenuAction("add-class", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Legg til klasse
-              </button>
-              <button
-                onClick={() => handleMenuAction("edit-trinn", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Rediger trinn
-              </button>
-            </>
-          )}
-
-          {openMenu.type === "class" && (
-            <>
-              <button
-                onClick={() => handleMenuAction("add-student", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Legg til elev
-              </button>
-              <button
-                onClick={() => handleMenuAction("message-class", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Send melding til klasse
-              </button>
-              <button
-                onClick={() => handleMenuAction("edit-class", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Rediger klassenavn
-              </button>
-              <div className="border-t border-slate-200 my-1" />
-              <button
-                onClick={() => handleMenuAction("delete-class", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Slett klasse
-              </button>
-            </>
-          )}
-
-          {openMenu.type === "student" && (
-            <>
-              <button
-                onClick={() => handleMenuAction("view-profile", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Se profil
-              </button>
-              <button
-                onClick={() =>
-                  handleMenuAction(
-                    "edit-student",
-                    openMenu.id,
-                    openMenu.student,
-                  )
-                }
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Rediger
-              </button>
-              <button
-                onClick={() => handleMenuAction("move-student", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-              >
-                Flytt elev
-              </button>
-              <div className="border-t border-slate-200 my-1" />
-              <button
-                onClick={() => handleMenuAction("remove-student", openMenu.id)}
-                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Fjern elev
-              </button>
-            </>
-          )}
-        </div>
+        <ContextMenu
+          openMenu={openMenu}
+          onAction={handleMenuAction}
+        />
       )}
 
       {/* Create Class Dialog */}
@@ -988,158 +768,6 @@ export default function ClassesAccordion({
       </EditDialog>
 
       <Toast toast={toast} onClose={hideToast} />
-    </div>
-  );
-}
-
-// ── Move Student Dialog ──────────────────────────────
-
-function MoveStudentDialog({
-  studentId,
-  studentName,
-  currentClassName,
-  onMoved,
-  onClose,
-}: {
-  studentId: string;
-  studentName: string;
-  currentClassName: string | null;
-  onMoved: (newClassName: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      {/* Dialog */}
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900">
-            Flytt {studentName}
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <X className="h-4 w-4 text-slate-500" />
-          </button>
-        </div>
-
-        {currentClassName && (
-          <p className="text-sm text-slate-500 mb-3">
-            Nåværende klasse:{" "}
-            <span className="font-medium text-slate-700">
-              {currentClassName}
-            </span>
-          </p>
-        )}
-
-        <p className="text-sm text-slate-600 mb-3">Velg ny klasse:</p>
-
-        <ClassCombobox
-          studentId={studentId}
-          initialClassName={currentClassName}
-          onClassChanged={(newClassName) => {
-            onMoved(newClassName);
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-// ── Create Class Dialog ──────────────────────────────
-
-function inferGradeFromInput(className: string): string {
-  const match = className.match(/^(\d+)/);
-  return match ? `${match[1]}. Trinn` : "Annet";
-}
-
-function CreateClassDialog({
-  newClassName,
-  setNewClassName,
-  gradeHint,
-  creating,
-  onSubmit,
-  onClose,
-}: {
-  newClassName: string;
-  setNewClassName: (v: string) => void;
-  gradeHint: string | null;
-  creating: boolean;
-  onSubmit: () => void;
-  onClose: () => void;
-}) {
-  const displayedGrade = gradeHint || inferGradeFromInput(newClassName);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      {/* Dialog */}
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-md mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-            <GraduationCap className="h-5 w-5 text-indigo-600" />
-            Opprett klasse
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          >
-            <X className="h-4 w-4 text-slate-500" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-700 block mb-1.5">
-              Klassenavn
-            </label>
-            <input
-              type="text"
-              placeholder='F.eks. "5A", "6B"'
-              value={newClassName}
-              onChange={(e) => setNewClassName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && newClassName.trim()) onSubmit();
-              }}
-              autoFocus
-              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          {newClassName.trim() && (
-            <div className="bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-600">
-              Trinn:{" "}
-              <span className="font-medium text-slate-900">
-                {displayedGrade}
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            Avbryt
-          </button>
-          <button
-            onClick={onSubmit}
-            disabled={!newClassName.trim() || creating}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {creating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-            Opprett
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

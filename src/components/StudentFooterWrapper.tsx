@@ -18,7 +18,7 @@ export default function StudentFooterWrapper() {
   const userLevel = profile?.level ?? 1;
   const currentGoal = profile?.current_goal_total ?? 1000;
   const currentXp = profile?.current_xp ?? 0;
-  const progressPercent = (currentXp / currentGoal) * 100;
+  const progressPercent = Math.round((currentXp / currentGoal) * 100);
   const userAvatar = profile?.avatar_url || "🦄";
 
   // Pending reward levels
@@ -64,6 +64,8 @@ export default function StudentFooterWrapper() {
       <StudentFooter
         level={userLevel}
         progressPercent={progressPercent}
+        currentXp={currentXp}
+        currentGoal={currentGoal}
         avatar={userAvatar}
         timeTrackerEnabled={!loading}
         currentActivity={currentActivity}
