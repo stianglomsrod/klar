@@ -203,6 +203,9 @@ CREATE TABLE public.student_profiles (
   max_level_reached integer NOT NULL DEFAULT 1,
   halfway_celebrated_level integer NOT NULL DEFAULT 0,
   current_password_plaintext text,
+  pending_reward_levels integer[] NOT NULL DEFAULT '{}'::integer[],
+  completed_flower_colors jsonb NOT NULL DEFAULT '[]'::jsonb,
+  garden_positions jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
   CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
