@@ -7,7 +7,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 2. ENUM TYPES
 CREATE TYPE public.user_role AS ENUM ('teacher', 'student');
 CREATE TYPE public.task_type AS ENUM ('standard', 'quiz');
-CREATE TYPE public.reward_cost_type AS ENUM ('flowers', 'petals', 'points', 'level');
+CREATE TYPE public.reward_cost_type AS ENUM ('flowers', 'petals', 'points', 'level', 'attendance');
 CREATE TYPE public.schedule_type AS ENUM ('lesson', 'break', 'activity');
 
 -- 3. TABLES
@@ -206,6 +206,12 @@ CREATE TABLE public.student_profiles (
   pending_reward_levels integer[] NOT NULL DEFAULT '{}'::integer[],
   completed_flower_colors jsonb NOT NULL DEFAULT '[]'::jsonb,
   garden_positions jsonb NOT NULL DEFAULT '{}'::jsonb,
+  streak_enabled boolean NOT NULL DEFAULT false,
+  streak_mode text NOT NULL DEFAULT 'classic' CHECK (streak_mode IN ('classic', 'accumulated')),
+  current_streak integer NOT NULL DEFAULT 0,
+  longest_streak integer NOT NULL DEFAULT 0,
+  last_login_date date,
+  attendance_reward_progress jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT student_profiles_pkey PRIMARY KEY (id),
   CONSTRAINT student_profiles_id_fkey FOREIGN KEY (id) REFERENCES public.profiles(id),
   CONSTRAINT student_profiles_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)

@@ -29,6 +29,12 @@ export type StudentProfile = {
   completed_flower_colors: string[][];
   garden_positions: Record<string, { x: number; y: number }>;
   halfway_celebrated_level: number;
+  streak_enabled: boolean;
+  streak_mode: "classic" | "accumulated";
+  current_streak: number;
+  longest_streak: number;
+  last_login_date: string | null;
+  attendance_reward_progress: Record<string, { baseline: number; last_granted_at: number }>;
 };
 
 type StudentProfileContextType = {
@@ -86,7 +92,13 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             pending_reward_levels,
             completed_flower_colors,
             garden_positions,
-            halfway_celebrated_level
+            halfway_celebrated_level,
+            streak_enabled,
+            streak_mode,
+            current_streak,
+            longest_streak,
+            last_login_date,
+            attendance_reward_progress
           `,
         )
         .eq("id", user.id)
@@ -110,6 +122,11 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
             completed_flower_colors: [],
             garden_positions: {},
             halfway_celebrated_level: 0,
+            streak_enabled: false,
+            streak_mode: "classic",
+            current_streak: 0,
+            longest_streak: 0,
+            attendance_reward_progress: {},
           });
 
         if (!insertError) {
@@ -131,7 +148,13 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
                 pending_reward_levels,
                 completed_flower_colors,
                 garden_positions,
-                halfway_celebrated_level
+                halfway_celebrated_level,
+                streak_enabled,
+                streak_mode,
+                current_streak,
+                longest_streak,
+                last_login_date,
+                attendance_reward_progress
               `,
             )
             .eq("id", user.id)
@@ -161,6 +184,12 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         completed_flower_colors: studentData?.completed_flower_colors ?? [],
         garden_positions: studentData?.garden_positions ?? {},
         halfway_celebrated_level: studentData?.halfway_celebrated_level ?? 0,
+        streak_enabled: studentData?.streak_enabled ?? false,
+        streak_mode: studentData?.streak_mode ?? "classic",
+        current_streak: studentData?.current_streak ?? 0,
+        longest_streak: studentData?.longest_streak ?? 0,
+        last_login_date: studentData?.last_login_date ?? null,
+        attendance_reward_progress: studentData?.attendance_reward_progress ?? {},
       };
 
       setProfile(mergedProfile);

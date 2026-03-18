@@ -45,6 +45,8 @@ export default function WelcomeOverlay({
   const handleDismiss = () => {
     setIsVisible(false);
     onDismiss?.();
+    // Signal other components that the overlay has been dismissed
+    window.dispatchEvent(new Event("welcomeDismissed"));
   };
 
   // Priority: Daily announcement > Custom welcome message > Default greeting

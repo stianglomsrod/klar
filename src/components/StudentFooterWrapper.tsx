@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import StudentFooter from "./StudentFooter";
 import AvatarPickerModal from "./student/AvatarPickerModal";
 import LevelUpModal from "./LevelUpModal";
+import StreakMilestoneModal from "./StreakMilestoneModal";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { useTimeTracker } from "@/hooks/useTimeTracker";
 import { useTaskCompletion } from "@/hooks/useTaskCompletion";
+import { useAttendanceStreak } from "@/hooks/useAttendanceStreak";
 
 export default function StudentFooterWrapper() {
   const { profile, refresh } = useStudentProfile();
@@ -31,6 +33,24 @@ export default function StudentFooterWrapper() {
     profile?.id,
     profile?.class_id || undefined,
   );
+
+  // Attendance streak
+  const streak = useAttendanceStreak();
+
+  // Deterministic welcome-overlay coordination:
+  // The StreakMilestoneModal must wait until the WelcomeOverlay is dismissed.
+  // If welcome was already seen (localStorage), it can show immediately.
+  const [welcomeDone, setWelcomeDone] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem("welcomeSeen")) {
+      setWelcomeDone(true);
+    }
+
+    const handler = () => setWelcomeDone(true);
+    window.addEventListener("welcomeDismissed", handler);
+    return () => window.removeEventListener("welcomeDismissed", handler);
+  }, []);
 
   const handleSelectReward = useCallback(
     async (
@@ -79,6 +99,12 @@ export default function StudentFooterWrapper() {
         petalColors={profile?.petal_colors ?? []}
         pendingRewardCount={pendingLevels.length}
         onClaimReward={() => setRewardModalOpen(true)}
+        streakEnabled={streak.streakEnabled}
+        currentStreak={streak.currentStreak}
+        longestStreak={streak.longestStreak}
+        streakMode={streak.streakMode}
+        streakStars={streak.streakStars}
+        nextMilestoneAt={streak.nextMilestoneAt}
       />
 
       {/* Avatar Picker Modal */}
@@ -91,6 +117,14 @@ export default function StudentFooterWrapper() {
           onAvatarChanged={refresh}
         />
       )}
+
+      {/* Streak Milestone Modal — deterministic: only after welcome overlay dismissed */}
+      <StreakMilestoneModal
+        isOpen={streak.pendingMilestoneCelebration && welcomeDone}
+        streakCount={streak.milestoneCelebrationStreak}
+        isNewRecord={streak.isNewRecord}
+        onClose={streak.dismissMilestone}
+      />
 
       {/* Global Pending Reward Modal */}
       {nextPendingLevel !== null && profile && (

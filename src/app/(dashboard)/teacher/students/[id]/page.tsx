@@ -42,6 +42,8 @@ type StudentProfile = {
   class_id: string | null;
   custom_welcome_message: string;
   current_password_plaintext: string | null;
+  streak_enabled: boolean;
+  streak_mode: string;
 };
 
 type Task = {
@@ -124,6 +126,8 @@ export default function StudentDashboardPage() {
         class_id: data.class_id || null,
         custom_welcome_message: data.custom_welcome_message || "",
         current_password_plaintext: data.current_password_plaintext || null,
+        streak_enabled: data.streak_enabled ?? false,
+        streak_mode: data.streak_mode ?? "classic",
       };
 
       setStudent(studentData);
@@ -328,6 +332,8 @@ export default function StudentDashboardPage() {
         <StudentSettingsCard
           studentId={studentId}
           initialWelcomeMessage={student.custom_welcome_message}
+          initialStreakEnabled={student.streak_enabled}
+          initialStreakMode={student.streak_mode}
           showToast={showToast}
         />
 

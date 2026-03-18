@@ -54,6 +54,9 @@ export type TeacherStudent = {
   class_id: string | null;
   show_flower_garden: boolean;
   custom_welcome_message: string | null;
+  streak_enabled: boolean;
+  streak_mode: "classic" | "accumulated";
+  current_streak: number;
 };
 
 /* ── Classes ───────────────────────────────────────────── */

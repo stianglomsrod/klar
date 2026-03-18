@@ -8,6 +8,7 @@ import XpProgressBar from "./student-footer/XpProgressBar";
 import FlowerTeaser from "./student-footer/FlowerTeaser";
 import PendingRewardBadge from "./student-footer/PendingRewardBadge";
 import TimeTrackerWidget from "./student-footer/TimeTrackerWidget";
+import StreakWidget from "./student-footer/StreakWidget";
 
 type StudentFooterProps = {
   level?: number;
@@ -37,6 +38,13 @@ type StudentFooterProps = {
   // Pending reward props
   pendingRewardCount?: number;
   onClaimReward?: () => void;
+  // Streak props
+  streakEnabled?: boolean;
+  currentStreak?: number;
+  longestStreak?: number;
+  streakMode?: "classic" | "accumulated";
+  streakStars?: number;
+  nextMilestoneAt?: number | null;
 };
 
 export default function StudentFooter({
@@ -57,6 +65,12 @@ export default function StudentFooter({
   petalColors = [],
   pendingRewardCount = 0,
   onClaimReward,
+  streakEnabled = false,
+  currentStreak = 0,
+  longestStreak = 0,
+  streakMode = "classic",
+  streakStars = 0,
+  nextMilestoneAt = null,
 }: StudentFooterProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
@@ -142,6 +156,17 @@ export default function StudentFooter({
             <FlowerTeaser
               petalsProgress={petalsProgress}
               petalColors={petalColors}
+            />
+          )}
+
+          {/* Attendance Streak */}
+          {streakEnabled && (
+            <StreakWidget
+              currentStreak={currentStreak}
+              longestStreak={longestStreak}
+              streakMode={streakMode}
+              streakStars={streakStars}
+              nextMilestoneAt={nextMilestoneAt}
             />
           )}
 
