@@ -175,7 +175,9 @@ export default function StudentSettingsCard({
       if (error) throw error;
       setStreakMode(mode);
       showToast(
-        mode === "classic" ? "Modus: Klassisk (sammenhengende)" : "Modus: Samlet (totalt)",
+        mode === "classic"
+          ? "Modus: Klassisk (sammenhengende)"
+          : "Modus: Samlet (totalt)",
         "success",
       );
     } catch {

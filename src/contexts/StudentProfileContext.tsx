@@ -34,7 +34,10 @@ export type StudentProfile = {
   current_streak: number;
   longest_streak: number;
   last_login_date: string | null;
-  attendance_reward_progress: Record<string, { baseline: number; last_granted_at: number }>;
+  attendance_reward_progress: Record<
+    string,
+    { baseline: number; last_granted_at: number }
+  >;
 };
 
 type StudentProfileContextType = {
@@ -189,7 +192,8 @@ export function StudentProfileProvider({ children }: { children: ReactNode }) {
         current_streak: studentData?.current_streak ?? 0,
         longest_streak: studentData?.longest_streak ?? 0,
         last_login_date: studentData?.last_login_date ?? null,
-        attendance_reward_progress: studentData?.attendance_reward_progress ?? {},
+        attendance_reward_progress:
+          studentData?.attendance_reward_progress ?? {},
       };
 
       setProfile(mergedProfile);

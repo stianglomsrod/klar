@@ -126,9 +126,7 @@ export default function StreakWidget({
                     {currentStreak}
                   </p>
                   <p className="text-xs text-slate-500 font-medium">
-                    {streakMode === "classic"
-                      ? "dager på rad"
-                      : "dager totalt"}
+                    {streakMode === "classic" ? "dager på rad" : "dager totalt"}
                   </p>
                 </div>
 
@@ -160,9 +158,8 @@ export default function StreakWidget({
                       />
                     </div>
                     <p className="text-[10px] text-slate-400 text-center">
-                      {daysToNext}{" "}
-                      {daysToNext === 1 ? "dag" : "dager"} til neste
-                      stjerne
+                      {daysToNext} {daysToNext === 1 ? "dag" : "dager"} til
+                      neste stjerne
                     </p>
                   </div>
                 )}
@@ -176,9 +173,7 @@ export default function StreakWidget({
                         .join("")}
                     </span>
                     {streakStars > 5 && (
-                      <span className="text-slate-500">
-                        +{streakStars - 5}
-                      </span>
+                      <span className="text-slate-500">+{streakStars - 5}</span>
                     )}
                     <span className="text-slate-500 font-normal ml-1">
                       Nærværsstjerner

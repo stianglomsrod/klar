@@ -16,7 +16,7 @@ export default function WelcomeOverlay({
 }: WelcomeOverlayProps) {
   const [isVisible, setIsVisible] = useState(initialVisible);
   const [dailyAnnouncement, setDailyAnnouncement] = useState<string | null>(
-    null
+    null,
   );
   const { profile } = useStudentProfile();
 
@@ -30,7 +30,7 @@ export default function WelcomeOverlay({
         "get_student_daily_announcement",
         {
           p_student_id: profile.id,
-        }
+        },
       );
 
       if (!error && data) {
