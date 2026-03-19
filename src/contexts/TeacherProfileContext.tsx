@@ -15,6 +15,7 @@ export type TeacherProfile = {
   email: string | null;
   avatar_url: string | null;
   role: string;
+  is_admin: boolean;
 };
 
 type TeacherProfileContextType = {
@@ -47,7 +48,7 @@ export function TeacherProfileProvider({ children }: { children: ReactNode }) {
 
       const { data, error: profileError } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, role")
+        .select("id, full_name, avatar_url, role, is_admin")
         .eq("id", user.id)
         .single();
 
@@ -59,6 +60,7 @@ export function TeacherProfileProvider({ children }: { children: ReactNode }) {
         email: user.email ?? null,
         avatar_url: data.avatar_url,
         role: data.role,
+        is_admin: data.is_admin ?? false,
       });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Unknown error"));

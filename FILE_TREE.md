@@ -73,6 +73,8 @@ klar/
 │   │   │   └── teacher/
 │   │   │       ├── layout.tsx
 │   │   │       ├── page.tsx
+│   │   │       ├── admin/
+│   │   │       │   └── page.tsx                       ← Admin: substitute management (is_admin guard)
 │   │   │       ├── classes/
 │   │   │       │   └── page.tsx
 │   │   │       ├── messages/
@@ -108,6 +110,9 @@ klar/
 │   │   │   └── shared-plan-utils.ts
 │   │   │
 │   │   ├── api/
+│   │   │   ├── admin/
+│   │   │   │   └── substitute-link/
+│   │   │   │       └── route.ts              ← POST: generate magic link for vikar (admin-only)
 │   │   │   ├── seed/
 │   │   │   │   └── route.ts
 │   │   │   └── push/
@@ -210,6 +215,7 @@ klar/
 │   │   │   ├── StudentRewardManager.tsx
 │   │   │   ├── StudentSettingsCard.tsx
 │   │   │   ├── StudentTable.tsx
+│   │   │   ├── SubstituteManager.tsx              ← Admin: vikar account list + assignments + magic links
 │   │   │   ├── TaskAssignmentsSheet.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx

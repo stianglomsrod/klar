@@ -11,8 +11,10 @@ import {
   CalendarDays,
   ClipboardList,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { useTeacherProfile } from "@/contexts/TeacherProfileContext";
 
 const navigationItems = [
   {
@@ -60,6 +62,14 @@ export default function TeacherSidebar({ onNavigate }: TeacherSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const { profile } = useTeacherProfile();
+
+  const allItems = profile?.is_admin
+    ? [
+        ...navigationItems,
+        { name: "Vikarstyring", href: "/teacher/admin", icon: Shield },
+      ]
+    : navigationItems;
 
   const isActive = (href: string) => {
     if (href === "/teacher") {
@@ -76,7 +86,7 @@ export default function TeacherSidebar({ onNavigate }: TeacherSidebarProps) {
   return (
     <nav className="flex flex-col h-full space-y-1">
       <div className="space-y-1">
-        {navigationItems.map((item) => {
+        {allItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
 

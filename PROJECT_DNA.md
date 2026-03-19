@@ -351,6 +351,7 @@ The master `PUSH_REACT_SECRET` never leaves the server.
 - **Auth:** Magic links via `auth.admin.generateLink()`. Auth callback at `/auth/callback` exchanges code for session and redirects by role.
 - **Nightly Reset:** pg_cron calls `reset_substitute_accounts()` at 00:01 to clear assignments, reset names, and invalidate sessions.
 - **RLS Hardening (Chunk 2):** All 12 data tables now have RLS with substitute-aware policies. 6 existing tables updated (profiles, student_profiles, classes, daily_announcements, rewards, student_rewards). 6 new tables hardened (tasks, feedback, help_requests, schedule_entries, task_schedule_entries, weekly_updates). Pattern: full teachers get unrestricted access, students own-data access, substitutes get scoped SELECT via `can_access_student()`/`can_access_class()` with writes blocked (`is_full_teacher()` checks).
+- **Admin UI (Chunk 3):** `/teacher/admin` page (admin-only, guarded by `profile.is_admin`). `SubstituteManager` component lists all vikar accounts, manages class assignments, generates magic links via `/api/admin/substitute-link`. `TeacherProfileContext` now fetches `is_admin`. Sidebar shows "Vikarstyring" nav item only for admins.
 
 ---
 
