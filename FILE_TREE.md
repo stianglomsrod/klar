@@ -32,8 +32,10 @@ klar/
 ├── klar/                                  (empty)
 │
 ├── public/
+│   ├── badge.svg
 │   ├── file.svg
 │   ├── globe.svg
+│   ├── icon.svg
 │   ├── manifest.json
 │   ├── next.svg
 │   ├── sw.js
@@ -160,7 +162,8 @@ klar/
 │   │   │   ├── StudentQuizView.tsx
 │   │   │   ├── SubjectHero.tsx
 │   │   │   ├── SubjectProgress.tsx
-│   │   │   └── TaskFlowModals.tsx
+│   │   │   ├── TaskFlowModals.tsx
+│   │   │   └── WeeklyLetterCard.tsx
 │   │   │
 │   │   ├── student-footer/
 │   │   │   ├── FlowerTeaser.tsx
@@ -203,6 +206,7 @@ klar/
 │   │   │   ├── StudentRewardManager.tsx
 │   │   │   ├── StudentSettingsCard.tsx
 │   │   │   ├── StudentTable.tsx
+│   │   │   ├── TaskAssignmentsSheet.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
 │   │   │

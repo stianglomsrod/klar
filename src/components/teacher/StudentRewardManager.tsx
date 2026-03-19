@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { Plus, Trash2, X, Sparkles } from "lucide-react";
-import { EmojiPickerButton } from "@/components/ui/emoji-picker";
+import { Plus, Trash2, X } from "lucide-react";
 import ConfirmDialog, {
   type ConfirmDialogState,
 } from "@/components/ui/ConfirmDialog";
+import RewardForm, {
+  type RewardFormData,
+  type StudentOption,
+} from "@/components/teacher/RewardForm";
 
 type Reward = {
   id: string;
@@ -31,15 +34,8 @@ export default function StudentRewardManager({
   const supabase = createClient();
 
   const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
-  const [rewardModalView, setRewardModalView] = useState<"list" | "create">(
-    "list",
-  );
-  const [newRewardForm, setNewRewardForm] = useState({
-    title: "",
-    emoji: "",
-    is_recurring: true,
-    max_uses: null as number | null,
-  });
+  const [isRewardFormOpen, setIsRewardFormOpen] = useState(false);
+  const [allStudents, setAllStudents] = useState<StudentOption[]>([]);
   const [selectedRewards, setSelectedRewards] = useState<string[]>([]);
   const [studentRewards, setStudentRewards] = useState<Reward[]>([]);
   const [availableRewards, setAvailableRewards] = useState<Reward[]>([]);
@@ -53,7 +49,8 @@ export default function StudentRewardManager({
         .select(
           "id, name:title, emoji, cost:cost_value, is_recurring, max_uses",
         )
-        .contains("specific_student_ids", [studentId]);
+        .contains("specific_student_ids", [studentId])
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setStudentRewards(data || []);
@@ -82,6 +79,25 @@ export default function StudentRewardManager({
   useEffect(() => {
     fetchStudentRewards();
   }, [fetchStudentRewards]);
+
+  // Fetch all students for RewardForm
+  useEffect(() => {
+    const fetchStudents = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("role", "student")
+        .order("full_name", { ascending: true });
+      setAllStudents(
+        (data || []).map((s: any) => ({
+          id: s.id,
+          full_name: s.full_name || "Ukjent elev",
+        })),
+      );
+    };
+    fetchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isRewardModalOpen) {
@@ -163,18 +179,12 @@ export default function StudentRewardManager({
       await fetchStudentRewards();
       setIsRewardModalOpen(false);
       setSelectedRewards([]);
-      setRewardModalView("list");
     } catch {
       showToast("Kunne ikke oppdatere belønninger. Prøv igjen.", "error");
     }
   };
 
-  const handleCreateReward = async () => {
-    if (!newRewardForm.title.trim()) {
-      showToast("Vennligst skriv inn en tittel", "warning");
-      return;
-    }
-
+  const handleRewardFormSubmit = async (formData: RewardFormData) => {
     try {
       const {
         data: { user },
@@ -184,14 +194,14 @@ export default function StudentRewardManager({
       const { data, error } = await supabase
         .from("rewards")
         .insert({
-          title: newRewardForm.title.trim(),
-          emoji: newRewardForm.emoji.trim() || "🎁",
+          title: formData.title.trim(),
+          emoji: formData.emoji?.trim() || "🎁",
           created_by: user.id,
-          specific_student_ids: [studentId],
-          cost_type: "level",
-          cost_value: 0,
-          is_recurring: newRewardForm.max_uses === 1 ? false : true,
-          max_uses: newRewardForm.max_uses,
+          specific_student_ids: formData.selectedStudentIds || [studentId],
+          cost_type: formData.cost_type || "level",
+          cost_value: formData.cost || 0,
+          is_recurring: formData.max_uses === 1 ? false : true,
+          max_uses: formData.max_uses ?? null,
         })
         .select()
         .single();
@@ -205,13 +215,8 @@ export default function StudentRewardManager({
         setSelectedRewards((prev) => [...prev, data.id]);
       }
 
-      setNewRewardForm({
-        title: "",
-        emoji: "",
-        is_recurring: true,
-        max_uses: null,
-      });
-      setRewardModalView("list");
+      setIsRewardFormOpen(false);
+      showToast("Belønning opprettet!", "success");
     } catch {
       showToast("Kunne ikke opprette belønning. Prøv igjen.", "error");
     }
@@ -311,21 +316,10 @@ export default function StudentRewardManager({
             {/* Modal Header */}
             <div className="p-6 border-b border-slate-200 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-900">
-                {rewardModalView === "create"
-                  ? "Opprett ny belønning"
-                  : `Legg til belønning for ${studentName}`}
+                Legg til belønning for {studentName}
               </h2>
               <button
-                onClick={() => {
-                  setIsRewardModalOpen(false);
-                  setRewardModalView("list");
-                  setNewRewardForm({
-                    title: "",
-                    emoji: "",
-                    is_recurring: true,
-                    max_uses: null,
-                  });
-                }}
+                onClick={() => setIsRewardModalOpen(false)}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5" />
@@ -334,250 +328,100 @@ export default function StudentRewardManager({
 
             {/* Modal Body */}
             <div className="p-6 space-y-6">
-              {rewardModalView === "list" ? (
-                <>
-                  {/* Reward Selection */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-3">
-                      Velg belønninger fra bibliotek
-                    </label>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {availableRewards.map((reward) => {
-                        const isSelected = selectedRewards.includes(reward.id);
+              {/* Reward Selection */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-3">
+                  Velg belønninger fra bibliotek
+                </label>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {availableRewards.map((reward) => {
+                    const isSelected = selectedRewards.includes(reward.id);
 
-                        return (
-                          <div
-                            key={reward.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                              isSelected
-                                ? "bg-indigo-50 border-indigo-500"
-                                : "bg-white border-slate-200 hover:border-indigo-300"
-                            }`}
-                          >
-                            <label className="flex items-center gap-3 flex-1 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() =>
-                                  toggleRewardSelection(reward.id)
-                                }
-                                className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
-                              />
-                              <span className="text-xl">{reward.emoji}</span>
-                              <span className="text-sm font-medium text-slate-700 flex-1">
-                                {reward.name}
-                              </span>
-                              {reward.max_uses !== null && (
-                                <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
-                                  {reward.max_uses === 1
-                                    ? "Engangs"
-                                    : `Maks ${reward.max_uses}×`}
-                                </span>
-                              )}
-                            </label>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteReward(reward.id);
-                              }}
-                              className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                              title="Slett belønning permanent"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-200"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-slate-500">
-                        Eller
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Create New Reward Button */}
-                  <button
-                    onClick={() => setRewardModalView("create")}
-                    className="w-full px-4 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Sparkles className="h-5 w-5" />
-                    Opprett ny belønning
-                  </button>
-                </>
-              ) : (
-                <>
-                  {/* Create Reward Form */}
-                  <div className="space-y-4">
-                    {/* Title Field */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Tittel <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={newRewardForm.title}
-                        onChange={(e) =>
-                          setNewRewardForm({
-                            ...newRewardForm,
-                            title: e.target.value,
-                          })
-                        }
-                        placeholder="F.eks. Ekstra frikvarter"
-                        className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                    </div>
-
-                    {/* Emoji Field — uses EmojiPickerButton */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Ikon (Emoji){" "}
-                        <span className="text-xs font-normal text-slate-500">
-                          (valgfritt)
-                        </span>
-                      </label>
-                      <EmojiPickerButton
-                        value={newRewardForm.emoji}
-                        onChange={(emoji) =>
-                          setNewRewardForm({ ...newRewardForm, emoji })
-                        }
-                        placeholder="🎁"
-                      />
-                      <p className="mt-1 text-xs text-slate-500">
-                        Hvis ingen emoji velges, brukes standardikon (🎁)
-                      </p>
-                    </div>
-
-                    {/* Max uses selector */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Antall ganger per elev
-                      </label>
-                      <div className="flex gap-2">
+                    return (
+                      <div
+                        key={reward.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                          isSelected
+                            ? "bg-indigo-50 border-indigo-500"
+                            : "bg-white border-slate-200 hover:border-indigo-300"
+                        }`}
+                      >
+                        <label className="flex items-center gap-3 flex-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() =>
+                              toggleRewardSelection(reward.id)
+                            }
+                            className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-xl">{reward.emoji}</span>
+                          <span className="text-sm font-medium text-slate-700 flex-1">
+                            {reward.name}
+                          </span>
+                          {reward.max_uses !== null && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 rounded">
+                              {reward.max_uses === 1
+                                ? "Engangs"
+                                : `Maks ${reward.max_uses}×`}
+                            </span>
+                          )}
+                        </label>
                         <button
-                          type="button"
-                          onClick={() =>
-                            setNewRewardForm({
-                              ...newRewardForm,
-                              max_uses: null,
-                              is_recurring: true,
-                            })
-                          }
-                          className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                            newRewardForm.max_uses === null
-                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
-                              : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteReward(reward.id);
+                          }}
+                          className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Slett belønning permanent"
                         >
-                          Ubegrenset
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setNewRewardForm({
-                              ...newRewardForm,
-                              max_uses: 1,
-                              is_recurring: false,
-                            })
-                          }
-                          className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                            newRewardForm.max_uses !== null
-                              ? "bg-indigo-50 border-indigo-500 text-indigo-700"
-                              : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                          }`}
-                        >
-                          Begrenset
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                      {newRewardForm.max_uses !== null && (
-                        <div className="mt-3 flex items-center gap-3">
-                          <input
-                            type="number"
-                            min={1}
-                            max={99}
-                            value={newRewardForm.max_uses}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              setNewRewardForm({
-                                ...newRewardForm,
-                                max_uses: isNaN(val) || val < 1 ? 1 : val,
-                                is_recurring: val !== 1,
-                              });
-                            }}
-                            className="w-20 px-3 py-2 text-sm text-center border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                          />
-                          <span className="text-sm text-slate-500">
-                            {newRewardForm.max_uses === 1
-                              ? "gang — forsvinner etter bruk"
-                              : "ganger per elev"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-800">
-                        <strong>Merk:</strong> Denne belønningen vil kun være
-                        tilgjengelig for {studentName}.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-slate-500">
+                    Eller
+                  </span>
+                </div>
+              </div>
+
+              {/* Create New Reward Button — opens shared RewardForm */}
+              <button
+                onClick={() => {
+                  setIsRewardModalOpen(false);
+                  setIsRewardFormOpen(true);
+                }}
+                className="w-full px-4 py-3 text-sm font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Opprett ny belønning
+              </button>
             </div>
 
             {/* Modal Footer */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
-              {rewardModalView === "list" ? (
-                <>
-                  <button
-                    onClick={() => {
-                      setIsRewardModalOpen(false);
-                      setRewardModalView("list");
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-                  >
-                    Avbryt
-                  </button>
-                  <button
-                    onClick={handleAddReward}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-                  >
-                    Oppdater valg
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setRewardModalView("list");
-                      setNewRewardForm({
-                        title: "",
-                        emoji: "",
-                        is_recurring: true,
-                        max_uses: null,
-                      });
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-                  >
-                    Tilbake
-                  </button>
-                  <button
-                    onClick={handleCreateReward}
-                    disabled={!newRewardForm.title.trim()}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors"
-                  >
-                    Lagre
-                  </button>
-                </>
-              )}
+              <button
+                onClick={() => setIsRewardModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Avbryt
+              </button>
+              <button
+                onClick={handleAddReward}
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
+              >
+                Oppdater valg
+              </button>
             </div>
           </div>
         </div>
@@ -586,6 +430,14 @@ export default function StudentRewardManager({
       <ConfirmDialog
         state={confirmState}
         onClose={() => setConfirmState(null)}
+      />
+
+      <RewardForm
+        isOpen={isRewardFormOpen}
+        onClose={() => setIsRewardFormOpen(false)}
+        onSubmit={handleRewardFormSubmit}
+        initialData={{ selectedStudentIds: [studentId] }}
+        students={allStudents}
       />
     </>
   );

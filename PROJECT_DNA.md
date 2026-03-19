@@ -115,7 +115,7 @@ src/app/
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `useTTS`              | Browser-native Text-to-Speech via Web Speech API. Always speaks Norwegian Bokmål (`nb-NO`). Toggle: speak/stop. Rate 0.9, pitch 1.0.                                                                                                                                                                                                                                                                                               |
 | `useTimeTracker`      | Tracks current schedule activity (lesson/break/free) based on `schedule_entries`. Returns `currentActivity`, `timeRemaining`, `progress`.                                                                                                                                                                                                                                                                                          |
-| `useTaskCompletion`   | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward` (returns `RewardResult` with `isFlowerComplete`), `playSuccessSound`. Used internally by `useTaskFlow`.                                                                                                                                                                                  |
+| `useTaskCompletion`   | Centralised gamification hook: `completeTask(id, pts)` → XP, level-up detection, sound, profile refresh. Also: `undoTask`, `selectReward` (returns `RewardResult` with `isFlowerComplete`), `playSuccessSound`. Push notifications are debounced (2 s) at module level — rapid completions are batched into one notification (e.g., "3 oppgaver fullført"). Used internally by `useTaskFlow`.                                                                                                                                                                                  |
 | `useTaskFlow`         | Shared task submission flow for Container A & B. Encapsulates media state, `handleConfirmCompletion`, `handleQuizSubmit`, quiz/modal state, reward selection. Delegates XP to `useTaskCompletion`.                                                                                                                                                                                                                                 |
 | `useStudentProfile`   | Shorthand consumer of `StudentProfileContext`                                                                                                                                                                                                                                                                                                                                                                                      |
 | `useTeacherProfile`   | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -331,6 +331,12 @@ The push reaction flow uses **per-notification HMAC tokens** instead of a shared
 
 The master `PUSH_REACT_SECRET` never leaves the server.
 
+### Push UX Polish
+
+- **Icons:** Notifications use branded `/icon.svg` (192 × 192 indigo "K" roundrect) and `/badge.svg` (72 × 72 monochrome version). Manifest also references `/icon.svg`.
+- **Deep Link:** Tapping a notification body navigates to `/teacher/students/${studentId}` (or falls back to `/teacher` if ID is missing). Existing windows are navigated + focused; otherwise a new window is opened.
+- **Debounce:** Client-side 2-second debounce in `useTaskCompletion` batches rapid completions. If a student finishes 3 tasks within 2 s, the teacher receives one notification with body "3 oppgaver fullført" instead of three separate ones.
+
 ---
 
 ## 6. Persistent Rules
@@ -453,6 +459,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `FeedbackSheet.tsx` — "Wall of Praise" sliding sheet; fetches all feedback with subject/task context, renders FeedbackBubble cards, auto-marks as read
 - `AvatarPickerModal.tsx` — curated emoji avatar selector (portal + Framer Motion), saves to profiles.avatar_url, refreshes via StudentProfileContext
 - `ArchiveDrawer.tsx` + `ResponsiveArchive.tsx` — completed task archive
+- `WeeklyLetterCard.tsx` — read-only card rendering the weekly letter (`content_text` from `weekly_updates`); parses `--- Section ---` markers into Beskjeder / Læringsmål / Lekser sections with color-coded headers
 
 ### Teacher Experience
 
@@ -470,7 +477,8 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `AddStudentModal.tsx` — student creation modal with class combobox + generated passwords
 - `PreviewScheduleGrid.tsx` — visual timetable grid for AI-parsed weekly plan preview (click-to-edit cards, Pencil hover icon)
 - `TeacherSidebar.tsx` — teacher-specific sidebar
-- `StudentRewardManager.tsx` — reward CRUD + assignment modal with list/create views, uses `EmojiPickerButton`
+- `StudentRewardManager.tsx` — reward assignment modal (list view only) + shared `RewardForm` for creation; fetches live reward data with `.order("created_at", { ascending: false })`
+- `TaskAssignmentsSheet.tsx` — slide-out sheet showing all students assigned a task from the library; displays avatar, name, completion status (CheckCircle2/Clock), teacher reaction, and time info; rows navigate to `/teacher/students/[id]`
 - `ClassCombobox.tsx` — class search + create with grade inference, Popover-based
 - `BulkStudentAssignModal.tsx` — multi-select modal for assigning students to a class (search, checkboxes, batch updateStudentClass)
 - `StudentPasswordCard.tsx` — password reset/copy/show-hide card

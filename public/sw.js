@@ -3,12 +3,19 @@
 // ── Push Event — Show Notification with Action Buttons ──
 
 self.addEventListener("push", (event) => {
-  if (!event.data) return;
+  console.log("[SW PUSH TRACE] Push event received!", event.data?.text());
+
+  if (!event.data) {
+    console.log("[SW PUSH TRACE] ✗ No event.data — aborting");
+    return;
+  }
 
   let payload;
   try {
     payload = event.data.json();
-  } catch {
+    console.log("[SW PUSH TRACE] Parsed payload:", JSON.stringify(payload));
+  } catch (err) {
+    console.error("[SW PUSH TRACE] ✗ JSON parse failed:", err);
     return;
   }
 
@@ -16,8 +23,8 @@ self.addEventListener("push", (event) => {
 
   const options = {
     body: body || "",
-    icon: "/next.svg",
-    badge: "/next.svg",
+    icon: "/icon.svg",
+    badge: "/badge.svg",
     tag: "task-" + (taskId || "unknown"),
     renotify: true,
     data: { taskId, studentId, reactionToken },
@@ -29,7 +36,11 @@ self.addEventListener("push", (event) => {
     ],
   };
 
-  event.waitUntil(self.registration.showNotification(title || "Klar", options));
+  event.waitUntil(
+    self.registration.showNotification(title || "Klar", options)
+      .then(() => console.log("[SW PUSH TRACE] ✓ showNotification succeeded"))
+      .catch((err) => console.error("[SW PUSH TRACE] ✗ showNotification FAILED:", err))
+  );
 });
 
 // ── Notification Click — Emoji React or Open App ──
@@ -55,17 +66,22 @@ self.addEventListener("notificationclick", (event) => {
       }),
     );
   } else {
-    // Teacher tapped the notification body — open / focus the app
+    // Teacher tapped the notification body — open / focus the student page
+    const targetPath = studentId
+      ? "/teacher/students/" + studentId
+      : "/teacher";
+
     event.waitUntil(
       self.clients
         .matchAll({ type: "window", includeUncontrolled: true })
         .then((clientList) => {
           for (const client of clientList) {
             if (client.url.includes("/teacher") && "focus" in client) {
+              client.navigate(targetPath);
               return client.focus();
             }
           }
-          return self.clients.openWindow("/teacher");
+          return self.clients.openWindow(targetPath);
         }),
     );
   }

@@ -5,6 +5,50 @@ import { createClient } from "@/utils/supabase/client";
 import { useStudentProfile } from "@/contexts/StudentProfileContext";
 import { DEFAULT_PETAL_COLOR } from "@/utils/constants";
 
+// ── Push notification debounce (module-level) ────────
+
+let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let pushCount = 0;
+let lastPushMeta: {
+  taskId: string;
+  studentId: string;
+  studentName: string;
+  taskTitle: string;
+} | null = null;
+
+function debouncedPush(
+  taskId: string,
+  studentId: string,
+  studentName: string,
+  taskTitle: string,
+) {
+  pushCount++;
+  lastPushMeta = { taskId, studentId, studentName, taskTitle };
+
+  if (pushTimer) clearTimeout(pushTimer);
+
+  pushTimer = setTimeout(() => {
+    const count = pushCount;
+    const meta = lastPushMeta;
+    pushCount = 0;
+    lastPushMeta = null;
+    pushTimer = null;
+
+    if (!meta) return;
+
+    fetch("/api/push/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...meta,
+        ...(count > 1 && {
+          taskTitle: `${count} oppgaver fullført`,
+        }),
+      }),
+    }).catch(() => {});
+  }, 2000);
+}
+
 // ── Types ────────────────────────────────────────────
 
 export type CompletionResult = {
@@ -140,19 +184,13 @@ export function useTaskCompletion() {
         // 5. Sound
         playSuccessSound();
 
-        // 6. Push notification to teacher (fire-and-forget)
-        fetch("/api/push/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            taskId,
-            studentId: profile.id,
-            studentName: meta?.studentName ?? profile.full_name ?? "Elev",
-            taskTitle: meta?.taskTitle ?? "Oppgave",
-          }),
-        }).catch(() => {
-          /* Push is best-effort — silently ignore failures */
-        });
+        // 6. Push notification to teacher (debounced — batches rapid completions)
+        debouncedPush(
+          taskId,
+          profile.id,
+          meta?.studentName ?? profile.full_name ?? "Elev",
+          meta?.taskTitle ?? "Oppgave",
+        );
 
         return { shouldLevelUp, isNewHighLevel, newLevel, crossedHalfway };
       } catch {

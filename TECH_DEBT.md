@@ -265,3 +265,14 @@ Before **any** production or multi-school deployment, we **MUST**:
 4. **Tighten the `classes` policy** — replace `USING (true)` with a teacher-ownership check.
 
 5. **Enable leaked-password protection** in Supabase Dashboard → Auth → Settings.
+
+---
+
+## 4. Dead Column: `task_library.usage_count`
+
+| Field    | Detail                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------- |
+| Severity | Low — no functional impact                                                                                       |
+| Where    | `task_library.usage_count` column                                                                                |
+| Issue    | Column is never incremented and is now bypassed. Live assignment counts are computed from `tasks.task_library_id` |
+| Fix      | Drop the column via migration when convenient: `ALTER TABLE task_library DROP COLUMN usage_count;`               |

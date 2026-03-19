@@ -16,10 +16,12 @@ import {
   Sparkles,
   TrendingUp,
   Flame,
-  X,
   User,
 } from "lucide-react";
-import { EmojiPickerButton } from "@/components/ui/emoji-picker";
+import RewardForm, {
+  type RewardFormData,
+  type StudentOption,
+} from "@/components/teacher/RewardForm";
 
 type Reward = {
   id: string;
@@ -34,21 +36,6 @@ type Reward = {
   max_uses: number | null;
 };
 
-type RewardFormData = {
-  title: string;
-  description: string;
-  emoji: string;
-  cost: number;
-  cost_type: "points" | "flowers" | "petals" | "level" | "attendance";
-  selectedStudentIds: string[];
-  max_uses: number | null;
-};
-
-type StudentOption = {
-  id: string;
-  full_name: string;
-};
-
 export default function RewardsLibraryPage() {
   const supabase = createClient();
 
@@ -59,15 +46,6 @@ export default function RewardsLibraryPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingReward, setEditingReward] = useState<Reward | null>(null);
   const [students, setStudents] = useState<StudentOption[]>([]);
-  const [formData, setFormData] = useState<RewardFormData>({
-    title: "",
-    description: "",
-    emoji: "🎁",
-    cost: 50,
-    cost_type: "points",
-    selectedStudentIds: [],
-    max_uses: null,
-  });
 
   useEffect(() => {
     fetchRewards();
@@ -129,66 +107,36 @@ export default function RewardsLibraryPage() {
   };
 
   const handleOpenDialog = (reward?: Reward) => {
-    if (reward) {
-      setEditingReward(reward);
-      setFormData({
-        title: reward.title || "",
-        description: reward.description || "",
-        emoji: reward.emoji || "🎁",
-        cost: reward.cost,
-        cost_type: reward.cost_type,
-        selectedStudentIds: reward.specific_student_ids || [],
-        max_uses: reward.max_uses ?? null,
-      });
-    } else {
-      setEditingReward(null);
-      setFormData({
-        title: "",
-        description: "",
-        emoji: "🎁",
-        cost: 50,
-        cost_type: "points",
-        selectedStudentIds: [],
-        max_uses: null,
-      });
-    }
+    setEditingReward(reward ?? null);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingReward(null);
-    setFormData({
-      title: "",
-      description: "",
-      emoji: "🎁",
-      cost: 50,
-      cost_type: "points",
-      selectedStudentIds: [],
-      max_uses: null,
-    });
   };
 
-  const handleSubmit = async () => {
-    if (!formData.title.trim()) {
-      showToast("Vennligst skriv inn en tittel", "warning");
-      return;
-    }
+  const getFormInitialData = (): Partial<RewardFormData> | null => {
+    if (!editingReward) return null;
+    return {
+      title: editingReward.title || "",
+      description: editingReward.description || "",
+      emoji: editingReward.emoji || "🎁",
+      cost: editingReward.cost,
+      cost_type: editingReward.cost_type,
+      selectedStudentIds: editingReward.specific_student_ids || [],
+      max_uses: editingReward.max_uses ?? null,
+    };
+  };
 
-    if (!formData.emoji.trim()) {
-      showToast("Vennligst velg et ikon", "warning");
-      return;
-    }
+  const handleFormSubmit = async (formData: RewardFormData) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
       if (editingReward) {
-        // Update existing reward
         const { error } = await supabase
           .from("rewards")
           .update({
@@ -216,12 +164,12 @@ export default function RewardsLibraryPage() {
                   cost: formData.cost,
                   cost_type: formData.cost_type,
                   specific_student_ids: formData.selectedStudentIds,
+                  max_uses: formData.max_uses,
                 }
               : r,
           ),
         );
       } else {
-        // Create new reward
         const { data, error } = await supabase
           .from("rewards")
           .insert([
@@ -241,7 +189,6 @@ export default function RewardsLibraryPage() {
           .single();
 
         if (error) throw error;
-
         setRewards((prev) => [{ ...data, cost: data.cost_value }, ...prev]);
       }
 
@@ -487,276 +434,14 @@ export default function RewardsLibraryPage() {
         )}
       </div>
 
-      {/* Create/Edit Dialog */}
-      {isDialogOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) handleCloseDialog();
-          }}
-        >
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            {/* Dialog Header */}
-            <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-bold text-slate-900">
-                {editingReward ? "Rediger Belønning" : "Ny Belønning"}
-              </h2>
-              <button
-                onClick={handleCloseDialog}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Dialog Body */}
-            <div className="p-6 space-y-5">
-              {/* Title Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Tittel <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
-                  placeholder="F.eks. Ekstra frikvarter"
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Description Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Beskrivelse
-                </label>
-                <textarea
-                  value={formData.description || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Kort beskrivelse av belønningen..."
-                  rows={3}
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                />
-              </div>
-
-              {/* Emoji Field — EmojiPickerButton */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Ikon (Emoji) <span className="text-red-500">*</span>
-                </label>
-                <EmojiPickerButton
-                  value={formData.emoji}
-                  onChange={(emoji) => setFormData({ ...formData, emoji })}
-                  placeholder="🎁"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Klikk for å velge emoji
-                </p>
-              </div>
-
-              {/* Cost Type Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Valuta
-                </label>
-                <select
-                  value={formData.cost_type}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      cost_type: e.target.value as
-                        | "points"
-                        | "flowers"
-                        | "petals"
-                        | "level"
-                        | "attendance",
-                    })
-                  }
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                >
-                  <option value="points">Poeng ⭐</option>
-                  <option value="flowers">Blomster 🌸</option>
-                  <option value="petals">Kronblader ✨</option>
-                  <option value="level">Nivå 📈</option>
-                  <option value="attendance">Nærvær 🔥</option>
-                </select>
-              </div>
-
-              {/* Cost Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  {formData.cost_type === "attendance"
-                    ? "Antall dager"
-                    : "Kostnad"}
-                </label>
-                <input
-                  type="number"
-                  value={formData.cost}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      cost: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  min="0"
-                  step={formData.cost_type === "attendance" ? "1" : "5"}
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-
-              {/* Max Uses Field */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Antall ganger per elev
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, max_uses: null })}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                      formData.max_uses === null
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-700"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                    }`}
-                  >
-                    Ubegrenset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, max_uses: 1 })}
-                    className={`flex-1 px-3 py-2 text-sm font-medium rounded-lg border-2 transition-all ${
-                      formData.max_uses !== null
-                        ? "bg-indigo-50 border-indigo-500 text-indigo-700"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-indigo-300"
-                    }`}
-                  >
-                    Begrenset
-                  </button>
-                </div>
-                {formData.max_uses !== null && (
-                  <div className="mt-3 flex items-center gap-3">
-                    <input
-                      type="number"
-                      min={1}
-                      max={99}
-                      value={formData.max_uses}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        setFormData({
-                          ...formData,
-                          max_uses: isNaN(val) || val < 1 ? 1 : val,
-                        });
-                      }}
-                      className="w-20 px-3 py-2 text-sm text-center border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                    <span className="text-sm text-slate-500">
-                      {formData.max_uses === 1
-                        ? "gang — forsvinner etter bruk"
-                        : "ganger per elev"}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Student Assignment Field - Multi-select */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Tildelt (valgfritt)
-                </label>
-                <div className="border border-slate-300 rounded-lg max-h-48 overflow-y-auto">
-                  {students.length === 0 ? (
-                    <p className="p-3 text-sm text-slate-500">
-                      Ingen elever funnet
-                    </p>
-                  ) : (
-                    students.map((student) => {
-                      const isChecked = formData.selectedStudentIds.includes(
-                        student.id,
-                      );
-                      return (
-                        <label
-                          key={student.id}
-                          className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50 transition-colors ${
-                            isChecked ? "bg-indigo-50" : ""
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedStudentIds: isChecked
-                                  ? prev.selectedStudentIds.filter(
-                                      (id) => id !== student.id,
-                                    )
-                                  : [...prev.selectedStudentIds, student.id],
-                              }));
-                            }}
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="text-sm text-slate-700">
-                            {student.full_name}
-                          </span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-                {formData.selectedStudentIds.length > 0 && (
-                  <div className="mt-2 flex items-center justify-between">
-                    <p className="text-xs text-indigo-600">
-                      {formData.selectedStudentIds.length} elev
-                      {formData.selectedStudentIds.length !== 1
-                        ? "er"
-                        : ""}{" "}
-                      valgt
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          selectedStudentIds: [],
-                        }))
-                      }
-                      className="text-xs text-slate-500 hover:text-slate-700 underline"
-                    >
-                      Fjern alle
-                    </button>
-                  </div>
-                )}
-                {formData.selectedStudentIds.length === 0 && (
-                  <p className="mt-1 text-xs text-slate-500">
-                    Ingen valgt — belønningen er tilgjengelig for alle elever.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Dialog Footer */}
-            <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0">
-              <button
-                onClick={handleCloseDialog}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-              >
-                Avbryt
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!formData.title.trim() || !formData.emoji.trim()}
-                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed rounded-lg transition-colors"
-              >
-                {editingReward ? "Oppdater" : "Opprett"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RewardForm
+        isOpen={isDialogOpen}
+        onClose={handleCloseDialog}
+        onSubmit={handleFormSubmit}
+        initialData={getFormInitialData()}
+        students={students}
+        isEditing={!!editingReward}
+      />
       <Toast toast={toast} onClose={hideToast} />
       <ConfirmDialog
         state={confirmState}

@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
 import {
   useTeacherProfile,
-  getDisplayName,
   getInitials,
 } from "@/contexts/TeacherProfileContext";
 import ActivityDetailSheet, {
@@ -26,10 +25,7 @@ type ActivityItem = ActivityDetail;
 
 export default function TeacherDashboard() {
   const supabase = createClient();
-  const { profile, loading: profileLoading } = useTeacherProfile();
-  const firstName = profileLoading
-    ? "..."
-    : (getDisplayName(profile).split(" ")[0] ?? "Lærer");
+  const { profile } = useTeacherProfile();
 
   // ── Activity state ─────────────────────────────────
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -241,14 +237,8 @@ export default function TeacherDashboard() {
   return (
     <div className="p-6 lg:p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">
-          Hei, {firstName} 👋
-        </h1>
-        <p className="text-slate-600">
-          Velkommen til lærer dashboardet. Her kan du administrere klasser,
-          oppgaver og følge med på elevenes fremgang.
-        </p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Oversikt</h1>
       </div>
       {/* Widgets Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

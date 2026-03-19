@@ -19,6 +19,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import type { ScheduleEntry } from "@/components/student/ScheduleCard";
 import { getLessonState, getLessonProgressPercent } from "@/utils/lesson-time";
 import type { LessonState } from "@/utils/lesson-time";
+import WeeklyLetterCard from "@/components/student/WeeklyLetterCard";
 
 /* ── Constants ─────────────────────────────────────────── */
 
@@ -38,6 +39,7 @@ export default function StudentTimeplanPage() {
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [weeklyLetterText, setWeeklyLetterText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const userIdRef = useRef<string | null>(null);
@@ -97,6 +99,19 @@ export default function StudentTimeplanPage() {
             }),
           );
           setSchedule(entries);
+        }
+
+        // Fetch weekly letter for this week
+        const { data: letterData } = await supabase
+          .from("weekly_updates")
+          .select("content_text")
+          .eq("week_number", weekNumber)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (letterData?.content_text) {
+          setWeeklyLetterText(letterData.content_text);
         }
       } catch {
         // Silent — fetchSchedule error leaves empty UI
@@ -343,6 +358,13 @@ export default function StudentTimeplanPage() {
             )}
           </div>
         </motion.div>
+      )}
+
+      {/* Weekly Letter — below the schedule */}
+      {weeklyLetterText && (
+        <div className="max-w-lg md:max-w-6xl mx-auto px-4 pt-6 pb-4">
+          <WeeklyLetterCard contentText={weeklyLetterText} />
+        </div>
       )}
     </main>
   );

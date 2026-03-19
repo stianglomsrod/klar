@@ -33,6 +33,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import type { Subject } from "@/types/shared";
+import TaskAssignmentsSheet from "@/components/teacher/TaskAssignmentsSheet";
 
 interface TaskTemplate {
   id: string;
@@ -40,6 +41,7 @@ interface TaskTemplate {
   description: string | null;
   subject: string;
   subject_id: string;
+  subjectEmoji: string;
   subjectColor: string;
   type: "standard" | "quiz";
   gradeLevel: string;
@@ -72,6 +74,9 @@ export default function TaskLibraryPage() {
     color_theme: "blue" as SubjectTheme,
   });
   const [subjectActionLoading, setSubjectActionLoading] = useState(false);
+  const [assignmentsTask, setAssignmentsTask] = useState<TaskTemplate | null>(
+    null,
+  );
 
   const supabase = createClient();
 
@@ -159,6 +164,17 @@ export default function TaskLibraryPage() {
 
       if (error) throw error;
 
+      // Fetch live assignment counts
+      const { data: countData } = await supabase
+        .from("tasks")
+        .select("task_library_id")
+        .not("task_library_id", "is", null);
+
+      const countMap: Record<string, number> = {};
+      (countData || []).forEach((row: any) => {
+        countMap[row.task_library_id] = (countMap[row.task_library_id] || 0) + 1;
+      });
+
       // Map database response to TaskTemplate interface
       const mappedTasks: TaskTemplate[] =
         data?.map((task: any) => ({
@@ -167,10 +183,11 @@ export default function TaskLibraryPage() {
           description: task.description || null,
           subject: task.subject?.title || "Ukjent",
           subject_id: task.subject_id,
+          subjectEmoji: task.subject?.emoji || "📚",
           subjectColor: task.subject?.color_theme || "blue",
           type: task.type,
           gradeLevel: task.grade_level || "Alle trinn",
-          assignCount: task.usage_count || 0,
+          assignCount: countMap[task.id] || 0,
           quiz_data: task.quiz_data || null,
         })) || [];
 
@@ -501,11 +518,17 @@ export default function TaskLibraryPage() {
 
                       {/* Footer - Sticky Bottom */}
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                        {/* Stats - Left Side */}
-                        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        {/* Stats - Left Side (clickable → opens assignments sheet) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAssignmentsTask(task);
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer transition-colors"
+                        >
                           <Users className="h-3.5 w-3.5" />
                           <span>Tildelt {task.assignCount} ganger</span>
-                        </div>
+                        </button>
 
                         {/* Action Button - Right Side */}
                         <button
@@ -739,6 +762,15 @@ export default function TaskLibraryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Task Assignments Sheet */}
+      <TaskAssignmentsSheet
+        taskLibraryId={assignmentsTask?.id ?? null}
+        taskTitle={assignmentsTask?.title ?? ""}
+        subjectEmoji={assignmentsTask?.subjectEmoji ?? ""}
+        isOpen={!!assignmentsTask}
+        onClose={() => setAssignmentsTask(null)}
+      />
 
       {/* Toast Notification */}
       {toast.visible && (

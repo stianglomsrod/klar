@@ -206,7 +206,7 @@ export default function SubjectDetailPage() {
             onClick={() => router.push("/")}
             className="text-indigo-600 hover:text-indigo-700 font-semibold"
           >
-            Tilbake til hjemme
+            Tilbake
           </button>
         </div>
       </div>
@@ -255,10 +255,10 @@ export default function SubjectDetailPage() {
                 </p>
                 <div className="w-full flex flex-col gap-3">
                   <button
-                    onClick={() => router.push("/")}
+                    onClick={() => router.back()}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors"
                   >
-                    Tilbake til hjemme
+                    Tilbake
                   </button>
                   {completedTasks.length > 0 && (
                     <button
