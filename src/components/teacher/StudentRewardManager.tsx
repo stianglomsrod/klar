@@ -350,9 +350,7 @@ export default function StudentRewardManager({
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() =>
-                              toggleRewardSelection(reward.id)
-                            }
+                            onChange={() => toggleRewardSelection(reward.id)}
                             className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500"
                           />
                           <span className="text-xl">{reward.emoji}</span>
@@ -389,9 +387,7 @@ export default function StudentRewardManager({
                   <div className="w-full border-t border-slate-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-slate-500">
-                    Eller
-                  </span>
+                  <span className="px-2 bg-white text-slate-500">Eller</span>
                 </div>
               </div>
 

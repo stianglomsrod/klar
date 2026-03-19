@@ -164,9 +164,7 @@ export default function RewardForm({
           {/* Cost Value */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              {formData.cost_type === "attendance"
-                ? "Antall dager"
-                : "Kostnad"}
+              {formData.cost_type === "attendance" ? "Antall dager" : "Kostnad"}
             </label>
             <input
               type="number"

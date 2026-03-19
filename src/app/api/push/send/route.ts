@@ -37,7 +37,12 @@ function createReactionToken(taskId: string, studentId: string): string {
 export async function POST(req: NextRequest) {
   try {
     const { taskId, studentId, studentName, taskTitle } = await req.json();
-    console.log("[PUSH TRACE] ── Endpoint hit ──", { taskId, studentId, studentName, taskTitle });
+    console.log("[PUSH TRACE] ── Endpoint hit ──", {
+      taskId,
+      studentId,
+      studentName,
+      taskTitle,
+    });
 
     if (!taskId || !studentId) {
       console.log("[PUSH TRACE] ✗ Missing fields — aborting");
@@ -68,7 +73,10 @@ export async function POST(req: NextRequest) {
       .eq("id", taskId)
       .single();
 
-    console.log("[PUSH TRACE] 2. Task lookup:", { created_by: task?.created_by, error: taskError?.message ?? null });
+    console.log("[PUSH TRACE] 2. Task lookup:", {
+      created_by: task?.created_by,
+      error: taskError?.message ?? null,
+    });
     if (taskError || !task?.created_by) {
       console.log("[PUSH TRACE] ✗ No teacher found — exiting");
       return NextResponse.json({ ok: true });
@@ -84,9 +92,15 @@ export async function POST(req: NextRequest) {
       .eq("teacher_id", teacherId)
       .single();
 
-    console.log("[PUSH TRACE] 3. Settings:", { settings, error: settingsError?.message ?? null, callerIsStudent: user.id === studentId });
+    console.log("[PUSH TRACE] 3. Settings:", {
+      settings,
+      error: settingsError?.message ?? null,
+      callerIsStudent: user.id === studentId,
+    });
     if (!settings?.push_enabled) {
-      console.log("[PUSH TRACE] ✗ push_enabled is falsy — exiting (likely RLS: student cannot read teacher's settings row)");
+      console.log(
+        "[PUSH TRACE] ✗ push_enabled is falsy — exiting (likely RLS: student cannot read teacher's settings row)",
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -96,7 +110,10 @@ export async function POST(req: NextRequest) {
       .select("subscription_data, device_type")
       .eq("user_id", teacherId);
 
-    console.log("[PUSH TRACE] 4. Subscriptions:", { count: subscriptions?.length ?? 0, error: subError?.message ?? null });
+    console.log("[PUSH TRACE] 4. Subscriptions:", {
+      count: subscriptions?.length ?? 0,
+      error: subError?.message ?? null,
+    });
     if (!subscriptions || subscriptions.length === 0) {
       console.log("[PUSH TRACE] ✗ No subscriptions — exiting");
       return NextResponse.json({ ok: true });
@@ -121,11 +138,18 @@ export async function POST(req: NextRequest) {
           sub.subscription_data as webpush.PushSubscription,
           payload,
         );
-        console.log("[PUSH TRACE] ✓ webpush success:", { statusCode: result.statusCode, headers: result.headers });
+        console.log("[PUSH TRACE] ✓ webpush success:", {
+          statusCode: result.statusCode,
+          headers: result.headers,
+        });
       } catch (err: unknown) {
         const statusCode = (err as { statusCode?: number })?.statusCode;
         const body = (err as { body?: string })?.body;
-        console.error("[PUSH TRACE] ✗ webpush FAILED:", { statusCode, body, message: (err as Error)?.message });
+        console.error("[PUSH TRACE] ✗ webpush FAILED:", {
+          statusCode,
+          body,
+          message: (err as Error)?.message,
+        });
         // Remove stale subscriptions (410 Gone or 404 Not Found)
         if (statusCode === 410 || statusCode === 404) {
           console.log("[PUSH TRACE]   → Deleting stale subscription");

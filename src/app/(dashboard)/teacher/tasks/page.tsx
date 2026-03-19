@@ -172,7 +172,8 @@ export default function TaskLibraryPage() {
 
       const countMap: Record<string, number> = {};
       (countData || []).forEach((row: any) => {
-        countMap[row.task_library_id] = (countMap[row.task_library_id] || 0) + 1;
+        countMap[row.task_library_id] =
+          (countMap[row.task_library_id] || 0) + 1;
       });
 
       // Map database response to TaskTemplate interface

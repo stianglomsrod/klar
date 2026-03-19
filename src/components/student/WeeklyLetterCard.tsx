@@ -73,7 +73,10 @@ function parseSections(raw: string): Section[] {
         blocks.push({ subject, items });
       } else {
         // Plain text block (e.g. Beskjeder messages)
-        blocks.push({ subject: null, items: lines.map((l) => l.trim()).filter(Boolean) });
+        blocks.push({
+          subject: null,
+          items: lines.map((l) => l.trim()).filter(Boolean),
+        });
       }
     }
 

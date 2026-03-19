@@ -37,9 +37,12 @@ self.addEventListener("push", (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title || "Klar", options)
+    self.registration
+      .showNotification(title || "Klar", options)
       .then(() => console.log("[SW PUSH TRACE] ✓ showNotification succeeded"))
-      .catch((err) => console.error("[SW PUSH TRACE] ✗ showNotification FAILED:", err))
+      .catch((err) =>
+        console.error("[SW PUSH TRACE] ✗ showNotification FAILED:", err),
+      ),
   );
 });
 
