@@ -192,20 +192,20 @@ Replace with a teacher-initiated password-reset flow (e.g., generate a temporary
 
 We are running the MVP with **RLS disabled** on several public tables and with overly permissive policies on others to facilitate rapid development. Three RPC functions also have mutable search paths. The Supabase Security Advisor flags **7 errors** and **5 warnings**.
 
-### Errors — RLS Disabled in Public
+### ~~Errors — RLS Disabled in Public~~ ✅ RESOLVED (Phase 4 Chunk 2)
 
-The following tables have RLS **not enabled**, meaning the Supabase `anon` and `authenticated` keys grant unrestricted read/write access:
+~~The following tables have RLS **not enabled**, meaning the Supabase `anon` and `authenticated` keys grant unrestricted read/write access:~~
 
 | Table                                 | Issue                                                                              |
 | ------------------------------------- | ---------------------------------------------------------------------------------- |
-| `public.tasks`                        | RLS Disabled in Public                                                             |
-| `public.feedback`                     | RLS Disabled in Public                                                             |
-| `public.weekly_updates`               | RLS Disabled in Public                                                             |
+| ~~`public.tasks`~~                    | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
+| ~~`public.feedback`~~                 | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
+| ~~`public.weekly_updates`~~           | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
 | ~~`public.push_subscriptions`~~       | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
 | ~~`public.student_teacher_settings`~~ | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
-| `public.task_schedule_entries`        | RLS Disabled in Public                                                             |
+| ~~`public.task_schedule_entries`~~     | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
 
-Additionally, `public.tasks` has a separate "Policy Exists RLS Disabled" error — policies have been written for the table but RLS itself was never turned on, so the policies are inert.
+Additionally enabled by same migration: `help_requests`, `schedule_entries`. Previously missing student policies added to `student_rewards`.
 
 ### ~~Critical: `profiles` & `student_profiles` — RLS enabled but no student policies~~ ✅ RESOLVED (2026-03-01)
 
@@ -230,29 +230,16 @@ RLS was enabled on both `profiles` and `student_profiles` but **no policies exis
 
 ### Risks
 
-- **Data exposure:** Anyone with the `anon` key (visible in client-side JS) can theoretically read/write data across all schools and users on the unprotected tables.
-- **Cross-tenant leakage:** Without RLS, a student could read another student's tasks, feedback, or push subscriptions.
+- ~~**Data exposure:** Anyone with the `anon` key (visible in client-side JS) can theoretically read/write data across all schools and users on the unprotected tables.~~ ✅ All tables now have RLS.
+- ~~**Cross-tenant leakage:** Without RLS, a student could read another student's tasks, feedback, or push subscriptions.~~ ✅ Student policies scope to `auth.uid()`.
 - **Search-path hijacking:** Mutable search paths on functions could allow a malicious actor with `CREATE` privilege to shadow public schema objects.
-- **Permissive class policies:** The `USING (true)` policy on `classes` allows any authenticated user to modify or delete any class.
+- ~~**Permissive class policies:** The `USING (true)` policy on `classes` allows any authenticated user to modify or delete any class.~~ ✅ Replaced with `is_full_teacher()` / `can_access_class()`.
 
-### Future Fix
+### Remaining Items
 
-Before **any** production or multi-school deployment, we **MUST**:
+1. ~~**Enable RLS** on every table listed above~~ ✅ Completed via `20260319100000_substitute_rls.sql`
 
-1. **Enable RLS** on every table listed above:
-
-   ```sql
-   ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
-   ALTER TABLE public.weekly_updates ENABLE ROW LEVEL SECURITY;
-   -- push_subscriptions & student_teacher_settings: ✅ Done (20260301000000_push_tables_rls.sql)
-   ALTER TABLE public.task_schedule_entries ENABLE ROW LEVEL SECURITY;
-   ```
-
-2. **Write strict policies** scoped to user roles:
-   - Teachers may only access data for students linked to their classes.
-   - Students may only read/write their own `tasks`, `feedback`, and `student_profiles`.
-   - Service-role operations (server actions) bypass RLS automatically.
+2. ~~**Write strict policies** scoped to user roles~~ ✅ 50+ policies across 12 tables
 
 3. **Harden RPC functions** by pinning the search path:
 
@@ -262,9 +249,13 @@ Before **any** production or multi-school deployment, we **MUST**:
    ALTER FUNCTION public.get_student_schedule SET search_path = '';
    ```
 
-4. **Tighten the `classes` policy** — replace `USING (true)` with a teacher-ownership check.
+4. ~~**Tighten the `classes` policy** — replace `USING (true)` with a teacher-ownership check.~~ ✅ Fixed
 
 5. **Enable leaked-password protection** in Supabase Dashboard → Auth → Settings.
+
+6. **Remaining tables without RLS:** `teacher_active_sessions`, `grades`. Low risk (no sensitive data), but should be hardened before multi-school deployment.
+
+7. **Substitute-awareness gaps:** `subjects` INSERT policy and `task_library` CRUD policies still use broad `role = 'teacher'` check, allowing substitutes to create/modify subjects and task library items. Should be narrowed to `is_full_teacher()`.
 
 ---
 

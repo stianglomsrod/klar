@@ -56,6 +56,10 @@ klar/
 │   │   │   └── login/
 │   │   │       └── page.tsx
 │   │   │
+│   │   ├── auth/
+│   │   │   └── callback/
+│   │   │       └── route.ts
+│   │   │
 │   │   ├── (dashboard)/
 │   │   │   ├── student/
 │   │   │   │   ├── layout.tsx
@@ -276,5 +280,7 @@ klar/
         └── 20260228000000_add_class_unique_constraint.sql
         └── 20260228000001_add_class_delete_policy.sql
         ├── 20260301000000_push_tables_rls.sql
-        └── 20260301000001_add_reward_recurrence.sql
+        ├── 20260301000001_add_reward_recurrence.sql
+        ├── 20260319000000_substitute_schema.sql
+        └── 20260319100000_substitute_rls.sql
 ```

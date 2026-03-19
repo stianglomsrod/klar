@@ -17,7 +17,7 @@ const TEACHER_ROUTE_PREFIX = "/teacher";
 const TEACHER_API_PREFIXES = ["/api/push/subscribe", "/api/seed"];
 
 // Routes that skip middleware entirely
-const PUBLIC_PATHS = ["/login", "/api/push/react", "/api/push/send"];
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/push/react", "/api/push/send"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));

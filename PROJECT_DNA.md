@@ -284,12 +284,18 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 | `weekly_updates`           | Weekly content updates             | `week_number`, `content_text`, `audio_url`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `push_subscriptions`       | Push notification config           | `user_id`, `subscription_data`, `device_type`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `student_teacher_settings` | Per-pair settings                  | `student_id`, `teacher_id`, `push_enabled`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `substitute_assignments`   | Vikar scoping                      | `substitute_id`, `class_id` (nullable), `student_id` (nullable), `assigned_by`, `real_name`. XOR constraint: exactly one of class_id/student_id per row.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
 ### RPC Functions
 
 - `get_student_schedule(p_student_id, p_current_week_number)` — returns schedule with task counts
 - `get_student_daily_announcement(p_student_id)` — cascade lookup: student → class → grade
 - `link_student_to_class_structure(p_student_id, p_class_name, p_grade_name)` — upsert grade/class, link student
+- `is_full_teacher()` — SECURITY DEFINER: `role='teacher' AND NOT is_substitute`
+- `is_substitute()` — SECURITY DEFINER: `role='teacher' AND is_substitute=true`
+- `is_admin_teacher()` — SECURITY DEFINER: `role='teacher' AND is_admin=true`
+- `can_access_student(p_student_id)` — SECURITY DEFINER: short-circuits for full teachers (`true`), checks `substitute_assignments` for subs
+- `can_access_class(p_class_id)` — SECURITY DEFINER: same pattern for class-level scoping
 
 ### Storage Bucket
 
@@ -307,7 +313,7 @@ Next.js middleware enforces role-based access control at the edge:
 
 - **Teacher routes** (`/teacher/*`): Requires authenticated user with `profiles.role = 'teacher'`. Students are redirected to `/student`. Unauthenticated users are redirected to `/login`.
 - **Teacher API routes** (`/api/push/subscribe`, `/api/seed`): Same role check; returns 401/403 JSON instead of redirects.
-- **Public paths** (`/login`, `/api/push/react`, `/api/push/send`): Bypass middleware entirely.
+- **Public paths** (`/login`, `/auth/callback`, `/api/push/react`, `/api/push/send`): Bypass middleware entirely.
 - **Student routes** (`/student/*`, `/subject/*`, `/belonninger/*`): No middleware restriction (rely on application-level `student_id` scoping).
 
 ### Seed API Protection
@@ -336,6 +342,15 @@ The master `PUSH_REACT_SECRET` never leaves the server.
 - **Icons:** Notifications use branded `/icon.svg` (192 × 192 indigo "K" roundrect) and `/badge.svg` (72 × 72 monochrome version). Manifest also references `/icon.svg`.
 - **Deep Link:** Tapping a notification body navigates to `/teacher/students/${studentId}` (or falls back to `/teacher` if ID is missing). Existing windows are navigated + focused; otherwise a new window is opened.
 - **Debounce:** Client-side 2-second debounce in `useTaskCompletion` batches rapid completions. If a student finishes 3 tasks within 2 s, the teacher receives one notification with body "3 oppgaver fullført" instead of three separate ones.
+
+### Substitute Teacher (Vikar) System
+
+- **Accounts:** 5 pre-seeded teacher accounts (`vikar1–5@skole.klar.app`) with `is_substitute = true`
+- **Admin:** Any teacher with `is_admin = true` on `profiles` can activate/deactivate substitutes
+- **Scoping:** `substitute_assignments` table restricts visibility. `can_access_student()` and `can_access_class()` SECURITY DEFINER functions enforce scoping in RLS policies. Full teachers short-circuit to `true` (zero cost). Substitutes check assignments.
+- **Auth:** Magic links via `auth.admin.generateLink()`. Auth callback at `/auth/callback` exchanges code for session and redirects by role.
+- **Nightly Reset:** pg_cron calls `reset_substitute_accounts()` at 00:01 to clear assignments, reset names, and invalidate sessions.
+- **RLS Hardening (Chunk 2):** All 12 data tables now have RLS with substitute-aware policies. 6 existing tables updated (profiles, student_profiles, classes, daily_announcements, rewards, student_rewards). 6 new tables hardened (tasks, feedback, help_requests, schedule_entries, task_schedule_entries, weekly_updates). Pattern: full teachers get unrestricted access, students own-data access, substitutes get scoped SELECT via `can_access_student()`/`can_access_class()` with writes blocked (`is_full_teacher()` checks).
 
 ---
 
@@ -539,6 +554,8 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 | `20260301000008` | Add `max_uses` column to rewards (null=unlimited, int=per-student limit)                                                                                    |
 | `20260301000009` | Add `halfway_celebrated_level` column to student_profiles (50% milestone tracking)                                                                          |
 | `20260318100000` | Attendance reward pivot: add `'attendance'` to `reward_cost_type` enum, drop `streak_stars`/`last_streak_milestone`, add `attendance_reward_progress` jsonb |
+| `20260319000000` | Phase 4 Chunk 1: Substitute schema (profiles flags, substitute_assignments table, 5 helper functions)                                                       |
+| `20260319100000` | Phase 4 Chunk 2: RLS hardening — 50+ policies across 12 tables for substitute-aware access control                                                          |
 
 ---
 
