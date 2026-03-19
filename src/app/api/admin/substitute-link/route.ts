@@ -53,11 +53,26 @@ export async function POST(request: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
-  // Verify the email belongs to a substitute account
+  // Verify the email belongs to a substitute account and generate magic link
+  // generateLink returns the user object, so we can verify is_substitute from it
+  const { data: inviteData } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo: `${request.nextUrl.origin}/auth/callback` },
+  });
+
+  // If we can't even create a link for this email, the user doesn't exist
+  if (!inviteData?.user?.id) {
+    return NextResponse.json(
+      { error: "Ingen bruker funnet med denne e-posten." },
+      { status: 400 },
+    );
+  }
+
   const { data: subProfile } = await admin
     .from("profiles")
     .select("id, is_substitute")
-    .eq("email", email)
+    .eq("id", inviteData.user.id)
     .single();
 
   if (!subProfile?.is_substitute) {
@@ -67,25 +82,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Generate magic link
-  const { data: linkData, error: linkError } =
-    await admin.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: {
-        redirectTo: `${request.nextUrl.origin}/auth/callback`,
-      },
-    });
+  // generateLink() returns action_link: the Supabase verification URL.
+  // When clicked, Supabase verifies the token and redirects to our callback
+  // with a proper PKCE auth code that exchangeCodeForSession() can handle.
+  const actionLink = inviteData?.properties?.action_link;
 
-  if (linkError || !linkData?.properties?.hashed_token) {
+  if (!actionLink) {
     return NextResponse.json(
-      { error: linkError?.message ?? "Kunne ikke generere lenke." },
+      { error: "Kunne ikke generere lenke." },
       { status: 500 },
     );
   }
 
-  // Build the verification URL the substitute clicks
-  const magicLink = `${request.nextUrl.origin}/auth/callback?code=${linkData.properties.hashed_token}`;
-
-  return NextResponse.json({ magicLink });
+  // The action_link points to Supabase's domain. We need to make sure
+  // the redirect_to parameter points back to our callback.
+  return NextResponse.json({ magicLink: actionLink });
 }

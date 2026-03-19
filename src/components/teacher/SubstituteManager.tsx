@@ -13,6 +13,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getSubstituteAccounts } from "@/app/actions/substitute-actions";
 
 type SubAccount = {
   id: string;
@@ -43,14 +44,10 @@ export default function SubstituteManager() {
   const fetchData = async () => {
     setLoading(true);
 
-    // Fetch substitute accounts
-    const { data: subs } = await supabase
-      .from("profiles")
-      .select("id, email, full_name, is_substitute")
-      .eq("is_substitute", true)
-      .order("email");
+    // Fetch substitute accounts via server action (email lives in auth.users, not profiles)
+    const subs = await getSubstituteAccounts();
 
-    // Fetch assignments with related data
+    // Fetch assignments with related data (client-side, RLS allows admin access)
     const { data: assignments } = await supabase
       .from("substitute_assignments")
       .select(
@@ -70,7 +67,7 @@ export default function SubstituteManager() {
     }));
 
     // Merge assignments into accounts
-    const merged: SubAccount[] = (subs ?? []).map((s) => ({
+    const merged: SubAccount[] = subs.map((s) => ({
       ...s,
       assignments: (assignments ?? [])
         .filter((a) => a.substitute_id === s.id)

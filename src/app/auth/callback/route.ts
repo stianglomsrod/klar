@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError) {
+    console.error("Exchange Error:", exchangeError.message, exchangeError);
     return response; // Falls back to /login
   }
 
