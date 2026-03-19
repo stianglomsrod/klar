@@ -48,7 +48,7 @@ export type AttendanceStreakState = {
 
 // ── Progress entry stored per reward in attendance_reward_progress JSONB ──
 type ProgressEntry = {
-  baseline: number;       // current_streak when reward was first observed
+  baseline: number; // current_streak when reward was first observed
   last_granted_at: number; // current_streak at last grant (starts at baseline)
 };
 
@@ -62,7 +62,11 @@ async function evaluateAttendanceRewards(
 ): Promise<{
   granted: EarnedReward[];
   updatedProgress: Record<string, ProgressEntry>;
-  rewardsToInsert: { student_id: string; reward_id: string; earned_at_level: number }[];
+  rewardsToInsert: {
+    student_id: string;
+    reward_id: string;
+    earned_at_level: number;
+  }[];
 }> {
   const supabase = createClient();
 
@@ -76,7 +80,6 @@ async function evaluateAttendanceRewards(
       `specific_student_ids.is.null,specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
     );
 
-
   const { data: earnedRows } = await supabase
     .from("student_rewards")
     .select("reward_id")
@@ -84,15 +87,16 @@ async function evaluateAttendanceRewards(
 
   const earnedCounts = new Map<string, number>();
   for (const r of earnedRows ?? []) {
-    earnedCounts.set(
-      r.reward_id,
-      (earnedCounts.get(r.reward_id) ?? 0) + 1,
-    );
+    earnedCounts.set(r.reward_id, (earnedCounts.get(r.reward_id) ?? 0) + 1);
   }
 
   const progress: Record<string, ProgressEntry> = { ...existingProgress };
   const granted: EarnedReward[] = [];
-  const rewardsToInsert: { student_id: string; reward_id: string; earned_at_level: number }[] = [];
+  const rewardsToInsert: {
+    student_id: string;
+    reward_id: string;
+    earned_at_level: number;
+  }[] = [];
 
   for (const reward of attendanceRewards ?? []) {
     const costValue = reward.cost_value ?? 1;
@@ -136,8 +140,15 @@ async function evaluateAttendanceRewards(
       for (let i = 0; i < grants; i++) {
         // earned_at_level = streak day when this specific grant was earned
         const grantStreakDay = entry.last_granted_at + (i + 1) * costValue;
-        rewardsToInsert.push({ student_id: studentId, reward_id: reward.id, earned_at_level: grantStreakDay });
-        granted.push({ emoji: reward.emoji ?? "\uD83C\uDF81", title: reward.title });
+        rewardsToInsert.push({
+          student_id: studentId,
+          reward_id: reward.id,
+          earned_at_level: grantStreakDay,
+        });
+        granted.push({
+          emoji: reward.emoji ?? "\uD83C\uDF81",
+          title: reward.title,
+        });
       }
       entry.last_granted_at = entry.last_granted_at + grants * costValue;
     }
@@ -158,7 +169,7 @@ export function useAttendanceStreak(): AttendanceStreakState {
     null,
   );
   const processedRef = useRef(false);
-  const lastRewardCheckRef = useRef('');
+  const lastRewardCheckRef = useRef("");
 
   // ── Effect 1: Process streak + grant rewards on new login day ──
   useEffect(() => {
@@ -224,7 +235,10 @@ export function useAttendanceStreak(): AttendanceStreakState {
       if (rewardsToInsert.length > 0) {
         await supabase
           .from("student_rewards")
-          .upsert(rewardsToInsert, { onConflict: "student_id,reward_id,earned_at_level", ignoreDuplicates: true });
+          .upsert(rewardsToInsert, {
+            onConflict: "student_id,reward_id,earned_at_level",
+            ignoreDuplicates: true,
+          });
       }
 
       await refresh();
@@ -277,7 +291,10 @@ export function useAttendanceStreak(): AttendanceStreakState {
           .eq("id", profile.id);
         await supabase
           .from("student_rewards")
-          .upsert(rewardsToInsert, { onConflict: "student_id,reward_id,earned_at_level", ignoreDuplicates: true });
+          .upsert(rewardsToInsert, {
+            onConflict: "student_id,reward_id,earned_at_level",
+            ignoreDuplicates: true,
+          });
         await refresh();
 
         setEarnedRewards(granted);
@@ -286,7 +303,9 @@ export function useAttendanceStreak(): AttendanceStreakState {
         setPendingMilestone(true);
       } else {
         // Persist new baselines even without grants (so Effect 1 uses correct baselines next day)
-        const existingKeys = Object.keys(profile.attendance_reward_progress ?? {});
+        const existingKeys = Object.keys(
+          profile.attendance_reward_progress ?? {},
+        );
         const updatedKeys = Object.keys(updatedProgress);
         if (updatedKeys.length > existingKeys.length) {
           const supabase = createClient();
@@ -335,10 +354,7 @@ export function useAttendanceStreak(): AttendanceStreakState {
 
       const earnedCounts = new Map<string, number>();
       for (const r of earnedRows ?? []) {
-        earnedCounts.set(
-          r.reward_id,
-          (earnedCounts.get(r.reward_id) ?? 0) + 1,
-        );
+        earnedCounts.set(r.reward_id, (earnedCounts.get(r.reward_id) ?? 0) + 1);
       }
 
       const progress: Record<string, ProgressEntry> =

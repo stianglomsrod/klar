@@ -127,9 +127,7 @@ export default function StreakWidget({
               <div className="relative z-10 space-y-3">
                 {/* Header */}
                 <div className="text-center">
-                  <span className="text-3xl leading-none">
-                    🔥
-                  </span>
+                  <span className="text-3xl leading-none">🔥</span>
                   <p className="text-2xl font-extrabold text-slate-900 mt-1">
                     {currentStreak}
                   </p>
@@ -154,7 +152,8 @@ export default function StreakWidget({
                     <div className="flex items-center justify-between text-[10px] font-medium text-slate-500">
                       <span>Neste belønning</span>
                       <span>
-                        {nearestReward.currentProgress}/{nearestReward.requiredDays}
+                        {nearestReward.currentProgress}/
+                        {nearestReward.requiredDays}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -202,9 +201,7 @@ export default function StreakWidget({
               : "border-gray-200 bg-white shadow-sm"
         }`}
       >
-        <span className="text-lg leading-none select-none">
-          🔥
-        </span>
+        <span className="text-lg leading-none select-none">🔥</span>
         <span
           className={`text-sm font-bold leading-none ${
             currentStreak > 0 ? "text-amber-700" : "text-slate-300"

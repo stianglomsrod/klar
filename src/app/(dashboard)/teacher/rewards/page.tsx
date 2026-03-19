@@ -495,9 +495,7 @@ export default function RewardsLibraryPage() {
             if (e.target === e.currentTarget) handleCloseDialog();
           }}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
-          >
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             {/* Dialog Header */}
             <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="text-xl font-bold text-slate-900">
@@ -591,7 +589,9 @@ export default function RewardsLibraryPage() {
               {/* Cost Field */}
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  {formData.cost_type === "attendance" ? "Antall dager" : "Kostnad"}
+                  {formData.cost_type === "attendance"
+                    ? "Antall dager"
+                    : "Kostnad"}
                 </label>
                 <input
                   type="number"
