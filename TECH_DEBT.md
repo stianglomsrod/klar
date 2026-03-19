@@ -203,7 +203,7 @@ We are running the MVP with **RLS disabled** on several public tables and with o
 | ~~`public.weekly_updates`~~           | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
 | ~~`public.push_subscriptions`~~       | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
 | ~~`public.student_teacher_settings`~~ | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260301000000_push_tables_rls.sql` |
-| ~~`public.task_schedule_entries`~~     | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
+| ~~`public.task_schedule_entries`~~    | ~~RLS Disabled in Public~~ ✅ RLS enabled via `20260319100000_substitute_rls.sql`  |
 
 Additionally enabled by same migration: `help_requests`, `schedule_entries`. Previously missing student policies added to `student_rewards`.
 

@@ -55,15 +55,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profile?.role === "teacher") {
-      response.headers.set(
-        "location",
-        new URL("/teacher", origin).toString(),
-      );
+      response.headers.set("location", new URL("/teacher", origin).toString());
     } else if (profile?.role === "student") {
-      response.headers.set(
-        "location",
-        new URL("/student", origin).toString(),
-      );
+      response.headers.set("location", new URL("/student", origin).toString());
     }
   }
 
