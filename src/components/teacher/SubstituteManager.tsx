@@ -66,8 +66,7 @@ export default function SubstituteManager() {
     const classOptions: ClassOption[] = (classData ?? []).map((c) => ({
       id: c.id,
       name: c.name,
-      grade_name:
-        (c.grades as unknown as { name: string } | null)?.name ?? "",
+      grade_name: (c.grades as unknown as { name: string } | null)?.name ?? "",
     }));
 
     // Merge assignments into accounts

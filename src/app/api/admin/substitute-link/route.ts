@@ -45,10 +45,7 @@ export async function POST(request: NextRequest) {
   const email = body?.email;
 
   if (!email || typeof email !== "string") {
-    return NextResponse.json(
-      { error: "E-post er påkrevd." },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: "E-post er påkrevd." }, { status: 400 });
   }
 
   // Admin client for auth.admin operations
