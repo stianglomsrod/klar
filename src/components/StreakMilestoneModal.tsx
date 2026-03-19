@@ -8,6 +8,7 @@ type StreakMilestoneModalProps = {
   isOpen: boolean;
   streakCount: number;
   isNewRecord: boolean;
+  earnedRewards: { emoji: string; title: string }[];
   onClose: () => void;
 };
 
@@ -15,6 +16,7 @@ export default function StreakMilestoneModal({
   isOpen,
   streakCount,
   isNewRecord,
+  earnedRewards,
   onClose,
 }: StreakMilestoneModalProps) {
   // Confetti burst on open
@@ -65,7 +67,7 @@ export default function StreakMilestoneModal({
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-amber-300/20 rounded-full blur-3xl -translate-y-1/2" />
 
             <div className="relative z-10 space-y-4">
-              {/* Star icon */}
+              {/* Reward emoji(s) */}
               <motion.div
                 initial={{ scale: 0, rotate: -30 }}
                 animate={{ scale: 1, rotate: 0 }}
@@ -77,7 +79,12 @@ export default function StreakMilestoneModal({
                 }}
                 className="text-6xl leading-none"
               >
-                ⭐
+                {earnedRewards.length === 1
+                  ? earnedRewards[0].emoji
+                  : earnedRewards
+                      .slice(0, 3)
+                      .map((r) => r.emoji)
+                      .join(" ")}
               </motion.div>
 
               {/* Title */}
@@ -87,7 +94,9 @@ export default function StreakMilestoneModal({
                 transition={{ delay: 0.4 }}
                 className="text-2xl font-extrabold text-slate-900"
               >
-                Nærværsstjerne!
+                {earnedRewards.length === 1
+                  ? `Du fikk ${earnedRewards[0].emoji} ${earnedRewards[0].title}!`
+                  : `Du fikk ${earnedRewards.length} belønninger!`}
               </motion.h2>
 
               {/* Streak count */}

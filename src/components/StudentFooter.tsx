@@ -43,8 +43,12 @@ type StudentFooterProps = {
   currentStreak?: number;
   longestStreak?: number;
   streakMode?: "classic" | "accumulated";
-  streakStars?: number;
-  nextMilestoneAt?: number | null;
+  nearestReward?: {
+    emoji: string;
+    title: string;
+    currentProgress: number;
+    requiredDays: number;
+  } | null;
 };
 
 export default function StudentFooter({
@@ -69,8 +73,7 @@ export default function StudentFooter({
   currentStreak = 0,
   longestStreak = 0,
   streakMode = "classic",
-  streakStars = 0,
-  nextMilestoneAt = null,
+  nearestReward = null,
 }: StudentFooterProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isQueueOpen, setIsQueueOpen] = useState(false);
@@ -165,8 +168,7 @@ export default function StudentFooter({
               currentStreak={currentStreak}
               longestStreak={longestStreak}
               streakMode={streakMode}
-              streakStars={streakStars}
-              nextMilestoneAt={nextMilestoneAt}
+              nearestReward={nearestReward}
             />
           )}
 

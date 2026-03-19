@@ -19,6 +19,7 @@ type StudentReward = {
   is_redeemed: boolean;
   date_earned: string;
   earned_at_level: number;
+  cost_type: string;
   reward: {
     title: string;
     description?: string;
@@ -76,6 +77,7 @@ export default function KupongerPage() {
         is_redeemed: item.is_redeemed,
         date_earned: item.date_earned,
         earned_at_level: item.earned_at_level ?? 1,
+        cost_type: item.rewards?.cost_type ?? "points",
         reward: item.rewards || {
           title: "Ukjent premie",
           description: "",
@@ -96,8 +98,13 @@ export default function KupongerPage() {
     if (!profile?.id) return;
 
     // Anti-cheat: block redemption if student's level is below earned_at_level
+    // (skip for attendance rewards — earned_at_level stores streak day, not player level)
     const reward = rewards.find((r) => r.id === rewardId);
-    if (reward && (profile.level ?? 1) < reward.earned_at_level) {
+    if (
+      reward &&
+      reward.cost_type !== "attendance" &&
+      (profile.level ?? 1) < reward.earned_at_level
+    ) {
       showToast(
         `Du m\u00e5 v\u00e6re level ${reward.earned_at_level} for \u00e5 bruke denne kupongen. Du er n\u00e5 level ${profile.level ?? 1}.`,
         "warning",
@@ -226,7 +233,10 @@ export default function KupongerPage() {
                     description={reward.reward.description}
                     emoji={reward.reward.emoji}
                     isRedeemed={reward.is_redeemed}
-                    isLocked={(profile?.level ?? 1) < reward.earned_at_level}
+                    isLocked={
+                      reward.cost_type !== "attendance" &&
+                      (profile?.level ?? 1) < reward.earned_at_level
+                    }
                     lockedLevel={reward.earned_at_level}
                     dateEarned={reward.date_earned}
                     onRedeem={() => handleRedeemCoupon(reward.id)}

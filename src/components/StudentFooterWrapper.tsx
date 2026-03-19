@@ -103,8 +103,7 @@ export default function StudentFooterWrapper() {
         currentStreak={streak.currentStreak}
         longestStreak={streak.longestStreak}
         streakMode={streak.streakMode}
-        streakStars={streak.streakStars}
-        nextMilestoneAt={streak.nextMilestoneAt}
+        nearestReward={streak.nearestReward}
       />
 
       {/* Avatar Picker Modal */}
@@ -123,6 +122,7 @@ export default function StudentFooterWrapper() {
         isOpen={streak.pendingMilestoneCelebration && welcomeDone}
         streakCount={streak.milestoneCelebrationStreak}
         isNewRecord={streak.isNewRecord}
+        earnedRewards={streak.earnedRewards}
         onClose={streak.dismissMilestone}
       />
 

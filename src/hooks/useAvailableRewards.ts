@@ -40,6 +40,7 @@ export function useAvailableRewards(
             .select(
               "id, title, description, emoji, is_recurring, max_uses, specific_student_ids",
             )
+            .neq("cost_type", "attendance")
             .or(
               `specific_student_ids.eq.{},specific_student_ids.cs.{${studentId}}`,
             )

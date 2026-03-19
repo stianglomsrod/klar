@@ -100,7 +100,7 @@ src/app/
 
 **`StudentProfileContext`** (`src/contexts/StudentProfileContext.tsx`)
 
-- Provides `StudentProfile` type: `id`, `full_name`, `avatar_url`, `level`, `points_earned`, `current_goal_total`, `current_xp`, `petals_progress`, `flowers_collected`, `petal_colors`, `show_flower_garden`, `custom_welcome_message`, `class_id`, `max_level_reached`, `pending_reward_levels`, `completed_flower_colors`, `garden_positions`, `halfway_celebrated_level`
+- Provides `StudentProfile` type: `id`, `full_name`, `avatar_url`, `level`, `points_earned`, `current_goal_total`, `current_xp`, `petals_progress`, `flowers_collected`, `petal_colors`, `show_flower_garden`, `custom_welcome_message`, `class_id`, `max_level_reached`, `pending_reward_levels`, `completed_flower_colors`, `garden_positions`, `halfway_celebrated_level`, `streak_enabled`, `streak_mode`, `current_streak`, `longest_streak`, `last_login_date`, `attendance_reward_progress`
 - Merges data from `profiles` + `student_profiles` tables
 - Auto-creates `student_profiles` row if missing (PGRST116 error → insert)
 - Exposes `refresh()` to re-fetch after XP updates
@@ -121,6 +121,7 @@ src/app/
 | `useTeacherProfile` | Shorthand consumer of `TeacherProfileContext`                                                                                                                                                                                                     |
 | `useMediaQuery`     | CSS media query hook                                                                                                                                                                                                                              |
 | `useToast`          | Lightweight toast notification hook. Returns `{ toast, showToast, hideToast }` for non-blocking user feedback.                                                                                                                                    |
+| `useAttendanceStreak` | Attendance streak hook. Tracks daily login streaks, auto-grants `cost_type='attendance'` rewards every N streak days, computes nearest upcoming reward for StreakWidget popover, and triggers `StreakMilestoneModal` celebrations. Three effects: new-day streak increment, same-day mount reward check, nearest reward popover. Uses fingerprint-based deduplication and `upsert` with `ignoreDuplicates` for idempotent inserts. |
 
 ### 2.5 XP / Leveling System
 
@@ -258,7 +259,7 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 
 - `user_role`: `'teacher'` | `'student'`
 - `task_type`: `'standard'` | `'quiz'`
-- `reward_cost_type`: `'flowers'` | `'petals'` | `'points'` | `'level'`
+- `reward_cost_type`: `'flowers'` | `'petals'` | `'points'` | `'level'` | `'attendance'`
 - `schedule_type`: `'lesson'` | `'break'` | `'activity'`
 
 ### Tables
@@ -266,7 +267,7 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 | Table                      | Purpose                            | Key Columns                                                                                                                                                                                                                                                                                                                                                                    |
 | -------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `profiles`                 | All users (linked to `auth.users`) | `id`, `full_name`, `role`, `avatar_url`                                                                                                                                                                                                                                                                                                                                        |
-| `student_profiles`         | Student-specific data              | `id` → profiles, `class_id`, `level`, `current_xp`, `current_goal_total`, `points_earned`, `petals_progress`, `flowers_collected`, `petal_colors[]`, `completed_flower_colors` (jsonb), `max_level_reached`, `halfway_celebrated_level`, `pending_reward_levels[]`, `garden_positions` (jsonb — `Record<string, {x: number, y: number}>`, percentage-based flower coordinates) |
+| `student_profiles`         | Student-specific data              | `id` → profiles, `class_id`, `level`, `current_xp`, `current_goal_total`, `points_earned`, `petals_progress`, `flowers_collected`, `petal_colors[]`, `completed_flower_colors` (jsonb), `max_level_reached`, `halfway_celebrated_level`, `pending_reward_levels[]`, `garden_positions` (jsonb — `Record<string, {x: number, y: number}>`, percentage-based flower coordinates), `streak_enabled` (bool), `streak_mode` (`classic`/`accumulated`), `current_streak`, `longest_streak`, `last_login_date`, `attendance_reward_progress` (jsonb — `Record<reward_id, { baseline, last_granted_at }>`) |
 | `classes`                  | School classes                     | `name`, `grade_id`, `is_queue_open`                                                                                                                                                                                                                                                                                                                                            |
 | `grades`                   | School grades (trinn)              | `name`                                                                                                                                                                                                                                                                                                                                                                         |
 | `subjects`                 | School subjects                    | `title` (UNIQUE), `emoji`, `color_theme`, `created_by`                                                                                                                                                                                                                                                                                                                         |
@@ -276,7 +277,7 @@ Each layer uses `forwardRef` + `useImperativeHandle`. The `CompletionModal` show
 | `schedule_entries`         | Weekly schedule slots              | `class_id`/`student_id`, `subject_id`, `day_of_week` (1-7), `start_time`, `end_time`, `type`, `week_number`                                                                                                                                                                                                                                                                    |
 | `task_schedule_entries`    | Links tasks ↔ schedule             | `task_id`, `schedule_entry_id`                                                                                                                                                                                                                                                                                                                                                 |
 | `rewards`                  | Teacher-created rewards            | `title`, `emoji`, `cost_value`, `cost_type`, `specific_student_ids[]`, `created_by`, `is_recurring`, `max_uses` (null=unlimited, int=limit per student)                                                                                                                                                                                                                        |
-| `student_rewards`          | Earned/redeemed rewards            | `student_id`, `reward_id`, `is_redeemed`, `earned_at_level`                                                                                                                                                                                                                                                                                                                    |
+| `student_rewards`          | Earned/redeemed rewards            | `student_id`, `reward_id`, `is_redeemed`, `earned_at_level` (**dual-purpose**: player level for regular rewards, streak day number for `attendance` rewards). UNIQUE constraint on `(student_id, reward_id, earned_at_level)`.                                                                                                                                                  |
 | `help_requests`            | Student help queue                 | `student_id`, `class_id`, `status` (pending/in_progress/resolved/cancelled)                                                                                                                                                                                                                                                                                                    |
 | `daily_announcements`      | Targeted messages                  | `target_type` (student/class/grade), `target_id`, `content`, `display_date`, `message_type`                                                                                                                                                                                                                                                                                    |
 | `teacher_active_sessions`  | Active monitor sessions            | `teacher_id`, `class_id`                                                                                                                                                                                                                                                                                                                                                       |
@@ -430,7 +431,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 - `ConditionalLayout.tsx` — layout wrapper with conditional rendering
 - `Navigation.tsx` — navigation bar
 - `Sidebar.tsx` — desktop sidebar
-- `StudentFooter.tsx` + `StudentFooterWrapper.tsx` — mobile bottom navigation. Includes **Flower Teaser**: a miniature `FlowerPot` (44px) showing the current petal progress, linking to `/belonninger/hage`. Only visible when `show_flower_garden` is true. Bounces on petal change. Five dot indicators below show filled/unfilled petals.
+- `StudentFooter.tsx` + `StudentFooterWrapper.tsx` — mobile bottom navigation. Includes **Flower Teaser**: a miniature `FlowerPot` (44px) showing the current petal progress, linking to `/belonninger/hage`. Only visible when `show_flower_garden` is true. Bounces on petal change. Five dot indicators below show filled/unfilled petals. Also includes **StreakWidget** (fire icon + streak count + reward progress popover) in the footer bar. `StudentFooterWrapper` orchestrates `StreakMilestoneModal` (waits for `WelcomeOverlay` dismissal via `welcomeDismissed` event before showing).
 - `PaintBrushCursor.tsx` — decorative cursor effect
 
 ### Student Experience
@@ -494,7 +495,9 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 
 ### Rewards
 
-- `CouponCard.tsx` — reward/coupon display card with ticket-style perforation dots; redeemed cards show pastel gradients at reduced opacity with an emerald "✅ Innløst" pill (no stamp overlay)
+- `StreakWidget.tsx` (`src/components/student-footer/`) — fire icon with current streak count in the student footer; Popover shows nearest attendance reward progress (emoji, title, X/Y days)
+- `StreakMilestoneModal.tsx` — celebration overlay with confetti when attendance rewards are earned; shows earned reward emoji/title list; coordinated via `pendingMilestoneCelebration` from `useAttendanceStreak`
+- `CouponCard.tsx` — reward/coupon display card with ticket-style perforation dots; redeemed cards show pastel gradients at reduced opacity with an emerald "✅ Innløst" pill (no stamp overlay). Attendance rewards (`cost_type='attendance'`) bypass the level-lock check since `earned_at_level` stores streak day, not player level.
 
 ---
 
@@ -527,6 +530,7 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 | `20260301000007` | Hotfix: profiles RLS infinite recursion → `is_teacher()` helper                    |
 | `20260301000008` | Add `max_uses` column to rewards (null=unlimited, int=per-student limit)           |
 | `20260301000009` | Add `halfway_celebrated_level` column to student_profiles (50% milestone tracking) |
+| `20260318100000` | Attendance reward pivot: add `'attendance'` to `reward_cost_type` enum, drop `streak_stars`/`last_streak_milestone`, add `attendance_reward_progress` jsonb |
 
 ---
 
@@ -565,3 +569,9 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 16. **Centralized color system** — `subject-colors.ts` exports `ColorClasses` (12 properties incl. `borderAccent`, `shadowRgb`), `getSubjectTheme()`, and `COLOR_MAP` with 22 Tailwind themes. All schedule cards, progress rings, and glow effects derive colors from this single map. Never duplicate color lookups.
 
 17. **Garden layout is deterministic** — `getFlowerPlacement()` in `/belonninger/hage/page.tsx` uses index-based `Math.sin`/`Math.cos` to compute stable positions, sizes, and rotations for garden flowers. This avoids layout shift on re-renders. Flowers further "back" (higher `y%`) render smaller for a perspective effect, and `zIndex` is derived from `y` so nearer flowers overlap farther ones.
+
+18. **Attendance rewards — `earned_at_level` dual-purpose** — For regular rewards (`cost_type='flowers'|'petals'|'points'|'level'`), `earned_at_level` stores the player level when earned. For attendance rewards (`cost_type='attendance'`), it stores the **streak day number** when the grant occurred. This makes each grant unique under the `UNIQUE(student_id, reward_id, earned_at_level)` constraint. The kuponger page bypasses the `isLocked` level check when `cost_type === 'attendance'`.
+
+19. **Attendance reward progress tracking** — `attendance_reward_progress` (jsonb on `student_profiles`) stores `Record<reward_id, { baseline, last_granted_at }>` where `baseline` is the streak when first observed and `last_granted_at` is the streak day of the most recent grant. On streak reset (`current_streak < last_granted_at`), `baseline` re-initializes to current streak. Rewards with `specific_student_ids` use a three-way `.or()` filter: `is.null`, `eq.{}`, `cs.{id}` to match both NULL and empty arrays.
+
+20. **Attendance rewards are filtered from level-up** — `useAvailableRewards` excludes `cost_type='attendance'` rewards from the `LevelUpModal` picker so students only see regular rewards when leveling up. Attendance rewards are granted automatically via `useAttendanceStreak`.

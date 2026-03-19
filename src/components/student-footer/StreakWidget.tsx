@@ -7,16 +7,19 @@ type StreakWidgetProps = {
   currentStreak: number;
   longestStreak: number;
   streakMode: "classic" | "accumulated";
-  streakStars: number;
-  nextMilestoneAt: number | null;
+  nearestReward: {
+    emoji: string;
+    title: string;
+    currentProgress: number;
+    requiredDays: number;
+  } | null;
 };
 
 export default function StreakWidget({
   currentStreak,
   longestStreak,
   streakMode,
-  streakStars,
-  nextMilestoneAt,
+  nearestReward,
 }: StreakWidgetProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [widgetPosition, setWidgetPosition] = useState({
@@ -87,13 +90,18 @@ export default function StreakWidget({
     return () => window.removeEventListener("resize", updatePosition);
   }, [popoverOpen]);
 
-  // Progress toward next milestone
-  const progressToNext =
-    nextMilestoneAt !== null
-      ? Math.min(100, Math.round((currentStreak / nextMilestoneAt) * 100))
-      : 100;
-  const daysToNext =
-    nextMilestoneAt !== null ? nextMilestoneAt - currentStreak : 0;
+  // Progress toward nearest attendance reward
+  const progressPercent = nearestReward
+    ? Math.min(
+        100,
+        Math.round(
+          (nearestReward.currentProgress / nearestReward.requiredDays) * 100,
+        ),
+      )
+    : 0;
+  const daysToNext = nearestReward
+    ? nearestReward.requiredDays - nearestReward.currentProgress
+    : 0;
 
   return (
     <>
@@ -120,7 +128,7 @@ export default function StreakWidget({
                 {/* Header */}
                 <div className="text-center">
                   <span className="text-3xl leading-none">
-                    {currentStreak > 0 ? "🔥" : "⭐"}
+                    🔥
                   </span>
                   <p className="text-2xl font-extrabold text-slate-900 mt-1">
                     {currentStreak}
@@ -140,44 +148,27 @@ export default function StreakWidget({
                   </div>
                 )}
 
-                {/* Progress to next star */}
-                {nextMilestoneAt !== null && (
+                {/* Progress toward next attendance reward */}
+                {nearestReward && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-medium text-slate-500">
-                      <span>Neste ⭐</span>
+                      <span>Neste belønning</span>
                       <span>
-                        {currentStreak}/{nextMilestoneAt}
+                        {nearestReward.currentProgress}/{nearestReward.requiredDays}
                       </span>
                     </div>
                     <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full"
                         initial={{ width: "0%" }}
-                        animate={{ width: `${progressToNext}%` }}
+                        animate={{ width: `${progressPercent}%` }}
                         transition={{ duration: 0.6, ease: "easeOut" }}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400 text-center">
-                      {daysToNext} {daysToNext === 1 ? "dag" : "dager"} til
-                      neste stjerne
+                    <p className="text-[10px] text-slate-500 text-center font-medium">
+                      {daysToNext} {daysToNext === 1 ? "dag" : "dager"} til{" "}
+                      {nearestReward.emoji} {nearestReward.title}
                     </p>
-                  </div>
-                )}
-
-                {/* Stars earned */}
-                {streakStars > 0 && (
-                  <div className="flex items-center justify-center gap-1 text-xs font-semibold text-amber-600 pt-1 border-t border-slate-100">
-                    <span>
-                      {Array.from({ length: Math.min(streakStars, 5) })
-                        .map(() => "⭐")
-                        .join("")}
-                    </span>
-                    {streakStars > 5 && (
-                      <span className="text-slate-500">+{streakStars - 5}</span>
-                    )}
-                    <span className="text-slate-500 font-normal ml-1">
-                      Nærværsstjerner
-                    </span>
                   </div>
                 )}
               </div>
@@ -191,7 +182,7 @@ export default function StreakWidget({
         ref={buttonRef}
         type="button"
         onClick={() => setPopoverOpen((v) => !v)}
-        title="Nærværsstjerner"
+        title="Nærværsstreak"
         animate={
           bounce
             ? {
@@ -212,11 +203,11 @@ export default function StreakWidget({
         }`}
       >
         <span className="text-lg leading-none select-none">
-          {currentStreak > 0 ? "🔥" : "⭐"}
+          🔥
         </span>
         <span
           className={`text-sm font-bold leading-none ${
-            currentStreak > 0 ? "text-amber-700" : "text-slate-400"
+            currentStreak > 0 ? "text-amber-700" : "text-slate-300"
           }`}
         >
           {currentStreak}
