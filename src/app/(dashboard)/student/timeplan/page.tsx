@@ -464,7 +464,7 @@ function TimeplanCard({
 }) {
   const isLiveLesson = state === "active";
   const isFinished = state === "finished";
-  const theme = getSubjectTheme(entry.subject_color);
+  const theme = getSubjectTheme(entry.subject_title, entry.subject_color);
   const accentRgb = theme.shadowRgb;
 
   const subjectTitle = entry.subject_title || "Time";
@@ -712,7 +712,7 @@ function DesktopLessonRow({
 }) {
   const isLive = state === "active";
   const isFinished = state === "finished";
-  const theme = getSubjectTheme(entry.subject_color);
+  const theme = getSubjectTheme(entry.subject_title, entry.subject_color);
 
   return (
     <button

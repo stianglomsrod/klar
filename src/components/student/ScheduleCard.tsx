@@ -58,7 +58,7 @@ export default function ScheduleCard({
   const isFinished = state === "finished";
 
   /* Resolve styles from the centralized colour map */
-  const theme = getSubjectTheme(entry.subject_color);
+  const theme = getSubjectTheme(entry.subject_title, entry.subject_color);
   const accentColor = `rgb(${theme.shadowRgb})`;
 
   /* Fisheye transforms — finished cards get less dimming for readability */

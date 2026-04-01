@@ -386,13 +386,16 @@ export default function StudentQuestLogPage() {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-indigo-100 shadow-lg p-12 max-w-md"
           >
-            <div className="text-6xl mb-4">🎉</div>
+            <div className="text-6xl mb-4">📅</div>
             <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              Ingen oppdrag i dag!
+              Ingen timer funnet
             </h2>
-            <p className="text-slate-600">
-              Nyt en dag fri fra oppdrag. Du har gjort det bra! 🌟
-            </p>
+            <a
+              href="/student/fag"
+              className="text-indigo-600 hover:text-indigo-700 font-semibold underline"
+            >
+              Gå til Fag &amp; Oppgaver
+            </a>
           </motion.div>
         ) : (
           <div

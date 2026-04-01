@@ -154,7 +154,7 @@ export default function StudentSettingsCard({
       if (error) throw error;
       setStreakEnabled(newState);
       showToast(
-        newState ? "Nærværsstjerner aktivert ⭐" : "Nærværsstjerner deaktivert",
+        newState ? "Streak aktivert 🔥" : "Streak deaktivert",
         "success",
       );
     } catch {
@@ -245,7 +245,7 @@ export default function StudentSettingsCard({
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <label className="text-sm font-medium text-slate-900 block mb-1">
-              ⭐ Nærværsstjerner
+              🔥 Streak
             </label>
             <p className="text-xs text-slate-600">Belønner daglig oppmøte</p>
           </div>

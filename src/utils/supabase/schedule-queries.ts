@@ -80,8 +80,9 @@ export async function fetchMergedSchedule(
 // ── fetchScheduleFallback ────────────────────────────
 //
 // Used by CreateTaskModal / SchedulePicker.
-// Tries the target week first; only falls back to
-// masterplan (week 0) if the primary query returns empty.
+// Fetches BOTH masterplan (week 0) and the target week,
+// then merges with week-specific entries overriding
+// masterplan entries for the same time slot.
 
 export async function fetchScheduleFallback(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,22 +112,43 @@ export async function fetchScheduleFallback(
       ? query.eq("student_id", studentId)
       : query.is("student_id", null);
 
-  const { data: primaryData, error: primaryError } = await scoped(
-    baseSelect().eq("week_number", weekNumber),
-    target.studentId,
-  );
-  if (primaryError) throw primaryError;
-
-  if (primaryData && primaryData.length > 0) return primaryData;
-
-  if (weekNumber !== 0) {
-    const { data: fallbackData, error: fallbackError } = await scoped(
+  // For week 0 (masterplan itself), just return it directly
+  if (weekNumber === 0) {
+    const { data, error } = await scoped(
       baseSelect().eq("week_number", 0),
       target.studentId,
     );
-    if (fallbackError) throw fallbackError;
-    return fallbackData || [];
+    if (error) throw error;
+    return data || [];
   }
 
-  return [];
+  // Fetch both masterplan and week-specific entries in parallel
+  const [fallbackResult, primaryResult] = await Promise.all([
+    scoped(baseSelect().eq("week_number", 0), target.studentId),
+    scoped(baseSelect().eq("week_number", weekNumber), target.studentId),
+  ]);
+
+  if (fallbackResult.error) throw fallbackResult.error;
+  if (primaryResult.error) throw primaryResult.error;
+
+  const fallbackData = fallbackResult.data || [];
+  const primaryData = primaryResult.data || [];
+
+  // Merge: masterplan first, then week-specific overwrites matching slots
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const merged = new Map<string, any>();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fallbackData.forEach((entry: any) => {
+    const key = `${entry.day_of_week}-${entry.start_time}-${entry.end_time}`;
+    merged.set(key, entry);
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  primaryData.forEach((entry: any) => {
+    const key = `${entry.day_of_week}-${entry.start_time}-${entry.end_time}`;
+    merged.set(key, entry);
+  });
+
+  return Array.from(merged.values());
 }

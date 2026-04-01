@@ -387,19 +387,29 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
 
 /**
  * Get the color theme for a subject
- * Accepts either a subject name or a theme string
+ * Accepts either a subject name or a theme string, with optional fallback
  * @param themeString - Subject name (e.g., "Norsk") or theme type (e.g., "red")
+ * @param fallback - Optional fallback theme string tried when primary resolves to gray
  * @returns ColorClasses object with all color utilities
  */
-export function getSubjectTheme(themeString: string): ColorClasses {
+export function getSubjectTheme(themeString: string, fallback?: string): ColorClasses {
   // First check if it's a known subject name
   const subjectTheme = SUBJECT_PALETTE[themeString];
 
   // Use the subject theme, or try the string directly as a theme
   const theme = (subjectTheme || themeString) as SubjectTheme;
 
-  // Return the color classes, fallback to gray if not found
-  return COLOR_MAP[theme] || COLOR_MAP.gray;
+  const result = COLOR_MAP[theme];
+  if (result && theme !== "gray" as SubjectTheme) return result;
+
+  // Try fallback before giving up
+  if (fallback) {
+    const fbSubject = SUBJECT_PALETTE[fallback];
+    const fbTheme = (fbSubject || fallback) as SubjectTheme;
+    return COLOR_MAP[fbTheme] || COLOR_MAP.gray;
+  }
+
+  return result || COLOR_MAP.gray;
 }
 
 /**
