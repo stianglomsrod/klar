@@ -392,7 +392,10 @@ const COLOR_MAP: Record<SubjectTheme, ColorClasses> = {
  * @param fallback - Optional fallback theme string tried when primary resolves to gray
  * @returns ColorClasses object with all color utilities
  */
-export function getSubjectTheme(themeString: string, fallback?: string): ColorClasses {
+export function getSubjectTheme(
+  themeString: string,
+  fallback?: string,
+): ColorClasses {
   // First check if it's a known subject name
   const subjectTheme = SUBJECT_PALETTE[themeString];
 
@@ -400,7 +403,7 @@ export function getSubjectTheme(themeString: string, fallback?: string): ColorCl
   const theme = (subjectTheme || themeString) as SubjectTheme;
 
   const result = COLOR_MAP[theme];
-  if (result && theme !== "gray" as SubjectTheme) return result;
+  if (result && theme !== ("gray" as SubjectTheme)) return result;
 
   // Try fallback before giving up
   if (fallback) {
