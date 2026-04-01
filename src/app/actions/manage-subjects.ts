@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 
 // ── Types ────────────────────────────────────────────
@@ -44,6 +45,7 @@ export async function updateSubject(
     return { success: false, error: `Feil ved oppdatering: ${error.message}` };
   }
 
+  revalidatePath("/teacher/tasks", "page");
   return { success: true };
 }
 
@@ -123,5 +125,6 @@ export async function deleteSubject(id: string): Promise<ManageSubjectResult> {
     return { success: false, error: `Feil ved sletting: ${error.message}` };
   }
 
+  revalidatePath("/teacher/tasks", "page");
   return { success: true };
 }

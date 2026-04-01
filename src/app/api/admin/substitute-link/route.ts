@@ -82,9 +82,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // generateLink() returns action_link: the Supabase verification URL.
-  // When clicked, Supabase verifies the token and redirects to our callback
-  // with a proper PKCE auth code that exchangeCodeForSession() can handle.
+  // generateLink() returns action_link pointing to Supabase's verification
+  // endpoint (e.g. /auth/v1/verify?token=...&type=magiclink&redirect_to=...).
+  // Supabase's verify endpoint may redirect with #access_token (implicit flow)
+  // instead of ?code= (PKCE), which our server route can't read.
+  //
+  // Fix: extract the token_hash and type from the action_link and build a
+  // direct URL to our callback, which can use verifyOtp server-side.
   const actionLink = inviteData?.properties?.action_link;
 
   if (!actionLink) {
@@ -94,7 +98,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // The action_link points to Supabase's domain. We need to make sure
-  // the redirect_to parameter points back to our callback.
-  return NextResponse.json({ magicLink: actionLink });
+  // Parse the Supabase action_link to extract token_hash and type
+  const actionUrl = new URL(actionLink);
+  const tokenHash = actionUrl.searchParams.get("token") ?? actionUrl.searchParams.get("token_hash");
+  const type = actionUrl.searchParams.get("type") ?? "magiclink";
+
+  if (!tokenHash) {
+    // Fallback: return the raw Supabase action_link
+    return NextResponse.json({ magicLink: actionLink });
+  }
+
+  // Build a direct link to our own callback with query params
+  const callbackUrl = new URL("/auth/callback", request.nextUrl.origin);
+  callbackUrl.searchParams.set("token_hash", tokenHash);
+  callbackUrl.searchParams.set("type", type);
+
+  return NextResponse.json({ magicLink: callbackUrl.toString() });
 }

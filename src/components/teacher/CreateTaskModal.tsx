@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { X, ChevronRight, ChevronLeft, Repeat } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Repeat, Copy } from "lucide-react";
 import { SubjectTheme } from "@/utils/subject-colors";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
@@ -38,6 +38,9 @@ export type EditTaskData = {
   quiz_data: QuizQuestion[] | null;
 };
 
+// Template data shape — same fields as EditTaskData
+export type TemplateTaskData = EditTaskData;
+
 // Props Interface
 interface TaskCreatorModalProps {
   isOpen: boolean;
@@ -45,6 +48,8 @@ interface TaskCreatorModalProps {
   onSuccess: () => void;
   initialStudentId?: string | null;
   editTask?: EditTaskData | null;
+  /** When set, pre-fills the form for assignment (create mode) and reuses the existing task_library_id. */
+  templateTask?: TemplateTaskData | null;
 }
 
 export default function TaskCreatorModal({
@@ -53,8 +58,10 @@ export default function TaskCreatorModal({
   onSuccess,
   initialStudentId,
   editTask = null,
+  templateTask = null,
 }: TaskCreatorModalProps) {
-  const isEditMode = !!editTask;
+  const isEditMode = !!editTask && !templateTask;
+  const isTemplateMode = !!templateTask;
   const { toast, showToast, hideToast } = useToast();
   // Task Form State
   const [taskForm, setTaskForm] = useState<TaskFormData>({
@@ -77,6 +84,9 @@ export default function TaskCreatorModal({
 
   // Recurring task toggle
   const [isRecurring, setIsRecurring] = useState(false);
+
+  // Completion strategy: "shared" = 1 task for all slots, "per-slot" = 1 task per slot
+  const [completionMode, setCompletionMode] = useState<"shared" | "per-slot">("shared");
 
   // Track schedule entry selection count (for recurring checkbox visibility)
   const [scheduleSelectionCount, setScheduleSelectionCount] = useState(0);
@@ -108,7 +118,10 @@ export default function TaskCreatorModal({
   // Stable callback for SchedulePicker selection count
   const handleScheduleSelectionChange = useCallback((count: number) => {
     setScheduleSelectionCount(count);
-    if (count === 0) setIsRecurring(false);
+    if (count === 0) {
+      setIsRecurring(false);
+      setCompletionMode("shared");
+    }
   }, []);
 
   // Fetch data when modal opens
@@ -118,7 +131,7 @@ export default function TaskCreatorModal({
 
       setWizardStep(1);
 
-      if (editTask) {
+      if (editTask && !templateTask) {
         // Pre-fill form for editing
         setTaskForm({
           title: editTask.title,
@@ -131,13 +144,26 @@ export default function TaskCreatorModal({
         if (editTask.quiz_data) {
           setQuizQuestions(editTask.quiz_data);
         }
+      } else if (templateTask) {
+        // Pre-fill from template but stay in create mode (wizard 1→2)
+        setTaskForm({
+          title: templateTask.title,
+          description: templateTask.description || "",
+          subject_id: templateTask.subject_id || "",
+          points_value: 50,
+          due_date: "",
+          type: templateTask.type || "standard",
+        });
+        if (templateTask.quiz_data) {
+          setQuizQuestions(templateTask.quiz_data);
+        }
       } else {
         // Reset form for create mode
         resetForm();
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, editTask]);
+  }, [isOpen, editTask, templateTask]);
 
   // Auto-scroll to quiz builder when quiz mode is selected
   useEffect(() => {
@@ -179,6 +205,7 @@ export default function TaskCreatorModal({
     setNewSubjectColor("red");
     setQuizQuestions([]);
     setIsRecurring(false);
+    setCompletionMode("shared");
     setScheduleSelectionCount(0);
   };
 
@@ -309,64 +336,46 @@ export default function TaskCreatorModal({
       const finalSubjectId = await resolveSubjectId();
       if (!finalSubjectId) return;
 
-      // STEP 1: Always save to task_library first
-      const { data: libraryTask, error: libraryError } = await supabase
-        .from("task_library")
-        .insert({
-          title: taskForm.title,
-          description: taskForm.description,
-          subject_id: finalSubjectId,
-          type: taskForm.type,
-          quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
-          created_by: user?.id || null,
-        })
-        .select()
-        .single();
+      // STEP 1: Resolve task_library_id — reuse existing template or create new entry
+      let libraryId: string;
 
-      if (libraryError) throw libraryError;
+      if (isTemplateMode && templateTask) {
+        // Reuse the existing task_library entry
+        libraryId = templateTask.id;
+      } else {
+        const { data: libraryTask, error: libraryError } = await supabase
+          .from("task_library")
+          .insert({
+            title: taskForm.title,
+            description: taskForm.description,
+            subject_id: finalSubjectId,
+            type: taskForm.type,
+            quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
+            created_by: user?.id || null,
+          })
+          .select()
+          .single();
+
+        if (libraryError) throw libraryError;
+        libraryId = libraryTask.id;
+      }
 
       // STEP 2: Check if any students are selected for assignment
       const targetStudentIds =
         recipientRef.current?.getSelectedStudentIds() ?? [];
 
       if (targetStudentIds.length > 0) {
-        // Create task assignments for selected students
-        const tasksToInsert = targetStudentIds.map((sid) => ({
-          title: taskForm.title,
-          description: taskForm.description,
-          subject_id: finalSubjectId,
-          points_value: taskForm.points_value,
-          due_date: taskForm.due_date || null,
-          student_id: sid,
-          created_by: user?.id || null,
-          is_completed: false,
-          type: taskForm.type,
-          quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
-          task_library_id: libraryTask.id,
-        }));
-
-        const { data: insertedTasks, error: assignError } = await supabase
-          .from("tasks")
-          .insert(tasksToInsert)
-          .select();
-
-        if (assignError) throw assignError;
-
-        // ── Schedule entry linking (recurring vs single-week) ──
+        // Pre-resolve schedule entries before task insertion
         const selectedEntries = scheduleRef.current?.getSelectedEntries() ?? [];
         const viewingWeek = scheduleRef.current?.getViewingWeek() ?? 0;
+        let resolvedEntryIds: string[] = [];
 
-        if (insertedTasks && selectedEntries.length > 0) {
-          let resolvedEntryIds: string[];
-
+        if (selectedEntries.length > 0) {
           if (isRecurring) {
             // RECURRING: link directly to masterplan (week 0) entries.
-            // If the entry already IS week 0, use it directly.
-            // If it's a specific-week override, find/create the week 0 sibling.
             resolvedEntryIds = await Promise.all(
               selectedEntries.map(async (entry) => {
                 if ((entry.week_number ?? 0) === 0) return entry.id;
-                // Find matching masterplan entry
                 const { data: masterEntry } = await supabase
                   .from("schedule_entries")
                   .select("id")
@@ -382,14 +391,11 @@ export default function TaskCreatorModal({
               }),
             );
           } else {
-            // SINGLE-WEEK: link to the specific-week entry.
-            // If the selected entry is a masterplan fallback (week 0),
-            // clone/upsert it for the target week before linking.
+            // SINGLE-WEEK: link to specific-week entries, cloning from masterplan if needed.
             const targetWeek = viewingWeek || getISOWeekNumber(new Date());
             resolvedEntryIds = await Promise.all(
               selectedEntries.map(async (entry) => {
                 if ((entry.week_number ?? 0) !== 0) return entry.id;
-                // Clone masterplan entry to the target week
                 const matchKey = {
                   class_id: entry.class_id,
                   day_of_week: entry.day_of_week,
@@ -398,7 +404,6 @@ export default function TaskCreatorModal({
                   week_number: targetWeek,
                   student_id: entry.student_id ?? null,
                 };
-                // Check if a week-specific entry already exists
                 const { data: existing } = await supabase
                   .from("schedule_entries")
                   .select("id")
@@ -413,7 +418,6 @@ export default function TaskCreatorModal({
                   .limit(1)
                   .maybeSingle();
                 if (existing) return existing.id;
-                // Clone from masterplan
                 const { data: cloned, error: cloneError } = await supabase
                   .from("schedule_entries")
                   .insert({
@@ -434,20 +438,94 @@ export default function TaskCreatorModal({
               }),
             );
           }
+        }
 
-          const junctionRows = insertedTasks.flatMap((task) =>
+        const usePerSlot = completionMode === "per-slot" && resolvedEntryIds.length > 1;
+
+        if (usePerSlot) {
+          // PER-SLOT: create one task per student per schedule slot,
+          // each linked to exactly one schedule entry.
+          const perSlotTasks = targetStudentIds.flatMap((sid) =>
             resolvedEntryIds.map((entryId) => ({
-              task_id: task.id,
-              schedule_entry_id: entryId,
+              title: taskForm.title,
+              description: taskForm.description,
+              subject_id: finalSubjectId,
+              points_value: taskForm.points_value,
+              due_date: taskForm.due_date || null,
+              student_id: sid,
+              created_by: user?.id || null,
+              is_completed: false,
+              type: taskForm.type,
+              quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
+              task_library_id: libraryId,
+              _entryId: entryId, // temporary marker for junction linking
             })),
           );
 
-          if (junctionRows.length > 0) {
+          // Strip _entryId before inserting (not a real DB column)
+          const dbRows = perSlotTasks.map(({ _entryId: _, ...rest }) => rest);
+
+          const { data: insertedTasks, error: assignError } = await supabase
+            .from("tasks")
+            .insert(dbRows)
+            .select();
+
+          if (assignError) throw assignError;
+
+          // Each inserted task maps 1:1 to a schedule entry
+          if (insertedTasks && insertedTasks.length > 0) {
+            const junctionRows = insertedTasks.map(
+              (task: { id: string }, idx: number) => ({
+                task_id: task.id,
+                schedule_entry_id: perSlotTasks[idx]._entryId,
+              }),
+            );
+
             const { error: junctionError } = await supabase
               .from("task_schedule_entries")
               .insert(junctionRows);
 
             if (junctionError) throw junctionError;
+          }
+        } else {
+          // SHARED (default): create one task per student, linked to all schedule entries.
+          const tasksToInsert = targetStudentIds.map((sid) => ({
+            title: taskForm.title,
+            description: taskForm.description,
+            subject_id: finalSubjectId,
+            points_value: taskForm.points_value,
+            due_date: taskForm.due_date || null,
+            student_id: sid,
+            created_by: user?.id || null,
+            is_completed: false,
+            type: taskForm.type,
+            quiz_data: taskForm.type === "quiz" ? quizQuestions : null,
+            task_library_id: libraryId,
+          }));
+
+          const { data: insertedTasks, error: assignError } = await supabase
+            .from("tasks")
+            .insert(tasksToInsert)
+            .select();
+
+          if (assignError) throw assignError;
+
+          if (insertedTasks && resolvedEntryIds.length > 0) {
+            const junctionRows = insertedTasks.flatMap(
+              (task: { id: string }) =>
+                resolvedEntryIds.map((entryId) => ({
+                  task_id: task.id,
+                  schedule_entry_id: entryId,
+                })),
+            );
+
+            if (junctionRows.length > 0) {
+              const { error: junctionError } = await supabase
+                .from("task_schedule_entries")
+                .insert(junctionRows);
+
+              if (junctionError) throw junctionError;
+            }
           }
         }
       }
@@ -538,7 +616,11 @@ export default function TaskCreatorModal({
         <div className="px-6 py-4 border-b border-slate-200 shrink-0 bg-white z-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-900">
-              {isEditMode ? "Rediger oppgave" : "Opprett ny oppgave"}
+              {isEditMode
+                ? "Rediger oppgave"
+                : isTemplateMode
+                  ? "Tildel fra bibliotek"
+                  : "Opprett ny oppgave"}
             </h2>
 
             {/* Step indicator — create mode only */}
@@ -799,9 +881,57 @@ export default function TaskCreatorModal({
                     onSelectionChange={handleScheduleSelectionChange}
                   />
 
-                  {/* Recurring toggle — progressive disclosure */}
+                  {/* Completion strategy + recurring toggle — progressive disclosure */}
                   {scheduleSelectionCount > 0 && (
-                    <div className="mt-4 pt-4 border-t border-slate-200">
+                    <div className="mt-4 pt-4 border-t border-slate-200 space-y-4">
+                      {/* Completion mode selector (only when 2+ slots) */}
+                      {scheduleSelectionCount > 1 && (
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700 mb-2">
+                            Hvordan skal oppgaven fullføres?
+                          </p>
+                          <div className="space-y-2">
+                            <label className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "shared" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                              <input
+                                type="radio"
+                                name="completionMode"
+                                checked={completionMode === "shared"}
+                                onChange={() => setCompletionMode("shared")}
+                                className="mt-0.5 h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <div>
+                                <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                                  <Repeat className="h-3.5 w-3.5" />
+                                  Én gang for alle timene
+                                </span>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  Eleven fullfører oppgaven én gang — gjelder for alle valgte timer
+                                </p>
+                              </div>
+                            </label>
+                            <label className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "per-slot" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                              <input
+                                type="radio"
+                                name="completionMode"
+                                checked={completionMode === "per-slot"}
+                                onChange={() => setCompletionMode("per-slot")}
+                                className="mt-0.5 h-4 w-4 border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <div>
+                                <span className="flex items-center gap-1.5 text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                                  <Copy className="h-3.5 w-3.5" />
+                                  Én gang per time
+                                </span>
+                                <p className="text-xs text-slate-500 mt-0.5">
+                                  Oppgaven fullføres separat i hver time — perfekt for daglige rutiner
+                                </p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recurring toggle */}
                       <label className="flex items-start gap-3 cursor-pointer group">
                         <input
                           type="checkbox"

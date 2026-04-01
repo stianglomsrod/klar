@@ -18,7 +18,7 @@ import { getSubjectTheme } from "@/utils/subject-colors";
 import type { SubjectTheme } from "@/utils/subject-colors";
 import CreateTaskButton from "@/components/teacher/CreateTaskButton";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
-import type { EditTaskData } from "@/components/teacher/CreateTaskModal";
+import type { EditTaskData, TemplateTaskData } from "@/components/teacher/CreateTaskModal";
 import { updateSubject, deleteSubject } from "@/app/actions/manage-subjects";
 import { EmojiPickerButton } from "@/components/ui/emoji-picker";
 import { ColorPickerGrid } from "@/components/ui/color-picker-grid";
@@ -77,6 +77,8 @@ export default function TaskLibraryPage() {
   const [assignmentsTask, setAssignmentsTask] = useState<TaskTemplate | null>(
     null,
   );
+  const [assigningTemplate, setAssigningTemplate] =
+    useState<TemplateTaskData | null>(null);
 
   const supabase = createClient();
 
@@ -106,9 +108,24 @@ export default function TaskLibraryPage() {
     const result = await updateSubject(editingSubjectId, editForm);
     setSubjectActionLoading(false);
     if (result.success) {
+      // Optimistically update local subjects state
+      setSubjects((prev) =>
+        prev.map((s) =>
+          s.id === editingSubjectId
+            ? { ...s, title: editForm.title.trim(), emoji: editForm.emoji, color_theme: editForm.color_theme }
+            : s,
+        ),
+      );
+      // Also update tasks that reference this subject
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.subject_id === editingSubjectId
+            ? { ...t, subject: editForm.title.trim(), subjectEmoji: editForm.emoji, subjectColor: editForm.color_theme }
+            : t,
+        ),
+      );
       showToast("Faget ble oppdatert", "success");
       setEditingSubjectId(null);
-      fetchSubjects();
     } else {
       showToast(result.error, "error");
     }
@@ -119,8 +136,8 @@ export default function TaskLibraryPage() {
     const result = await deleteSubject(id);
     setSubjectActionLoading(false);
     if (result.success) {
+      setSubjects((prev) => prev.filter((s) => s.id !== id));
       showToast("Faget ble slettet", "success");
-      fetchSubjects();
     } else {
       showToast(result.error, "error");
     }
@@ -535,7 +552,15 @@ export default function TaskLibraryPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // TODO: Implement assign task
+                            setAssigningTemplate({
+                              id: task.id,
+                              title: task.title,
+                              description: task.description,
+                              subject_id: task.subject_id,
+                              type: task.type,
+                              grade_level: task.gradeLevel,
+                              quiz_data: task.quiz_data,
+                            });
                           }}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-colors"
                         >
@@ -561,6 +586,17 @@ export default function TaskLibraryPage() {
           fetchTasks();
         }}
         editTask={editingTask}
+      />
+
+      {/* Assign from Template Modal */}
+      <TaskCreatorModal
+        isOpen={!!assigningTemplate}
+        onClose={() => setAssigningTemplate(null)}
+        onSuccess={() => {
+          setAssigningTemplate(null);
+          fetchTasks();
+        }}
+        templateTask={assigningTemplate}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -660,7 +696,7 @@ export default function TaskLibraryPage() {
                   return (
                     <li key={subject.id} className="py-3">
                       {isEditing ? (
-                        <div className="space-y-3">
+                        <div className="space-y-3 bg-indigo-50 border border-indigo-200 rounded-lg p-3 -mx-1">
                           {/* Edit row: emoji + name */}
                           <div className="flex items-center gap-2">
                             <EmojiPickerButton
