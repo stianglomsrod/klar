@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
 
   // Parse the Supabase action_link to extract token_hash and type
   const actionUrl = new URL(actionLink);
-  const tokenHash = actionUrl.searchParams.get("token") ?? actionUrl.searchParams.get("token_hash");
+  const tokenHash =
+    actionUrl.searchParams.get("token") ??
+    actionUrl.searchParams.get("token_hash");
   const type = actionUrl.searchParams.get("type") ?? "magiclink";
 
   if (!tokenHash) {

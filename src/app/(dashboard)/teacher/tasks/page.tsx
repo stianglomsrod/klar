@@ -18,7 +18,10 @@ import { getSubjectTheme } from "@/utils/subject-colors";
 import type { SubjectTheme } from "@/utils/subject-colors";
 import CreateTaskButton from "@/components/teacher/CreateTaskButton";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
-import type { EditTaskData, TemplateTaskData } from "@/components/teacher/CreateTaskModal";
+import type {
+  EditTaskData,
+  TemplateTaskData,
+} from "@/components/teacher/CreateTaskModal";
 import { updateSubject, deleteSubject } from "@/app/actions/manage-subjects";
 import { EmojiPickerButton } from "@/components/ui/emoji-picker";
 import { ColorPickerGrid } from "@/components/ui/color-picker-grid";
@@ -112,7 +115,12 @@ export default function TaskLibraryPage() {
       setSubjects((prev) =>
         prev.map((s) =>
           s.id === editingSubjectId
-            ? { ...s, title: editForm.title.trim(), emoji: editForm.emoji, color_theme: editForm.color_theme }
+            ? {
+                ...s,
+                title: editForm.title.trim(),
+                emoji: editForm.emoji,
+                color_theme: editForm.color_theme,
+              }
             : s,
         ),
       );
@@ -120,7 +128,12 @@ export default function TaskLibraryPage() {
       setTasks((prev) =>
         prev.map((t) =>
           t.subject_id === editingSubjectId
-            ? { ...t, subject: editForm.title.trim(), subjectEmoji: editForm.emoji, subjectColor: editForm.color_theme }
+            ? {
+                ...t,
+                subject: editForm.title.trim(),
+                subjectEmoji: editForm.emoji,
+                subjectColor: editForm.color_theme,
+              }
             : t,
         ),
       );

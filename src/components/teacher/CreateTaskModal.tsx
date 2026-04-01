@@ -86,7 +86,9 @@ export default function TaskCreatorModal({
   const [isRecurring, setIsRecurring] = useState(false);
 
   // Completion strategy: "shared" = 1 task for all slots, "per-slot" = 1 task per slot
-  const [completionMode, setCompletionMode] = useState<"shared" | "per-slot">("shared");
+  const [completionMode, setCompletionMode] = useState<"shared" | "per-slot">(
+    "shared",
+  );
 
   // Track schedule entry selection count (for recurring checkbox visibility)
   const [scheduleSelectionCount, setScheduleSelectionCount] = useState(0);
@@ -440,7 +442,8 @@ export default function TaskCreatorModal({
           }
         }
 
-        const usePerSlot = completionMode === "per-slot" && resolvedEntryIds.length > 1;
+        const usePerSlot =
+          completionMode === "per-slot" && resolvedEntryIds.length > 1;
 
         if (usePerSlot) {
           // PER-SLOT: create one task per student per schedule slot,
@@ -511,12 +514,11 @@ export default function TaskCreatorModal({
           if (assignError) throw assignError;
 
           if (insertedTasks && resolvedEntryIds.length > 0) {
-            const junctionRows = insertedTasks.flatMap(
-              (task: { id: string }) =>
-                resolvedEntryIds.map((entryId) => ({
-                  task_id: task.id,
-                  schedule_entry_id: entryId,
-                })),
+            const junctionRows = insertedTasks.flatMap((task: { id: string }) =>
+              resolvedEntryIds.map((entryId) => ({
+                task_id: task.id,
+                schedule_entry_id: entryId,
+              })),
             );
 
             if (junctionRows.length > 0) {
@@ -891,7 +893,9 @@ export default function TaskCreatorModal({
                             Hvordan skal oppgaven fullføres?
                           </p>
                           <div className="space-y-2">
-                            <label className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "shared" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                            <label
+                              className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "shared" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}
+                            >
                               <input
                                 type="radio"
                                 name="completionMode"
@@ -905,11 +909,14 @@ export default function TaskCreatorModal({
                                   Én gang for alle timene
                                 </span>
                                 <p className="text-xs text-slate-500 mt-0.5">
-                                  Eleven fullfører oppgaven én gang — gjelder for alle valgte timer
+                                  Eleven fullfører oppgaven én gang — gjelder
+                                  for alle valgte timer
                                 </p>
                               </div>
                             </label>
-                            <label className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "per-slot" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}>
+                            <label
+                              className={`flex items-start gap-3 cursor-pointer group p-2.5 rounded-lg border-2 transition-colors ${completionMode === "per-slot" ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 hover:border-slate-300"}`}
+                            >
                               <input
                                 type="radio"
                                 name="completionMode"
@@ -923,7 +930,8 @@ export default function TaskCreatorModal({
                                   Én gang per time
                                 </span>
                                 <p className="text-xs text-slate-500 mt-0.5">
-                                  Oppgaven fullføres separat i hver time — perfekt for daglige rutiner
+                                  Oppgaven fullføres separat i hver time —
+                                  perfekt for daglige rutiner
                                 </p>
                               </div>
                             </label>
