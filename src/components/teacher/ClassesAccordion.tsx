@@ -121,7 +121,11 @@ export default function ClassesAccordion({
           student_profiles (
             level,
             class_id,
-            show_flower_garden
+            show_flower_garden,
+            custom_welcome_message,
+            streak_enabled,
+            streak_mode,
+            current_streak
           )
           `,
         )
@@ -140,6 +144,11 @@ export default function ClassesAccordion({
           profile.student_profiles?.show_flower_garden ?? true,
         class_id: profile.student_profiles?.class_id ?? null,
         class_name: null, // Will be populated from classes data
+        custom_welcome_message:
+          profile.student_profiles?.custom_welcome_message ?? null,
+        streak_enabled: profile.student_profiles?.streak_enabled ?? false,
+        streak_mode: profile.student_profiles?.streak_mode ?? "classic",
+        current_streak: profile.student_profiles?.current_streak ?? 0,
       }));
 
       // Group classes by trinn dynamically
