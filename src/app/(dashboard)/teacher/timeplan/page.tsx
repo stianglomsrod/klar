@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, Suspense } from "react";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
 import { AlertCircle, Upload, Loader2 } from "lucide-react";
 import { parseWeeklyPlan } from "@/app/actions/parse-weekly-plan";
@@ -27,7 +27,7 @@ import { useClassStudentSelection } from "./useClassStudentSelection";
 import ClassStudentSelector from "./ClassStudentSelector";
 import UploadPreviewPanel from "./UploadPreviewPanel";
 
-export default function TimeplanPage() {
+function TimeplanPageContent() {
   // ── Class / student / week selection (extracted) ──
   const {
     classes,
@@ -589,5 +589,13 @@ export default function TimeplanPage() {
       {/* ── Toast ── */}
       <Toast toast={toast} onClose={hideToast} />
     </div>
+  );
+}
+
+export default function TimeplanPage() {
+  return (
+    <Suspense fallback={<div>Laster...</div>}>
+      <TimeplanPageContent />
+    </Suspense>
   );
 }
