@@ -221,9 +221,9 @@ export default function SubjectDetailPage() {
       <div className="max-w-5xl mx-auto w-full px-4 space-y-4">
         {/* Hero Section */}
         <SubjectHero
-          emoji={subject.emoji}
-          title={subject.title}
-          colorTheme={subject.color_theme}
+          emoji={subject.emoji || "📚"}
+          title={subject.title || "Fag"}
+          colorTheme={subject.color_theme || "blue"}
           completedCount={completedCount}
           totalTasks={totalTasks}
         >
