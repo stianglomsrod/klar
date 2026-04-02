@@ -55,9 +55,7 @@ export default function StudentPasswordCard({
       {/* Password display row */}
       <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
         <span className="flex-1 text-sm font-mono text-slate-700 select-all truncate">
-          {passwordVisible
-            ? (currentPassword || "Ikke satt")
-            : "••••••••"}
+          {passwordVisible ? currentPassword || "Ikke satt" : "••••••••"}
         </span>
 
         {/* Toggle visibility */}

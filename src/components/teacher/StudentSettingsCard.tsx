@@ -40,7 +40,9 @@ export default function StudentSettingsCard({
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [flowerGameEnabled, setFlowerGameEnabled] = useState(initialFlowerGardenEnabled);
+  const [flowerGameEnabled, setFlowerGameEnabled] = useState(
+    initialFlowerGardenEnabled,
+  );
   const [flowerSaving, setFlowerSaving] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState(initialWelcomeMessage);
   const [streakEnabled, setStreakEnabled] = useState(initialStreakEnabled);

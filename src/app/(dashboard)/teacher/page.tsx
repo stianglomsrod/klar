@@ -2,7 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { CheckCircle, Zap, Clock, ChevronRight, HandHelping } from "lucide-react";
+import {
+  CheckCircle,
+  Zap,
+  Clock,
+  ChevronRight,
+  HandHelping,
+} from "lucide-react";
 import { isImageUrl } from "@/utils/avatar";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
@@ -292,9 +298,7 @@ export default function TeacherDashboard() {
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
               <HandHelping className="h-5 w-5 text-blue-600" />
             </div>
-            <h2 className="text-lg font-semibold text-slate-900">
-              Hjelpekø
-            </h2>
+            <h2 className="text-lg font-semibold text-slate-900">Hjelpekø</h2>
           </div>
 
           <div className="space-y-4">
@@ -307,11 +311,13 @@ export default function TeacherDashboard() {
                   Elever som venter på hjelp
                 </p>
               </div>
-              <div className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold ${
-                helpQueueCount > 0
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-slate-100 text-slate-400"
-              }`}>
+              <div
+                className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold ${
+                  helpQueueCount > 0
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-slate-100 text-slate-400"
+                }`}
+              >
                 {helpQueueCount}
               </div>
             </div>

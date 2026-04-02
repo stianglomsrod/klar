@@ -50,10 +50,7 @@ export function recordStudentVisit(
     filtered.unshift({ ...student, visitedAt: Date.now() });
 
     // Keep only the most recent N
-    localStorage.setItem(
-      key,
-      JSON.stringify(filtered.slice(0, MAX_RECENT)),
-    );
+    localStorage.setItem(key, JSON.stringify(filtered.slice(0, MAX_RECENT)));
   } catch {
     // localStorage unavailable — silent fail
   }
