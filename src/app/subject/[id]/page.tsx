@@ -326,7 +326,9 @@ export default function SubjectDetailPage() {
         closeHalfwayModal={closeHalfwayModal}
         incompleteTasks={tasks}
         subjectContext={
-          subject ? { id: subject.id, title: subject.title || "Fag" } : undefined
+          subject
+            ? { id: subject.id, title: subject.title || "Fag" }
+            : undefined
         }
         toast={toast}
         hideToast={hideToast}
