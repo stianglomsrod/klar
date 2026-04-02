@@ -96,15 +96,8 @@ export default function HelpQueueSheet({
       if (error) throw error;
 
       setQueue(
-        (data || []).map(
-          (r: {
-            id: string;
-            student_id: string;
-            class_id: string;
-            created_at: string;
-            sort_order: number;
-            profiles: { full_name: string; avatar_url: string | null } | null;
-          }) => ({
+        ((data as any[]) || []).map(
+          (r: any) => ({
             id: r.id,
             student_id: r.student_id,
             class_id: r.class_id,
