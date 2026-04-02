@@ -59,6 +59,9 @@ export default function ClassesPage() {
             class_id,
             show_flower_garden,
             custom_welcome_message,
+            streak_enabled,
+            streak_mode,
+            current_streak,
             classes (
               name
             )
@@ -82,6 +85,12 @@ export default function ClassesPage() {
           profile.student_profiles?.show_flower_garden ?? true,
         custom_welcome_message:
           profile.student_profiles?.custom_welcome_message ?? null,
+        streak_enabled:
+          profile.student_profiles?.streak_enabled ?? false,
+        streak_mode:
+          profile.student_profiles?.streak_mode ?? "classic",
+        current_streak:
+          profile.student_profiles?.current_streak ?? 0,
       }));
 
       setStudents(transformedData);
