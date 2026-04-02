@@ -96,17 +96,15 @@ export default function HelpQueueSheet({
       if (error) throw error;
 
       setQueue(
-        ((data as any[]) || []).map(
-          (r: any) => ({
-            id: r.id,
-            student_id: r.student_id,
-            class_id: r.class_id,
-            created_at: r.created_at,
-            sort_order: r.sort_order ?? 0,
-            full_name: r.profiles?.full_name || "Ukjent elev",
-            avatar_url: r.profiles?.avatar_url ?? null,
-          }),
-        ),
+        ((data as any[]) || []).map((r: any) => ({
+          id: r.id,
+          student_id: r.student_id,
+          class_id: r.class_id,
+          created_at: r.created_at,
+          sort_order: r.sort_order ?? 0,
+          full_name: r.profiles?.full_name || "Ukjent elev",
+          avatar_url: r.profiles?.avatar_url ?? null,
+        })),
       );
     } catch {
       // Silent
