@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Search, Filter, School, Users } from "lucide-react";
@@ -13,7 +13,7 @@ import type { TeacherStudent } from "@/types/shared";
 
 type Student = TeacherStudent;
 
-export default function ClassesPage() {
+function ClassesPageContent() {
   const searchParams = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
   const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
@@ -320,5 +320,13 @@ export default function ClassesPage() {
       )}
       <Toast toast={toast} onClose={hideToast} />
     </div>
+  );
+}
+
+export default function ClassesPage() {
+  return (
+    <Suspense fallback={<div>Laster...</div>}>
+      <ClassesPageContent />
+    </Suspense>
   );
 }
