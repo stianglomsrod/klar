@@ -19,7 +19,10 @@ interface StudentSettingsCardProps {
   initialWelcomeMessage: string;
   initialStreakEnabled?: boolean;
   initialStreakMode?: string;
+  initialFlowerGardenEnabled?: boolean;
   showToast: (message: string, type: "success" | "error" | "warning") => void;
+  onFlowerToggle?: (enabled: boolean) => void;
+  onStreakToggle?: (enabled: boolean) => void;
 }
 
 export default function StudentSettingsCard({
@@ -27,14 +30,18 @@ export default function StudentSettingsCard({
   initialWelcomeMessage,
   initialStreakEnabled = false,
   initialStreakMode = "classic",
+  initialFlowerGardenEnabled = false,
   showToast,
+  onFlowerToggle,
+  onStreakToggle,
 }: StudentSettingsCardProps) {
   const supabase = createClient();
   const teacherIdRef = useRef<string | null>(null);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [flowerGameEnabled, setFlowerGameEnabled] = useState(true); // TODO: Wire to DB (student_profiles.show_flower_garden)
+  const [flowerGameEnabled, setFlowerGameEnabled] = useState(initialFlowerGardenEnabled);
+  const [flowerSaving, setFlowerSaving] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState(initialWelcomeMessage);
   const [streakEnabled, setStreakEnabled] = useState(initialStreakEnabled);
   const [streakMode, setStreakMode] = useState(initialStreakMode);
@@ -142,6 +149,29 @@ export default function StudentSettingsCard({
     }
   };
 
+  const handleToggleFlower = async () => {
+    if (flowerSaving) return;
+    setFlowerSaving(true);
+    const newState = !flowerGameEnabled;
+    try {
+      const { error } = await supabase
+        .from("student_profiles")
+        .update({ show_flower_garden: newState })
+        .eq("id", studentId);
+      if (error) throw error;
+      setFlowerGameEnabled(newState);
+      onFlowerToggle?.(newState);
+      showToast(
+        newState ? "Blomster-spill aktivert 🌸" : "Blomster-spill deaktivert",
+        "success",
+      );
+    } catch {
+      showToast("Kunne ikke endre innstilling. Prøv igjen.", "error");
+    } finally {
+      setFlowerSaving(false);
+    }
+  };
+
   const handleToggleStreak = async () => {
     if (streakSaving) return;
     setStreakSaving(true);
@@ -153,6 +183,7 @@ export default function StudentSettingsCard({
         .eq("id", studentId);
       if (error) throw error;
       setStreakEnabled(newState);
+      onStreakToggle?.(newState);
       showToast(
         newState ? "Streak aktivert 🔥" : "Streak deaktivert",
         "success",
@@ -228,8 +259,9 @@ export default function StudentSettingsCard({
             <p className="text-xs text-slate-600">Tilgang til minispill</p>
           </div>
           <button
-            onClick={() => setFlowerGameEnabled(!flowerGameEnabled)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+            onClick={handleToggleFlower}
+            disabled={flowerSaving}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 ${
               flowerGameEnabled ? "bg-green-500" : "bg-slate-300"
             }`}
           >

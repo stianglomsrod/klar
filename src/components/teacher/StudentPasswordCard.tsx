@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, RefreshCw, Copy, Check, Loader2 } from "lucide-react";
 import { resetStudentPassword } from "@/app/actions/student-actions";
 
@@ -21,6 +21,11 @@ export default function StudentPasswordCard({
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [passwordResetting, setPasswordResetting] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
+
+  // Sync state when the parent provides an updated password (e.g. after refetch)
+  useEffect(() => {
+    setCurrentPassword(initialPassword);
+  }, [initialPassword]);
 
   const handleResetPassword = async () => {
     setPasswordResetting(true);
@@ -50,7 +55,9 @@ export default function StudentPasswordCard({
       {/* Password display row */}
       <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
         <span className="flex-1 text-sm font-mono text-slate-700 select-all truncate">
-          {passwordVisible && currentPassword ? currentPassword : "••••••••"}
+          {passwordVisible
+            ? (currentPassword || "Ikke satt")
+            : "••••••••"}
         </span>
 
         {/* Toggle visibility */}

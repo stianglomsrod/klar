@@ -14,6 +14,7 @@ import TaskCreatorModal, {
   type EditTaskData,
 } from "@/components/teacher/CreateTaskModal";
 import { recordStudentVisit } from "@/components/teacher/RecentStudents";
+import { useTeacherProfile } from "@/hooks/useTeacherProfile";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import StudentRewardManager from "@/components/teacher/StudentRewardManager";
 import ClassCombobox from "@/components/teacher/ClassCombobox";
@@ -26,7 +27,7 @@ import {
   CheckCircle,
   Clock,
   Calendar,
-  Gift,
+  Flame,
   Edit,
   Plus,
   Trash2,
@@ -63,6 +64,7 @@ export default function StudentDashboardPage() {
   const router = useRouter();
   const params = useParams();
   const studentId = params.id as string;
+  const { profile: teacherProfile } = useTeacherProfile();
 
   const [student, setStudent] = useState<StudentProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,16 +76,24 @@ export default function StudentDashboardPage() {
   const [isCreateTaskModalOpen, setIsCreateTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<EditTaskData | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [showFlowerGarden, setShowFlowerGarden] = useState(false);
+  const [streakEnabledLive, setStreakEnabledLive] = useState(false);
   const [studentProfileData, setStudentProfileData] = useState<{
     current_xp: number;
     current_goal_total: number;
     points_earned: number;
     flowers_collected: number;
+    show_flower_garden: boolean;
+    current_streak: number;
+    longest_streak: number;
   }>({
     current_xp: 0,
     current_goal_total: 1000,
     points_earned: 0,
     flowers_collected: 0,
+    show_flower_garden: false,
+    current_streak: 0,
+    longest_streak: 0,
   });
 
   const supabase = createClient();
@@ -131,12 +141,15 @@ export default function StudentDashboardPage() {
       };
 
       setStudent(studentData);
+      setStreakEnabledLive(studentData.streak_enabled);
       // Track visit for "Nylig besøkte elever" widget
-      recordStudentVisit({
-        id: studentData.id,
-        full_name: studentData.full_name,
-        avatar_url: studentData.avatar_url,
-      });
+      if (teacherProfile?.id) {
+        recordStudentVisit(teacherProfile.id, {
+          id: studentData.id,
+          full_name: studentData.full_name,
+          avatar_url: studentData.avatar_url,
+        });
+      }
     } catch {
       // Silent – student profile shows loading state
     } finally {
@@ -192,7 +205,7 @@ export default function StudentDashboardPage() {
       const { data, error } = await supabase
         .from("student_profiles")
         .select(
-          "current_xp, current_goal_total, points_earned, flowers_collected",
+          "current_xp, current_goal_total, points_earned, flowers_collected, show_flower_garden, current_streak, longest_streak",
         )
         .eq("id", studentId)
         .single();
@@ -205,7 +218,11 @@ export default function StudentDashboardPage() {
           current_goal_total: data.current_goal_total || 1000,
           points_earned: data.points_earned || 0,
           flowers_collected: data.flowers_collected || 0,
+          show_flower_garden: data.show_flower_garden ?? false,
+          current_streak: data.current_streak || 0,
+          longest_streak: data.longest_streak || 0,
         });
+        setShowFlowerGarden(data.show_flower_garden ?? false);
       }
     } catch {
       // Silent – profile data keeps defaults
@@ -334,7 +351,10 @@ export default function StudentDashboardPage() {
           initialWelcomeMessage={student.custom_welcome_message}
           initialStreakEnabled={student.streak_enabled}
           initialStreakMode={student.streak_mode}
+          initialFlowerGardenEnabled={showFlowerGarden}
           showToast={showToast}
+          onFlowerToggle={setShowFlowerGarden}
+          onStreakToggle={setStreakEnabledLive}
         />
 
         {/* Card 2: Profile */}
@@ -431,24 +451,40 @@ export default function StudentDashboardPage() {
               </span>
             </div>
 
-            {/* Flowers */}
-            <div className="flex items-center justify-between p-3 bg-pink-50 border border-pink-200 rounded-lg">
-              <div className="flex items-center gap-2">
-                <Flower className="h-5 w-5 text-pink-600" />
-                <span className="text-sm font-medium text-slate-700">
-                  Blomster
+            {/* Flowers — only if garden is enabled */}
+            {showFlowerGarden && (
+              <div className="flex items-center justify-between p-3 bg-pink-50 border border-pink-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Flower className="h-5 w-5 text-pink-600" />
+                  <span className="text-sm font-medium text-slate-700">
+                    Blomster
+                  </span>
+                </div>
+                <span className="text-lg font-bold text-pink-700">
+                  {studentProfileData.flowers_collected}
                 </span>
               </div>
-              <span className="text-lg font-bold text-pink-700">
-                {studentProfileData.flowers_collected}
-              </span>
-            </div>
+            )}
 
-            {/* Give Reward Button */}
-            <button className="w-full px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 rounded-lg transition-all flex items-center justify-center gap-2">
-              <Gift className="h-4 w-4" />
-              Gi Belønning
-            </button>
+            {/* Streak — only if streak is enabled */}
+            {streakEnabledLive && (
+              <div className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Flame className="h-5 w-5 text-orange-600" />
+                  <span className="text-sm font-medium text-slate-700">
+                    Streak
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-bold text-orange-700">
+                    {studentProfileData.current_streak}
+                  </span>
+                  <span className="text-xs text-slate-500 ml-1">
+                    (maks {studentProfileData.longest_streak})
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

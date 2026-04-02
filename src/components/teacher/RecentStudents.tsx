@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Users, Search, ArrowRight } from "lucide-react";
 import { isImageUrl } from "@/utils/avatar";
 import { createClient } from "@/utils/supabase/client";
+import { useTeacherProfile } from "@/hooks/useTeacherProfile";
 import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────
@@ -21,18 +22,27 @@ type SearchResult = {
   avatar_url: string | null;
 };
 
-const STORAGE_KEY = "klar_recent_students";
+const STORAGE_KEY_PREFIX = "klar_recent_students_";
 const MAX_RECENT = 4;
+
+function getStorageKey(teacherId: string) {
+  return `${STORAGE_KEY_PREFIX}${teacherId}`;
+}
 
 // ── Public helpers (call from other pages) ───────────
 /** Record a student visit. Call this when a teacher navigates to a student page. */
-export function recordStudentVisit(student: {
-  id: string;
-  full_name: string;
-  avatar_url: string | null;
-}) {
+export function recordStudentVisit(
+  teacherId: string,
+  student: {
+    id: string;
+    full_name: string;
+    avatar_url: string | null;
+  },
+) {
+  if (!teacherId) return;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getStorageKey(teacherId);
+    const raw = localStorage.getItem(key);
     const list: RecentStudent[] = raw ? JSON.parse(raw) : [];
 
     // Remove if already in list, then prepend
@@ -41,7 +51,7 @@ export function recordStudentVisit(student: {
 
     // Keep only the most recent N
     localStorage.setItem(
-      STORAGE_KEY,
+      key,
       JSON.stringify(filtered.slice(0, MAX_RECENT)),
     );
   } catch {
@@ -52,22 +62,28 @@ export function recordStudentVisit(student: {
 // ── Component ────────────────────────────────────────
 export default function RecentStudents() {
   const router = useRouter();
+  const { profile } = useTeacherProfile();
+  const teacherId = profile?.id ?? null;
 
   // Mounted guard — prevents hydration mismatch from localStorage
   const [mounted, setMounted] = useState(false);
   const [students, setStudents] = useState<RecentStudent[]>([]);
   const [enriched, setEnriched] = useState(false);
 
-  // Read localStorage only after mount (client-only)
+  // Read localStorage only after mount and once we have a teacher ID
   useEffect(() => {
+    if (!teacherId) {
+      setMounted(true);
+      return;
+    }
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(getStorageKey(teacherId));
       if (raw) setStudents(JSON.parse(raw));
     } catch {
       // localStorage unavailable — silent fail
     }
     setMounted(true);
-  }, []);
+  }, [teacherId]);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");

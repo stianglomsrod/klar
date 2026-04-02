@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
+import { CheckCircle, Zap, Clock, ChevronRight, HandHelping } from "lucide-react";
 import { isImageUrl } from "@/utils/avatar";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
@@ -16,6 +16,7 @@ import ActivityDetailSheet, {
 import RecentStudents from "@/components/teacher/RecentStudents";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 import AddStudentModal from "@/components/teacher/AddStudentModal";
+import HelpQueueSheet from "@/components/teacher/HelpQueueSheet";
 import { timeAgo } from "@/utils/format-time";
 
 // ── Types ──────────────────────────────────────────────
@@ -47,11 +48,51 @@ export default function TeacherDashboard() {
   // Add student modal
   const [addStudentOpen, setAddStudentOpen] = useState(false);
 
+  // Help queue
+  const [helpQueueCount, setHelpQueueCount] = useState(0);
+  const [helpQueueOpen, setHelpQueueOpen] = useState(false);
+
+  const fetchHelpQueueCount = useCallback(async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // RLS (can_access_student) scopes visibility per teacher/substitute
+      const { count, error } = await supabase
+        .from("help_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+
+      if (!error) setHelpQueueCount(count ?? 0);
+    } catch {
+      // Silent
+    }
+  }, [supabase]);
+
   // ── Fetch activities ───────────────────────────────
   useEffect(() => {
     fetchActivities();
+    fetchHelpQueueCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Real-time help queue count
+  useEffect(() => {
+    const channel = supabase
+      .channel("help_queue_count")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "help_requests" },
+        () => fetchHelpQueueCount(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, fetchHelpQueueCount]);
 
   const fetchActivities = async () => {
     setLoadingActivities(true);
@@ -245,14 +286,14 @@ export default function TeacherDashboard() {
         {/* Widget 1: Nylig besøkte elever */}
         <RecentStudents />
 
-        {/* Widget 2: Venter på godkjenning */}
+        {/* Widget 2: Hjelpekø */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100">
-              <CheckCircle className="h-5 w-5 text-amber-600" />
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
+              <HandHelping className="h-5 w-5 text-blue-600" />
             </div>
             <h2 className="text-lg font-semibold text-slate-900">
-              Venter på godkjenning
+              Hjelpekø
             </h2>
           </div>
 
@@ -260,19 +301,26 @@ export default function TeacherDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-900">
-                  Fullførte oppgaver
+                  Aktive forespørsler
                 </p>
                 <p className="text-xs text-slate-500 mt-1">
-                  Trykk for å se detaljer
+                  Elever som venter på hjelp
                 </p>
               </div>
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-amber-100 text-amber-700 font-bold">
-                {activities.length}
+              <div className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold ${
+                helpQueueCount > 0
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-slate-100 text-slate-400"
+              }`}>
+                {helpQueueCount}
               </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-              <button className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors">
+              <button
+                onClick={() => setHelpQueueOpen(true)}
+                className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+              >
                 Se alle
               </button>
             </div>
@@ -477,7 +525,13 @@ export default function TeacherDashboard() {
         isOpen={addStudentOpen}
         onClose={() => setAddStudentOpen(false)}
         onSuccess={() => setAddStudentOpen(false)}
-      />{" "}
+      />
+      {/* ── Help Queue Sheet ─────────────────────── */}
+      <HelpQueueSheet
+        isOpen={helpQueueOpen}
+        onClose={() => setHelpQueueOpen(false)}
+        onResolved={() => fetchHelpQueueCount()}
+      />
       <Toast toast={toast} onClose={hideToast} />
     </div>
   );
