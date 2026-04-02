@@ -289,7 +289,7 @@ export default function SubjectDetailPage() {
                       <TaskCard
                         task={task}
                         onComplete={() => handleTaskComplete(task)}
-                        colorTheme={subject?.color_theme}
+                        colorTheme={subject?.color_theme || "blue"}
                       />
                     </motion.div>
                   ))}
@@ -326,7 +326,7 @@ export default function SubjectDetailPage() {
         closeHalfwayModal={closeHalfwayModal}
         incompleteTasks={tasks}
         subjectContext={
-          subject ? { id: subject.id, title: subject.title } : undefined
+          subject ? { id: subject.id, title: subject.title || "Fag" } : undefined
         }
         toast={toast}
         hideToast={hideToast}
