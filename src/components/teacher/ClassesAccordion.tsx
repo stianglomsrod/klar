@@ -11,7 +11,8 @@ import {
   MoreVertical,
   Plus,
 } from "lucide-react";
-import ClassMonitorToggle from "./ClassMonitorToggle";
+import QueueToggle from "./QueueToggle";
+import { getMyActiveQueues } from "@/app/actions/queue-actions";
 import HelpRequestQueue from "./HelpRequestQueue";
 import BulkStudentAssignModal from "./BulkStudentAssignModal";
 import ConfirmDialog, {
@@ -97,6 +98,11 @@ export default function ClassesAccordion({
   } | null>(null);
   const [editTrinnName, setEditTrinnName] = useState("");
 
+  // ── Multiplayer queue participation state ──────────
+  const [activeQueueTargets, setActiveQueueTargets] = useState<Set<string>>(
+    new Set(),
+  );
+
   const supabase = createClient();
 
   const fetchClassStructure = useCallback(async () => {
@@ -169,6 +175,22 @@ export default function ClassesAccordion({
   useEffect(() => {
     fetchClassStructure();
   }, [fetchClassStructure]);
+
+  // Fetch which queues this teacher participates in
+  useEffect(() => {
+    getMyActiveQueues().then((queues) => {
+      setActiveQueueTargets(new Set(queues.map((q) => q.targetId)));
+    });
+  }, []);
+
+  const handleQueueToggled = (targetId: string, newState: boolean) => {
+    setActiveQueueTargets((prev) => {
+      const next = new Set(prev);
+      if (newState) next.add(targetId);
+      else next.delete(targetId);
+      return next;
+    });
+  };
 
   const toggleTrinn = (trinnId: string) => {
     const newExpanded = new Set(expandedTrinn);
@@ -568,23 +590,32 @@ export default function ClassesAccordion({
                                 {cls.students.length} elever
                               </span>
                             </button>
-                            <button
-                              onClick={(e) =>
-                                handleMenuClick(e, "class", cls.id)
-                              }
-                              className="ml-2 p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
-                              title="More actions"
-                            >
-                              <MoreVertical className="h-4 w-4 text-slate-600" />
-                            </button>
+                            <div className="flex items-center gap-3 ml-3">
+                              <QueueToggle
+                                targetId={cls.id}
+                                targetType="class"
+                                isActive={activeQueueTargets.has(cls.id)}
+                                onToggled={(val) =>
+                                  handleQueueToggled(cls.id, val)
+                                }
+                              />
+                              <button
+                                onClick={(e) =>
+                                  handleMenuClick(e, "class", cls.id)
+                                }
+                                className="p-1.5 rounded-lg hover:bg-slate-200 transition-colors"
+                                title="More actions"
+                              >
+                                <MoreVertical className="h-4 w-4 text-slate-600" />
+                              </button>
+                            </div>
                           </div>
 
                           {/* Students in this Class */}
                           {isClassExpanded && (
                             <div className="bg-white">
-                              {/* Class Toolbar - Monitor Toggle + Bulk Assign */}
+                              {/* Class Toolbar - Bulk Assign */}
                               <div className="w-full px-4 py-3 pl-20 flex items-center gap-4 bg-gray-50 border-b border-slate-200 mb-2">
-                                <ClassMonitorToggle classId={cls.id} />
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

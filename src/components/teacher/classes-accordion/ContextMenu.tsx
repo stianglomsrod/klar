@@ -1,6 +1,7 @@
 "use client";
 
 import type { OpenMenu, Student } from "./types";
+import StudentContextMenu from "@/components/shared/StudentContextMenu";
 
 type ContextMenuProps = {
   openMenu: NonNullable<OpenMenu>;
@@ -8,6 +9,22 @@ type ContextMenuProps = {
 };
 
 export default function ContextMenu({ openMenu, onAction }: ContextMenuProps) {
+  if (openMenu.type === "student") {
+    return (
+      <StudentContextMenu
+        position={openMenu.position}
+        items={[
+          { label: "Se profil", action: "view-profile" },
+          { label: "Rediger", action: "edit-student" },
+          { label: "Flytt elev", action: "move-student" },
+          { divider: true },
+          { label: "Fjern elev", action: "remove-student", variant: "danger" },
+        ]}
+        onAction={(action) => onAction(action, openMenu.id, openMenu.student)}
+      />
+    );
+  }
+
   return (
     <div
       className="fixed z-50 bg-white rounded-lg shadow-lg border border-slate-200 py-1 min-w-[180px]"
@@ -57,38 +74,6 @@ export default function ContextMenu({ openMenu, onAction }: ContextMenuProps) {
             className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             Slett klasse
-          </button>
-        </>
-      )}
-
-      {openMenu.type === "student" && (
-        <>
-          <button
-            onClick={() => onAction("view-profile", openMenu.id)}
-            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Se profil
-          </button>
-          <button
-            onClick={() =>
-              onAction("edit-student", openMenu.id, openMenu.student)
-            }
-            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Rediger
-          </button>
-          <button
-            onClick={() => onAction("move-student", openMenu.id)}
-            className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            Flytt elev
-          </button>
-          <div className="border-t border-slate-200 my-1" />
-          <button
-            onClick={() => onAction("remove-student", openMenu.id)}
-            className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-          >
-            Fjern elev
           </button>
         </>
       )}

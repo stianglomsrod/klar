@@ -2,13 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
-import {
-  CheckCircle,
-  Zap,
-  Clock,
-  ChevronRight,
-  HandHelping,
-} from "lucide-react";
+import { CheckCircle, Zap, Clock, ChevronRight } from "lucide-react";
 import { isImageUrl } from "@/utils/avatar";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
@@ -23,6 +17,7 @@ import RecentStudents from "@/components/teacher/RecentStudents";
 import TaskCreatorModal from "@/components/teacher/CreateTaskModal";
 import AddStudentModal from "@/components/teacher/AddStudentModal";
 import HelpQueueSheet from "@/components/teacher/HelpQueueSheet";
+import ActiveQueuesWidget from "@/components/teacher/ActiveQueuesWidget";
 import { timeAgo } from "@/utils/format-time";
 
 // ── Types ──────────────────────────────────────────────
@@ -292,46 +287,11 @@ export default function TeacherDashboard() {
         {/* Widget 1: Nylig besøkte elever */}
         <RecentStudents />
 
-        {/* Widget 2: Hjelpekø */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">
-              <HandHelping className="h-5 w-5 text-blue-600" />
-            </div>
-            <h2 className="text-lg font-semibold text-slate-900">Hjelpekø</h2>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-slate-900">
-                  Aktive forespørsler
-                </p>
-                <p className="text-xs text-slate-500 mt-1">
-                  Elever som venter på hjelp
-                </p>
-              </div>
-              <div
-                className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold ${
-                  helpQueueCount > 0
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-slate-100 text-slate-400"
-                }`}
-              >
-                {helpQueueCount}
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100">
-              <button
-                onClick={() => setHelpQueueOpen(true)}
-                className="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
-              >
-                Se alle
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Widget 2: Hjelpekø (dynamic) */}
+        <ActiveQueuesWidget
+          totalPendingCount={helpQueueCount}
+          onOpenHelpQueue={() => setHelpQueueOpen(true)}
+        />
 
         {/* Widget 3: Hurtighandlinger */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">

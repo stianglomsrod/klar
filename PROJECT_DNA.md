@@ -601,3 +601,13 @@ Every end-of-turn summary must be delivered inside a **single markdown code bloc
 19. **Attendance reward progress tracking** — `attendance_reward_progress` (jsonb on `student_profiles`) stores `Record<reward_id, { baseline, last_granted_at }>` where `baseline` is the streak when first observed and `last_granted_at` is the streak day of the most recent grant. On streak reset (`current_streak < last_granted_at`), `baseline` re-initializes to current streak. Rewards with `specific_student_ids` use a three-way `.or()` filter: `is.null`, `eq.{}`, `cs.{id}` to match both NULL and empty arrays.
 
 20. **Attendance rewards are filtered from level-up** — `useAvailableRewards` excludes `cost_type='attendance'` rewards from the `LevelUpModal` picker so students only see regular rewards when leveling up. Attendance rewards are granted automatically via `useAttendanceStreak`.
+
+---
+
+## 10. Future Features / v1.1
+
+1. **Task Sharing** — Implement an `is_shared` boolean toggle on `task_library`. When enabled, a teacher voluntarily publishes their task (e.g., quizzes, structured exercises) to a school-wide shared library. Other teachers can browse and copy shared tasks into their own library. This keeps the default view owner-only (`.eq('created_by', user.id)`) while offering an opt-in discovery channel for high-quality resources. Key considerations:
+   - New column: `task_library.is_shared boolean DEFAULT false`
+   - Shared library UI: separate tab or toggle in the Task Library page
+   - Copy-to-own-library action (deep-clones the task with new `created_by`)
+   - RLS policy: shared tasks are read-visible to all authenticated teachers

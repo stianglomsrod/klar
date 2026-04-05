@@ -178,6 +178,11 @@ export default function TaskLibraryPage() {
   const fetchTasks = async () => {
     setLoading(true);
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from("task_library")
         .select(
@@ -190,6 +195,7 @@ export default function TaskLibraryPage() {
           )
         `,
         )
+        .eq("created_by", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;

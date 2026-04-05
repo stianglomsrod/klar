@@ -17,6 +17,8 @@ type EditStudentSheetProps = {
     updates: {
       show_flower_garden: boolean;
       custom_welcome_message: string | null;
+      streak_enabled: boolean;
+      streak_mode: "classic" | "accumulated";
     },
   ) => Promise<void>;
 };
@@ -33,12 +35,18 @@ export default function EditStudentSheet({
   const [welcomeMessage, setWelcomeMessage] = useState(
     student.custom_welcome_message || "",
   );
+  const [streakEnabled, setStreakEnabled] = useState(student.streak_enabled);
+  const [streakMode, setStreakMode] = useState<"classic" | "accumulated">(
+    student.streak_mode,
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   // Reset state when student changes
   useEffect(() => {
     setShowFlowerGarden(student.show_flower_garden);
     setWelcomeMessage(student.custom_welcome_message || "");
+    setStreakEnabled(student.streak_enabled);
+    setStreakMode(student.streak_mode);
   }, [student]);
 
   const handleSave = async () => {
@@ -47,6 +55,8 @@ export default function EditStudentSheet({
       await onSave(student.id, {
         show_flower_garden: showFlowerGarden,
         custom_welcome_message: welcomeMessage.trim() || null,
+        streak_enabled: streakEnabled,
+        streak_mode: streakMode,
       });
     } finally {
       setIsSaving(false);
@@ -150,6 +160,71 @@ export default function EditStudentSheet({
                       />
                     </button>
                   </div>
+                </div>
+
+                {/* Streak Settings */}
+                <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 mt-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label
+                        htmlFor="streak-toggle"
+                        className="text-sm font-medium text-slate-900 block mb-1"
+                      >
+                        Aktiver Streak 🔥
+                      </label>
+                      <p className="text-xs text-slate-600">
+                        Eleven ser sin streak-teller på dashboardet
+                      </p>
+                    </div>
+                    <button
+                      id="streak-toggle"
+                      onClick={() => setStreakEnabled(!streakEnabled)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                        streakEnabled ? "bg-green-500" : "bg-slate-300"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          streakEnabled ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {streakEnabled && (
+                    <div className="mt-3 pt-3 border-t border-slate-200">
+                      <label className="text-xs font-medium text-slate-700 block mb-2">
+                        Streak-modus
+                      </label>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setStreakMode("classic")}
+                          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                            streakMode === "classic"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          Klassisk
+                        </button>
+                        <button
+                          onClick={() => setStreakMode("accumulated")}
+                          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors border ${
+                            streakMode === "accumulated"
+                              ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                          }`}
+                        >
+                          Akkumulert
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1.5">
+                        {streakMode === "classic"
+                          ? "Nullstilles ved manglende dag"
+                          : "Teller totale aktive dager"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 

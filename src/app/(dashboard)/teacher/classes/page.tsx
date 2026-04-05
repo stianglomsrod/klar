@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { Search, Filter, School, Users } from "lucide-react";
+import { Search, Filter, School, Users, UsersRound } from "lucide-react";
+import GroupsAccordion from "@/components/teacher/GroupsAccordion";
 import { useToast } from "@/hooks/useToast";
 import Toast from "@/components/ui/Toast";
 import StudentTable from "@/components/teacher/StudentTable";
@@ -23,8 +24,12 @@ function ClassesPageContent() {
   const [selectedClass, setSelectedClass] = useState<string>("Alle");
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"table" | "hierarchy">(
-    searchParams.get("tab") === "elever" ? "table" : "hierarchy",
+  const [viewMode, setViewMode] = useState<"hierarchy" | "groups" | "table">(
+    searchParams.get("tab") === "elever"
+      ? "table"
+      : searchParams.get("tab") === "grupper"
+        ? "groups"
+        : "hierarchy",
   );
   const [teacherId, setTeacherId] = useState<string>("");
 
@@ -166,6 +171,8 @@ function ClassesPageContent() {
     updates: {
       show_flower_garden: boolean;
       custom_welcome_message: string | null;
+      streak_enabled: boolean;
+      streak_mode: "classic" | "accumulated";
     },
   ) => {
     try {
@@ -222,6 +229,17 @@ function ClassesPageContent() {
           Klasser
         </button>
         <button
+          onClick={() => setViewMode("groups")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            viewMode === "groups"
+              ? "bg-indigo-600 text-white"
+              : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          <UsersRound className="h-4 w-4" />
+          Grupper
+        </button>
+        <button
           onClick={() => setViewMode("table")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
             viewMode === "table"
@@ -245,7 +263,9 @@ function ClassesPageContent() {
               placeholder={
                 viewMode === "hierarchy"
                   ? "Søk etter klasse..."
-                  : "Søk etter elev..."
+                  : viewMode === "groups"
+                    ? "Søk etter gruppe eller elev..."
+                    : "Søk etter elev..."
               }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -291,6 +311,18 @@ function ClassesPageContent() {
           searchQuery={searchQuery}
           onStudentClick={(student) => {
             // Find the full student object from our list
+            const fullStudent = students.find((s) => s.id === student.id);
+            if (fullStudent) {
+              handleEditStudent(fullStudent);
+            }
+          }}
+        />
+      ) : viewMode === "groups" ? (
+        /* Groups View */
+        <GroupsAccordion
+          teacherId={teacherId}
+          searchQuery={searchQuery}
+          onStudentClick={(student) => {
             const fullStudent = students.find((s) => s.id === student.id);
             if (fullStudent) {
               handleEditStudent(fullStudent);

@@ -23,7 +23,7 @@ const navigationItems = [
     icon: LayoutDashboard,
   },
   {
-    name: "Mine Klasser",
+    name: "Mine Elever",
     href: "/teacher/classes",
     icon: Users,
   },

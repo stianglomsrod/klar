@@ -101,6 +101,7 @@ klar/
 │   │   │           └── UkebrevPreview.tsx              ← Ukebrev preview (messages, goals, homework, schedule)
 │   │   │
 │   │   ├── actions/
+│   │   │   ├── queue-actions.ts
 │   │   │   ├── student-actions.ts
 │   │   │   ├── manage-subjects.ts
 │   │   │   ├── parse-weekly-plan.ts
@@ -160,9 +161,12 @@ klar/
 │   │   │   └── ColorPickerStep.tsx
 │   │   │
 │   │   ├── shared/
-│   │   │   └── CouponCard.tsx
+│   │   │   ├── CouponCard.tsx
+│   │   │   ├── MoveStudentToGroupDialog.tsx
+│   │   │   └── StudentContextMenu.tsx
 │   │   │
 │   │   ├── student/
+│   │   │   ├── StudentLayoutShell.tsx
 │   │   │   ├── ArchiveModal.tsx
 │   │   │   ├── AvatarPickerModal.tsx
 │   │   │   ├── FeedbackBubble.tsx
@@ -181,6 +185,7 @@ klar/
 │   │   │   └── XpProgressBar.tsx
 │   │   │
 │   │   ├── teacher/
+│   │   │   ├── ActiveQueuesWidget.tsx
 │   │   │   ├── ActivityDetailSheet.tsx
 │   │   │   ├── AddStudentModal.tsx
 │   │   │   ├── BulkStudentAssignModal.tsx
@@ -194,9 +199,12 @@ klar/
 │   │   │   │   ├── ContextMenu.tsx
 │   │   │   │   └── StudentRow.tsx
 │   │   │   ├── ClassMonitorToggle.tsx
+│   │   │   ├── CreateGroupModal.tsx
 │   │   │   ├── CreateTaskButton.tsx
 │   │   │   ├── CreateTaskModal.tsx
 │   │   │   ├── EditStudentSheet.tsx
+│   │   │   ├── GroupsAccordion.tsx
+│   │   │   ├── HelpQueueSheet.tsx
 │   │   │   ├── HelpRequestQueue.tsx
 │   │   │   ├── QuizBuilder.tsx
 │   │   │   ├── RecipientPicker.tsx
@@ -216,7 +224,9 @@ klar/
 │   │   │   ├── StudentSettingsCard.tsx
 │   │   │   ├── StudentTable.tsx
 │   │   │   ├── SubstituteManager.tsx              ← Admin: vikar account list + assignments + magic links
+│   │   │   ├── QueueToggle.tsx
 │   │   │   ├── TaskAssignmentsSheet.tsx
+│   │   │   ├── TeacherLayoutShell.tsx
 │   │   │   ├── TeacherSidebar.tsx
 │   │   │   └── WeeklyScheduleEditor.tsx
 │   │   │

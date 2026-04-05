@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Klar - Lærer Dashboard",
-  description: "Lærer dashboard for Klar",
+  title: "Klar",
+  description: "Klar – læringsplattform for elever og lærere",
   manifest: "/manifest.json",
 };
 

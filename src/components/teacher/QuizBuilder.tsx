@@ -119,10 +119,17 @@ export default function QuizBuilder({
             }`}
           >
             {/* Card Header — always visible */}
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setExpandedId(isExpanded ? null : q.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 text-left"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setExpandedId(isExpanded ? null : q.id);
+                }
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer"
             >
               <GripVertical className="h-4 w-4 text-slate-300 shrink-0" />
               <span className="text-xs font-bold text-indigo-600 shrink-0 w-5">
@@ -148,7 +155,7 @@ export default function QuizBuilder({
               >
                 <Trash2 className="h-4 w-4" />
               </button>
-            </button>
+            </div>
 
             {/* Card Body — expanded */}
             {isExpanded && (

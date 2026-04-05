@@ -89,9 +89,12 @@ CREATE TABLE public.help_requests (
   status text NOT NULL DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'resolved'::text, 'cancelled'::text])),
   created_at timestamp with time zone DEFAULT now(),
   resolved_at timestamp with time zone,
+  sort_order integer DEFAULT 0,
+  active_queue_id uuid,
   CONSTRAINT help_requests_pkey PRIMARY KEY (id),
   CONSTRAINT help_requests_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id),
-  CONSTRAINT help_requests_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id)
+  CONSTRAINT help_requests_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
+  CONSTRAINT help_requests_active_queue_id_fkey FOREIGN KEY (active_queue_id) REFERENCES public.active_help_queues(id)
 );
 
 CREATE TABLE public.profiles (
@@ -736,6 +739,55 @@ AS $$
   END;
 $$;
 GRANT EXECUTE ON FUNCTION public.can_access_class(uuid) TO authenticated;
+
+-- ── Student Groups ─────────────────────────────────────
+
+CREATE TABLE public.student_groups (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT student_groups_pkey PRIMARY KEY (id),
+  CONSTRAINT student_groups_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public.student_group_members (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  group_id uuid NOT NULL,
+  student_id uuid NOT NULL,
+  CONSTRAINT student_group_members_pkey PRIMARY KEY (id),
+  CONSTRAINT student_group_members_group_id_fkey FOREIGN KEY (group_id) REFERENCES public.student_groups(id) ON DELETE CASCADE,
+  CONSTRAINT student_group_members_student_id_fkey FOREIGN KEY (student_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  UNIQUE(group_id, student_id)
+);
+
+ALTER TABLE public.student_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_group_members ENABLE ROW LEVEL SECURITY;
+
+-- ── Active Help Queues (Multiplayer Session Model) ─────
+
+CREATE TABLE public.active_help_queues (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  class_id uuid,
+  student_group_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  status text NOT NULL DEFAULT 'open'::text CHECK (status = ANY (ARRAY['open'::text, 'closed'::text])),
+  CONSTRAINT active_help_queues_pkey PRIMARY KEY (id),
+  CONSTRAINT active_help_queues_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.classes(id),
+  CONSTRAINT active_help_queues_student_group_id_fkey FOREIGN KEY (student_group_id) REFERENCES public.student_groups(id)
+);
+
+CREATE TABLE public.help_queue_participants (
+  queue_id uuid NOT NULL,
+  teacher_id uuid NOT NULL,
+  joined_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT help_queue_participants_pkey PRIMARY KEY (queue_id, teacher_id),
+  CONSTRAINT help_queue_participants_queue_id_fkey FOREIGN KEY (queue_id) REFERENCES public.active_help_queues(id) ON DELETE CASCADE,
+  CONSTRAINT help_queue_participants_teacher_id_fkey FOREIGN KEY (teacher_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+);
+
+ALTER TABLE public.active_help_queues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.help_queue_participants ENABLE ROW LEVEL SECURITY;
 
 -- 7. RLS HARDENING (Phase 4 Chunk 2)
 -- Policies updated on: profiles, student_profiles, classes, daily_announcements, rewards, student_rewards
