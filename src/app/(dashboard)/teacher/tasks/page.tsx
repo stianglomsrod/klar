@@ -540,11 +540,7 @@ export default function TaskLibraryPage() {
                             >
                               {task.subject}
                             </span>
-                            {/* Badge 2: Grade */}
-                            <span className="text-xs px-2 py-0.5 rounded border border-gray-200 text-gray-600 font-medium">
-                              {task.gradeLevel}
-                            </span>
-                            {/* Badge 3: Type */}
+                            {/* Badge 2: Type */}
                             <span
                               className={`text-xs px-2 py-0.5 rounded border font-medium ${
                                 task.type === "quiz"
