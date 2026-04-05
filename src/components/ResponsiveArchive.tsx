@@ -109,7 +109,7 @@ export default function ResponsiveArchive({
       <PopoverContent
         side="top"
         align="end"
-        className="w-96 p-0 border-slate-200 rounded-2xl shadow-xl"
+        className="w-[calc(100vw-2rem)] sm:w-96 p-0 border-slate-200 rounded-2xl shadow-xl"
       >
         <div className="flex flex-col max-h-[60vh]">
           {/* Header */}

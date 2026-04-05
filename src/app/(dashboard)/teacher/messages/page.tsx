@@ -246,20 +246,22 @@ export default function TeacherMessagesPage() {
   const dateAnnouncements = getSelectedDateAnnouncements();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-slate-900">Meldinger</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900">
+            Meldinger
+          </h1>
           <p className="text-slate-600 mt-2">
             Opprett og administrer daglige meldinger for elever
           </p>
         </div>
 
         {/* Two Column Layout */}
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
           {/* LEFT COLUMN - Calendar & Announcements */}
-          <div className="col-span-5">
+          <div className="lg:col-span-5">
             {/* Calendar Card */}
             <div className="p-6 mb-6 bg-white rounded-lg shadow-sm border border-slate-200">
               <h2 className="text-xl font-bold text-slate-900 mb-4">
@@ -332,8 +334,8 @@ export default function TeacherMessagesPage() {
           </div>
 
           {/* RIGHT COLUMN - Create New Message */}
-          <div className="col-span-7">
-            <div className="p-6 bg-white rounded-lg shadow-sm border border-slate-200 sticky top-8">
+          <div className="lg:col-span-7">
+            <div className="p-4 sm:p-6 bg-white rounded-lg shadow-sm border border-slate-200 lg:sticky lg:top-8">
               <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <Plus className="h-5 w-5" />
                 Ny Melding

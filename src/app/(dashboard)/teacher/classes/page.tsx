@@ -206,17 +206,19 @@ function ClassesPageContent() {
   }
 
   return (
-    <div className="p-6 lg:p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Mine Elever</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
+          Mine Elever
+        </h1>
         <p className="text-slate-600">
           Administrer elever, klasser og innstillinger
         </p>
       </div>
 
       {/* View Mode Toggle */}
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <button
           onClick={() => setViewMode("hierarchy")}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${

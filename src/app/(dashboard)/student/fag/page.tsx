@@ -116,7 +116,7 @@ export default function SubjectsPage() {
       />
 
       {/* Main Content */}
-      <div className="pt-24 px-8 pb-24 max-w-5xl mx-auto space-y-12">
+      <div className="pt-20 sm:pt-24 px-4 sm:px-6 lg:px-8 pb-24 max-w-5xl mx-auto space-y-8 sm:space-y-12">
         <header className="flex flex-col items-start px-2"></header>
 
         {/* --- FAG-KORTENE (GRID) --- */}
@@ -148,7 +148,7 @@ export default function SubjectsPage() {
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-indigo-100 shadow-lg p-8"
+                    className="flex flex-col items-center justify-center text-center w-full max-w-md mx-auto bg-white/80 backdrop-blur-sm rounded-3xl border-2 border-indigo-100 shadow-lg p-5 sm:p-8"
                   >
                     <div className="text-7xl mb-6 animate-bounce">🎉</div>
                     <h2 className="text-3xl font-bold text-slate-900 mb-2">
@@ -171,7 +171,7 @@ export default function SubjectsPage() {
 
               // Show active subjects in grid
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-10 place-items-stretch">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 pb-10 place-items-stretch">
                   <AnimatePresence mode="wait">
                     {activeSubjects.map((subject, index) => {
                       const totalTasks = subject.tasks?.length || 0;

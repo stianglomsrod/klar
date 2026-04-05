@@ -65,7 +65,9 @@ export default function WelcomeOverlay({
           onClick={handleDismiss}
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-blue-600 text-white cursor-pointer p-4 text-center"
         >
-          <h1 className="text-4xl font-bold mb-4">{welcomeMessage} 👋</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-4">
+            {welcomeMessage} 👋
+          </h1>
           <p className="text-xl opacity-90">
             Trykk hvor som helst for å starte dagen.
           </p>

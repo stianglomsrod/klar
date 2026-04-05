@@ -64,7 +64,7 @@ export default function SubjectCard({
         }}
         whileTap={{ scale: 0.98 }}
         style={{ rotate: index % 2 === 0 ? 1 : -1 }}
-        className={`relative p-6 rounded-2xl cursor-pointer aspect-square w-full flex flex-col justify-between overflow-hidden ${cardBackground} ${borderColor}`}
+        className={`relative p-4 sm:p-6 rounded-2xl cursor-pointer aspect-[3/2] sm:aspect-square w-full flex flex-col justify-between overflow-hidden ${cardBackground} ${borderColor}`}
       >
         {/* Subtle subject-tinted wash behind content */}
         <div
@@ -72,7 +72,9 @@ export default function SubjectCard({
         />
         {/* Header */}
         <div className="flex justify-between items-start z-10">
-          <div className="text-4xl filter drop-shadow-sm">{emoji}</div>
+          <div className="text-3xl sm:text-4xl filter drop-shadow-sm">
+            {emoji}
+          </div>
           {isDone && (
             <div className="bg-white/50 p-1.5 rounded-full">
               <CheckCircle2 className="w-6 h-6 opacity-75" />
@@ -83,7 +85,7 @@ export default function SubjectCard({
         {/* Content */}
         <div className="z-10">
           <h3
-            className={`text-2xl font-bold tracking-tight mb-1 ${theme.text}`}
+            className={`text-xl sm:text-2xl font-bold tracking-tight mb-1 ${theme.text}`}
           >
             {title}
           </h3>

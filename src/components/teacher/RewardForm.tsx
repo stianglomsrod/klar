@@ -75,9 +75,9 @@ export default function RewardForm({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-slate-900">
             {isEditing ? "Rediger Belønning" : "Ny Belønning"}
           </h2>
@@ -90,7 +90,7 @@ export default function RewardForm({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5">
           {/* Title */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
@@ -309,7 +309,7 @@ export default function RewardForm({
         </div>
 
         {/* Footer */}
-        <div className="p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0">
+        <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 sticky bottom-0">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"

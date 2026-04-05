@@ -75,7 +75,7 @@ export default function MoveStudentToGroupDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm mx-4 p-6">
+      <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-sm mx-3 sm:mx-4 p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">
             Flytt {studentName}

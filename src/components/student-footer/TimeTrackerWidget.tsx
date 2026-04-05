@@ -113,10 +113,10 @@ export default function TimeTrackerWidget({
             className="fixed z-50"
             style={{
               bottom: `${widgetPosition.bottom + 8}px`,
-              right: `${widgetPosition.right - 84}px`,
+              right: `max(1rem, ${widgetPosition.right - 84}px)`,
             }}
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-4 min-w-[140px] border border-gray-100 relative">
+            <div className="bg-white rounded-2xl shadow-2xl p-4 min-w-[140px] max-w-[calc(100vw-2rem)] border border-gray-100 relative">
               {/* Tail/Arrow */}
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-white border-r border-b border-gray-100 transform rotate-45" />
 
@@ -151,7 +151,7 @@ export default function TimeTrackerWidget({
         type="button"
         onClick={() => setToolEnabled((v) => !v)}
         title={toolEnabled ? "Skru av tidtaker" : "Skru på tidtaker"}
-        className={`relative group flex items-center justify-center h-14 w-14 rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 ${
+        className={`relative group flex items-center justify-center h-11 w-11 sm:h-14 sm:w-14 rounded-full border border-gray-100 bg-white shadow-xl transition-all duration-300 hover:scale-105 hover:bg-gray-50 active:scale-95 ${
           toolEnabled
             ? "ring-2 ring-indigo-400 text-indigo-600"
             : "text-gray-400"

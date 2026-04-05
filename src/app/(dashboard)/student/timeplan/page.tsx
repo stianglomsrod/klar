@@ -36,7 +36,7 @@ type DayRelation = "past" | "today" | "future";
 export default function StudentTimeplanPage() {
   const router = useRouter();
   const supabase = createClient();
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [weeklyLetterText, setWeeklyLetterText] = useState<string | null>(null);
@@ -244,7 +244,7 @@ export default function StudentTimeplanPage() {
       </div>
 
       {/* Day Tabs — mobile only (desktop shows the 5-column grid) */}
-      <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm md:hidden">
+      <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm lg:hidden">
         <div className="flex justify-center gap-1 px-3 py-2 max-w-2xl mx-auto">
           {DAY_NAMES_SHORT.map((name, idx) => {
             const dayNum = idx + 1;

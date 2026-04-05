@@ -455,7 +455,7 @@ export default function ClassesAccordion({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8">
         <div className="flex items-center justify-center">
           <p className="text-slate-600">Laster klassestruktur...</p>
         </div>
@@ -465,7 +465,7 @@ export default function ClassesAccordion({
 
   if (filteredTrinnGroups.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6 lg:p-8">
         <div className="text-center">
           <GraduationCap className="h-12 w-12 text-slate-400 mx-auto mb-3" />
           <p className="text-slate-600 mb-2">

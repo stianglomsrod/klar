@@ -19,7 +19,7 @@ export default function ConditionalLayout({
 
   // Student routes: include navigation and footer with padding
   return (
-    <div className="pt-16 pb-32">
+    <div className="pt-14 sm:pt-16 pb-24 sm:pb-28 md:pb-32">
       <Navigation />
       {children}
       <StudentFooterWrapper />

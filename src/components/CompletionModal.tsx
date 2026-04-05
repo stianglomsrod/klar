@@ -78,7 +78,7 @@ export default function CompletionModal({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full px-8 py-10 text-center pointer-events-auto">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full px-4 sm:px-6 md:px-8 py-8 sm:py-10 text-center pointer-events-auto">
               <motion.div
                 animate={{ scale: [1, 1.06, 1] }}
                 transition={{

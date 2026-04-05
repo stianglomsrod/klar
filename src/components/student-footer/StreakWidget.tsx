@@ -117,10 +117,10 @@ export default function StreakWidget({
             className="fixed z-50"
             style={{
               bottom: `${widgetPosition.bottom + 8}px`,
-              right: `${widgetPosition.right - 100}px`,
+              right: `max(1rem, ${widgetPosition.right - 100}px)`,
             }}
           >
-            <div className="bg-white rounded-2xl shadow-2xl p-4 min-w-[200px] border border-gray-100 relative">
+            <div className="bg-white rounded-2xl shadow-2xl p-4 min-w-[200px] max-w-[calc(100vw-2rem)] border border-gray-100 relative">
               {/* Tail/Arrow */}
               <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-5 h-5 bg-white border-r border-b border-gray-100 transform rotate-45" />
 
@@ -193,7 +193,7 @@ export default function StreakWidget({
         transition={
           bounce ? { duration: 0.55, ease: "easeOut" } : { duration: 0.2 }
         }
-        className={`relative flex items-center justify-center flex-shrink-0 h-12 gap-1 px-3 rounded-full border transition-all duration-300 hover:scale-105 active:scale-95 ${
+        className={`relative flex items-center justify-center flex-shrink-0 h-10 sm:h-12 gap-1 px-2 sm:px-3 rounded-full border transition-all duration-300 hover:scale-105 active:scale-95 ${
           popoverOpen
             ? "ring-2 ring-amber-400 border-amber-200 bg-amber-50"
             : currentStreak > 0

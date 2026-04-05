@@ -320,9 +320,9 @@ export function RecipientSelector({
       {/* Modal */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-3 sm:mx-4 max-h-[95vh] sm:max-h-[90vh] flex flex-col">
             {/* Header */}
-            <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+            <div className="p-4 sm:p-6 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-lg font-bold text-slate-900">
                 Velg mottakere
               </h3>

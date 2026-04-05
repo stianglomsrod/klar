@@ -611,11 +611,11 @@ export default function TaskCreatorModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl max-w-6xl w-full h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl max-w-6xl w-full h-[90vh] sm:h-[85vh] flex flex-col p-0 gap-0 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-200 shrink-0 bg-white z-20 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 shrink-0 bg-white z-20 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-900">
               {isEditMode
@@ -818,9 +818,9 @@ export default function TaskCreatorModal({
 
           {/* ─── STEP 2: Distribution (create mode only) ─── */}
           {wizardStep === 2 && !isEditMode && (
-            <div className="h-full grid grid-cols-12 overflow-hidden">
+            <div className="h-full grid grid-cols-1 md:grid-cols-12 overflow-hidden">
               {/* Recipients */}
-              <div className="col-span-7 h-full overflow-hidden flex flex-col">
+              <div className="md:col-span-7 h-full overflow-hidden flex flex-col">
                 <RecipientPicker
                   ref={recipientRef}
                   initialStudentId={initialStudentId}
@@ -829,7 +829,7 @@ export default function TaskCreatorModal({
               </div>
 
               {/* Settings panel */}
-              <div className="col-span-5 h-full border-l bg-slate-50/50 flex flex-col overflow-y-auto">
+              <div className="md:col-span-5 h-full border-t md:border-t-0 md:border-l bg-slate-50/50 flex flex-col overflow-y-auto">
                 <div className="p-5 space-y-5">
                   <h3 className="text-sm font-semibold text-slate-700">
                     Innstillinger

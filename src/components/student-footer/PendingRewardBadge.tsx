@@ -17,7 +17,7 @@ export default function PendingRewardBadge({
     <motion.button
       type="button"
       onClick={onClaim}
-      className="relative flex items-center justify-center flex-shrink-0 h-12 w-12 rounded-full bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 shadow-lg cursor-pointer"
+      className="relative flex items-center justify-center flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-gradient-to-br from-yellow-300 via-pink-400 to-purple-500 shadow-lg cursor-pointer"
       title="Du har premier å hente!"
       animate={{
         scale: [1, 1.12, 1],

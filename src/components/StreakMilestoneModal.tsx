@@ -61,7 +61,7 @@ export default function StreakMilestoneModal({
               delay: 0.1,
             }}
             onClick={(e) => e.stopPropagation()}
-            className="relative bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center overflow-hidden"
+            className="relative bg-white rounded-3xl shadow-2xl p-5 sm:p-8 max-w-sm w-full mx-3 sm:mx-4 text-center overflow-hidden"
           >
             {/* Decorative top glow */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-40 bg-amber-300/20 rounded-full blur-3xl -translate-y-1/2" />

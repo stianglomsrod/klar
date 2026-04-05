@@ -111,7 +111,7 @@ export default function HalfwayModal({
           onClick={handleClose}
         >
           <motion.div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden max-h-[95vh] sm:max-h-[90vh] overflow-y-auto"
             initial={{ scale: 0.85, opacity: 0, y: 30 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
@@ -119,7 +119,7 @@ export default function HalfwayModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Celebration Header */}
-            <div className="bg-gradient-to-br from-amber-400 via-yellow-400 to-orange-400 px-6 py-8 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-br from-amber-400 via-yellow-400 to-orange-400 px-4 sm:px-6 py-6 sm:py-8 text-center relative overflow-hidden">
               {/* Decorative sparkles */}
               <motion.div
                 className="absolute top-3 left-6 text-2xl"
@@ -158,7 +158,7 @@ export default function HalfwayModal({
             </div>
 
             {/* Progress Bar */}
-            <div className="px-6 pt-5 pb-3">
+            <div className="px-4 sm:px-6 pt-5 pb-3">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2">
                 <span>Nivå {level}</span>
                 <span className="text-amber-600">{progressPercent}%</span>
@@ -179,7 +179,7 @@ export default function HalfwayModal({
 
             {/* Reward Teaser */}
             {(rewards.length > 0 || showFlowerGarden) && (
-              <div className="px-6 py-3">
+              <div className="px-4 sm:px-6 py-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Trophy className="h-4 w-4 text-amber-500" />
                   <h3 className="text-sm font-bold text-slate-700">
@@ -217,7 +217,7 @@ export default function HalfwayModal({
 
             {/* Fastest Path */}
             {fastestPath.length > 0 && (
-              <div className="px-6 py-3">
+              <div className="px-4 sm:px-6 py-3">
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="h-4 w-4 text-orange-500" />
                   <h3 className="text-sm font-bold text-slate-700">
@@ -259,7 +259,7 @@ export default function HalfwayModal({
 
             {/* Fallback when no tasks */}
             {fastestPath.length === 0 && (
-              <div className="px-6 py-3 text-center">
+              <div className="px-4 sm:px-6 py-3 text-center">
                 <p className="text-sm text-slate-500">
                   Fortsett det gode arbeidet! 💪
                 </p>
@@ -267,7 +267,7 @@ export default function HalfwayModal({
             )}
 
             {/* Footer */}
-            <div className="px-6 py-5">
+            <div className="px-4 sm:px-6 py-5">
               <button
                 onClick={handleClose}
                 className="w-full px-4 py-3 text-sm font-bold text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 rounded-xl transition-all shadow-md hover:shadow-lg"

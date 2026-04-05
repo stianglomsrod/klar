@@ -13,6 +13,7 @@ import {
   Pencil,
   X,
   Check,
+  Filter,
 } from "lucide-react";
 import { getSubjectTheme } from "@/utils/subject-colors";
 import type { SubjectTheme } from "@/utils/subject-colors";
@@ -82,6 +83,7 @@ export default function TaskLibraryPage() {
   );
   const [assigningTemplate, setAssigningTemplate] =
     useState<TemplateTaskData | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const supabase = createClient();
 
@@ -348,9 +350,28 @@ export default function TaskLibraryPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar - Subject Filter */}
-      <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 overflow-y-auto transform transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="p-4">
+          {/* Mobile close button */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="mb-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors lg:hidden"
+          >
+            <X className="h-5 w-5" />
+          </button>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Filtrer etter fag
@@ -366,7 +387,10 @@ export default function TaskLibraryPage() {
 
           {/* All Tasks */}
           <button
-            onClick={() => setSelectedSubject(null)}
+            onClick={() => {
+              setSelectedSubject(null);
+              setSidebarOpen(false);
+            }}
             className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors font-semibold ${
               selectedSubject === null
                 ? "bg-indigo-50 text-indigo-700"
@@ -389,7 +413,10 @@ export default function TaskLibraryPage() {
               {mainSubjects.map((subject) => (
                 <button
                   key={subject.id}
-                  onClick={() => setSelectedSubject(subject.title)}
+                  onClick={() => {
+                    setSelectedSubject(subject.title);
+                    setSidebarOpen(false);
+                  }}
                   className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
                     selectedSubject === subject.title
                       ? "bg-indigo-50 text-indigo-700 font-medium"
@@ -412,7 +439,10 @@ export default function TaskLibraryPage() {
                     {otherSubjects.map((subject) => (
                       <button
                         key={subject.id}
-                        onClick={() => setSelectedSubject(subject.title)}
+                        onClick={() => {
+                          setSelectedSubject(subject.title);
+                          setSidebarOpen(false);
+                        }}
                         className={`w-full text-left px-3 py-2 rounded-lg mb-1 transition-colors ${
                           selectedSubject === subject.title
                             ? "bg-indigo-50 text-indigo-700 font-medium"
@@ -433,14 +463,23 @@ export default function TaskLibraryPage() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
           {/* Header */}
-          <div className="mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          <div className="mb-6 sm:mb-10">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4 sm:mb-8">
               Oppgavebibliotek
             </h1>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Mobile filter toggle */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors lg:hidden"
+              >
+                <Filter className="h-4 w-4" />
+                <span className="hidden sm:inline">Filter</span>
+              </button>
+
               {/* Search Bar */}
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -468,7 +507,7 @@ export default function TaskLibraryPage() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {filteredTasks.map((task) => {
                 const theme = getSubjectTheme(task.subjectColor);
 

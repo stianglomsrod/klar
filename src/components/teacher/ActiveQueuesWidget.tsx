@@ -75,7 +75,7 @@ export default function ActiveQueuesWidget({
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 sm:p-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-100">

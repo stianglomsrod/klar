@@ -229,7 +229,10 @@ const SchedulePicker = forwardRef<SchedulePickerRef, SchedulePickerProps>(
                 Knytt til time(r)
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-4" align="start">
+            <PopoverContent
+              className="w-[calc(100vw-2rem)] sm:w-96 p-4"
+              align="start"
+            >
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
