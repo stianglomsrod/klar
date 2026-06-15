@@ -789,6 +789,38 @@ CREATE TABLE public.help_queue_participants (
 ALTER TABLE public.active_help_queues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.help_queue_participants ENABLE ROW LEVEL SECURITY;
 
+-- Mirror active_help_queues open/closed state into classes.is_queue_open so the
+-- student help-hand gate (StudentFooter) stays in sync with the teacher's
+-- QueueToggle action. See migration 20260615000000_sync_class_queue_open.sql.
+CREATE OR REPLACE FUNCTION public.sync_class_queue_open()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  affected_class uuid;
+BEGIN
+  affected_class := COALESCE(NEW.class_id, OLD.class_id);
+  IF affected_class IS NOT NULL THEN
+    UPDATE public.classes c
+    SET is_queue_open = EXISTS (
+      SELECT 1 FROM public.active_help_queues q
+      WHERE q.class_id = affected_class AND q.status = 'open'
+    )
+    WHERE c.id = affected_class;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_sync_class_queue_open ON public.active_help_queues;
+CREATE TRIGGER trg_sync_class_queue_open
+AFTER INSERT OR DELETE OR UPDATE OF status, class_id
+ON public.active_help_queues
+FOR EACH ROW
+EXECUTE FUNCTION public.sync_class_queue_open();
+
 -- 7. RLS HARDENING (Phase 4 Chunk 2)
 -- Policies updated on: profiles, student_profiles, classes, daily_announcements, rewards, student_rewards
 -- RLS enabled on: tasks, feedback, help_requests, schedule_entries, task_schedule_entries, weekly_updates

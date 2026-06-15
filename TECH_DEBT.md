@@ -6,6 +6,27 @@
 
 ## Resolved Debt
 
+### ~~Help-Queue System Disconnect — Student Hand Never Appears~~ ✅ RESOLVED (2026-06-15)
+
+The student "help hand" (`StudentHelpButton`, gated in `StudentFooter.tsx` by
+`classes.is_queue_open`) was wired to a **dead** teacher control. The only writer
+of `classes.is_queue_open` (`ClassMonitorToggle.tsx`) is no longer rendered; the
+live teacher toggle (`QueueToggle.tsx` in `ClassesAccordion`/`GroupsAccordion`)
+writes to the newer `active_help_queues` / `help_queue_participants` tables via
+`toggleQueueParticipation` and never touches `is_queue_open`. The two systems were
+only coincidentally connected by stale `is_queue_open = true` values on the
+original class rows. Deleting/recreating classes 7A/7B/7C reset those rows to the
+column default (`false`), exposing the disconnect — the student hand stopped
+appearing even though teachers were activating the queue.
+
+**Resolution:** Migration `20260615000000_sync_class_queue_open.sql` adds a
+`SECURITY DEFINER` trigger (`sync_class_queue_open`) on `active_help_queues` that
+mirrors a class's open/closed queue state into `classes.is_queue_open`, plus a
+one-time backfill. `active_help_queues` remains the single source of truth; the
+student footer and its existing realtime subscription on `classes` keep working
+unchanged (no frontend or RLS changes). Follow-up debt: `ClassMonitorToggle.tsx`
+is now dead code and can be removed.
+
 ### ~~Chunk 3B — Teacher Page Decomposition (timeplan + ukebrev)~~ ✅ RESOLVED (2026-03-02)
 
 Two large teacher page-level components were decomposed:
