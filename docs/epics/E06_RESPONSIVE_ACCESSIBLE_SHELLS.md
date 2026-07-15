@@ -1,6 +1,7 @@
 # E06 – Responsive og tilgjengelige skall
 
-**Status:** Planlagt
+**Status:** Pågår – ansattskall og A1-primitives er implementert; samlet
+produktmatrise og manuelle enhetsporter gjenstår
 
 **Type:** Tverrgående
 
@@ -16,9 +17,13 @@ ikonførst, rolig og lesesvak-vennlig. Ansattflaten kan være tettere, men har
 samme semantiske, motoriske og responsive kvalitet.
 
 Dette er mer enn breakpoints: navigasjon, footer, sheets, dialoger,
-statusmeldinger, fokus og feiltilstander må være felles primitives. Nåværende
-v3 har enkelte tilgjengelighetsgrep, men ingen komplett skall-/testmatrise for
-de planlagte flytene.
+statusmeldinger, fokus og feiltilstander må være felles primitives. A1 har
+levert første ansattskall med desktopnavigasjon, mobilskuff,
+dialog-/sheet-primitives, fokusfelle/-retur og trygg tilgangstapstilstand.
+Chromium og WebKit er automatisk kontrollert på fem målviewports med reduced
+motion, axe A/AA, runtime- og overflow-sjekker. Hele produktmatrisen og de
+fysiske zoom-, skjermleser-, touch-, safe-area-, tastatur- og
+orienteringsportene gjenstår.
 
 ## Designregler
 

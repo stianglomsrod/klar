@@ -1,8 +1,8 @@
 # Klar 3.0 – implementeringsplan
 
-**Status:** Planlagt
+**Status:** Pågår
 
-**Sist avklart:** 15. juli 2026
+**Sist avklart:** 16. juli 2026
 
 **Autoritativ produktkilde:** [Domenekontrakten](./product/DOMAIN_CONTRACT.md)
 
@@ -55,9 +55,17 @@ erstattes av emulatorbeviset.
 
 ### Kontrollpunkt A – felles fundament
 
+**Status:** Pågår – A1 er implementert og automatisk verifisert; manuelle og
+utvidede bevisporter gjenstår.
+
 Første vertikale slice er scope-låst i
 [`Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne`](./qa/CONTROL_POINT_A1.md).
-A1 er forberedt, men ikke implementert.
+A1 har levert den klasseavgrensede autorisasjonskjernen, owner-kontrollflaten
+og første responsive ansattskall. De kjørte automatiske kontrollportene er
+grønne i lokal database, Chromium og WebKit. Kontrollpunkt A forblir åpent til
+de utvidede action-/kapabilitetsbevisene og faktisk 200 prosent zoom,
+skjermleser, touch, safe-area/skjermtastatur og orienteringsbytte er
+dokumentert.
 
 Start E05 og E06 som tverrgående fundament:
 

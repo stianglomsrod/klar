@@ -1,6 +1,7 @@
 # E05 – Ansattilgang og vikar
 
-**Status:** Planlagt
+**Status:** Pågår – A1-autorisasjonskjernen er implementert; øvrige
+virkeområder og senere pedagogiske funksjoner gjenstår
 
 **Kontrakt:** [§ 4 Aktører, roller og ressursomfang](../product/DOMAIN_CONTRACT.md#4-aktører-roller-og-ressursomfang)
 
@@ -13,9 +14,12 @@ pedagogiske kjernehandlingene når de har et aktivt oppdrag på den konkrete
 klassen, gruppen, faget eller eleven. Lik funksjon betyr ikke global tilgang.
 Vikaren bruker personlig konto, AAL2 og automatisk utløp.
 
-Nåværende 3.0 har owner/teacher/student og klassemedlemskap, men ingen
-oppdragstyper, tidsgrenser eller vikarroll. Den gamle 2.x-vikarmodellen skal
-ikke gjenbrukes fordi den manglet gyldighetsperiode og hadde for brede regler.
+Kontrollpunkt A1 har levert personlig AAL2-identitet, klasse- og
+tidsavgrensede oppdrag, fast `class_pedagogy_v1`, hard autorisasjons-cutover,
+owner-only kontrollflate, tilbakekalling og audit for dagens pedagogiske
+kjerne. Gruppe-, fag-, elev- og øktomfang, notetilgang og funksjonene fra de
+senere produktepicene er fortsatt planlagt. Epicen er derfor pågår, ikke
+ferdig.
 
 ## Prinsippmodell
 
@@ -60,7 +64,7 @@ eget omfang eller varighet.
    også om en side står åpen.
 6. Opprettelse, endring, bruk av privilegert handling og utløp revideres.
 
-## Foreslått data- og tjenestemodell
+## Implementert grunnmodell og videre utvidelse
 
 - `staff_assignments`: org, bruker, jobbetikett, start/slutt, revoked,
   oppretter og versjon.
@@ -91,13 +95,13 @@ tydelig revisjon. Teknisk audit skal aldri brukes som elevjournal.
   omfang.
 - [ ] Samme brukere avvises på annen klasse, elev, fag, organisasjon eller
   utenfor tidsrommet.
-- [ ] Vikar bruker personlig identitet og AAL2.
-- [ ] Vikaroppdrag aktiveres og utløper automatisk på serveren.
-- [ ] Tilbakekalling stopper nye handlinger og revaliderer aktiv sesjon.
-- [ ] Ingen ansatt kan gi seg selv eller andre større tilgang uten adminrett.
-- [ ] Nye kapabiliteter er deny-by-default.
+- [x] Vikar bruker personlig identitet og AAL2.
+- [x] Vikaroppdrag aktiveres og utløper automatisk på serveren.
+- [x] Tilbakekalling stopper nye handlinger og revaliderer aktiv sesjon.
+- [x] Ingen ansatt kan gi seg selv eller andre større tilgang uten adminrett.
+- [x] Nye kapabiliteter er deny-by-default.
 - [ ] Serverhandling, RPC og direkte read-path testes negativt per ressurs.
-- [ ] Audit viser aktør, assignment, kapabilitet, ressurs og tidspunkt.
+- [x] Audit viser aktør, assignment, kapabilitet, ressurs og tidspunkt.
 - [ ] Massehandlinger verifiserer hvert mål; ett tillatt mål kan ikke smugle
   med et ikke-tillatt mål.
 - [ ] Kapabilitetsmodellen kan representere notetilgang separat og nekter den

@@ -1,17 +1,20 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Scope låst – ikke implementert
+**Status:** Implementert – automatiske kontrollporter grønne; manuelle og
+utvidede bevisporter gjenstår
 
 **Forberedt:** 15. juli 2026
+
+**Sist automatisk verifisert:** 16. juli 2026
 
 **Baseline:** `838aa96` på branch `3.0`
 
 **Overordnet kontrollpunkt:**
 [Kontrollpunkt A – felles fundament](../IMPLEMENTATION_ROADMAP.md#kontrollpunkt-a--felles-fundament)
 
-Dette dokumentet er implementeringskontrakten for første vertikale slice av
-E05 og E06. Det beskriver planlagt arbeid og er ikke bevis på at
-ansattoppdrag, vikartilgang eller det nye ansattskallet finnes i piloten ennå.
+Dette dokumentet er implementeringskontrakten og bevisoversikten for første
+vertikale slice av E05 og E06. A1-kjernen er implementert, men kontrollpunktet
+er ikke fullført før de åpne utvidede og manuelle portene er dokumentert.
 
 ## 1. Autoritative kilder og inngangskrav
 
@@ -26,13 +29,13 @@ A1 følger, i prioritert rekkefølge:
    prototypebildene i dette dokumentet;
 6. README, pilotrunbook, migrasjoner og tester som sannhet om nåtilstanden.
 
-Kontrollpunkt 0 er grønt i Chromium og WebKit. Lokal Docker er tilgjengelig ved
-scope-locken, men A1-forberedelsen har ikke startet eller nullstilt Supabase og
-har ikke berørt det linkede pilotprosjektet.
+Kontrollpunkt 0 er grønt i Chromium og WebKit. All A1-database-, Auth- og
+E2E-verifikasjon er kjørt med syntetiske data mot lokal Docker/Supabase på
+loopback. Det linkede pilotprosjektet er ikke brukt eller mutert.
 
-## 2. Nåtilstand og sikkerhetsgap
+## 2. Utgangspunkt og lukket sikkerhetsgap
 
-Nåværende 3.0 bruker organisasjonsrollen `owner`/`teacher` og
+Før A1 brukte 3.0 organisasjonsrollen `owner`/`teacher` og
 `class_memberships.role = 'teacher'` som pedagogisk autoritet flere steder:
 
 - serverautorisasjon i `src/server/auth/authorize.ts`;
@@ -41,12 +44,11 @@ Nåværende 3.0 bruker organisasjonsrollen `owner`/`teacher` og
 - hjelpekø og elevens støtteinnstillinger;
 - databasefunksjoner, triggerkontroller og RLS-policyer.
 
-Dette er tilstrekkelig for den avgrensede piloten som finnes nå, men oppfyller
-ikke E05. Et nytt assignment-register alene ville ikke være sikkert: en
+Dette var tilstrekkelig for den daværende avgrensede pilotkjernen, men oppfylte
+ikke E05. Et assignment-register alene ville ikke vært sikkert: en
 tilbakekalt ansatt kunne fortsatt få tilgang gjennom en gammel rolle-,
-klassemedlemskaps-, RLS- eller RPC-sjekk. A1 skal derfor gjennomføre én samlet
-autorisasjons-cutover. Det skal ikke finnes en legacy-fallback for pedagogisk
-voksentilgang etter slicen.
+klassemedlemskaps-, RLS- eller RPC-sjekk. A1 gjennomfører derfor én samlet
+autorisasjons-cutover uten legacy-fallback for pedagogisk voksentilgang.
 
 Organisasjonsmedlemskap beholdes som identitet og grov ruting. Elevens
 klassemedlemskap beholdes som elevtilhørighet. Ingen av delene skal alene gi en
@@ -213,8 +215,8 @@ Disse er kontrollplanhandlinger og ligger uttrykkelig utenfor profilen:
 
 ## 6. Data- og migrasjonskontrakt
 
-Eksakt SQL-utforming kan justeres under implementering, men disse ressursene og
-invariantene skal finnes:
+Migrasjonen `20260715000000_staff_assignments.sql` implementerer følgende
+ressurser og invarianter:
 
 - `staff_assignments` med organisasjon, målbruker, jobbetikett,
   gyldighetsperiode, tilbakekalling, oppretter, versjon, idempotensmetadata og
@@ -392,81 +394,124 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
 
 ### Domene og sikkerhet
 
-- [ ] A1 bruker bare personlig voksenidentitet og AAL2 for pedagogisk tilgang.
-- [ ] Eier AAL1 kan ikke opprette eller tilbakekalle assignment.
-- [ ] Vanlig ansatt kan ikke gi seg selv eller andre tilgang.
+- [x] A1 bruker bare personlig voksenidentitet og AAL2 for pedagogisk tilgang.
+- [x] Eier AAL1 kan ikke opprette eller tilbakekalle assignment.
+- [x] Vanlig ansatt kan ikke gi seg selv eller andre tilgang.
 - [ ] Normal opprettelse avviser student, målbruker/klasse i annen
   organisasjon, ugyldig intervall, manglende slutt og forsøk på å velge en
   intern jobbetikett – både i serveroperasjon og RPC.
-- [ ] Alle fire pedagogiske jobbetiketter får samme `class_pedagogy_v1` innen
+- [x] Alle fire pedagogiske jobbetiketter får samme `class_pedagogy_v1` innen
   identisk aktivt klasseomfang.
-- [ ] Før start, ved nøyaktig slutt, etter slutt og etter tilbakekalling
+- [x] Før start, ved nøyaktig slutt, etter slutt og etter tilbakekalling
   avvises lesing og mutasjon.
-- [ ] Feil klasse, feil organisasjon, ukjent kapabilitet og manglende
+- [x] Feil klasse, feil organisasjon, ukjent kapabilitet og manglende
   assignment avvises deny-by-default.
-- [ ] Gammelt lærerklassemedlemskap uten assignment gir ingen pedagogisk
+- [x] Gammelt lærerklassemedlemskap uten assignment gir ingen pedagogisk
   tilgang via server, RLS, RPC eller trigger.
-- [ ] Aktiv demotering av målbrukerens voksenmedlemskap avvises til oppdraget
+- [x] Aktiv demotering av målbrukerens voksenmedlemskap avvises til oppdraget
   er tilbakekalt; etter tilbakekalling/demotering gir det historiske
   assignmentet ingen tilgang, og inkonsistent tilstand avvises fail-closed.
-- [ ] Kontrollplanhandlingene klasse-, konto- og assignmentforvaltning er
+- [x] Kontrollplanhandlingene klasse-, konto- og assignmentforvaltning er
   owner-only og inngår ikke i `class_pedagogy_v1`.
-- [ ] Opprettelse/retry lager ikke semantiske duplikater, og gjentatt
+- [x] Opprettelse/retry lager ikke semantiske duplikater, og gjentatt
   tilbakekalling er idempotent.
-- [ ] Neste serverlesing eller serverhandling fra en åpen, tilbakekalt sesjon
+- [x] Neste serverlesing eller serverhandling fra en åpen, tilbakekalt sesjon
   avvises uten ny innlogging.
-- [ ] Audit for assignment-opprettelse, tilbakekalling og pedagogiske
+- [x] Audit for assignment-opprettelse, tilbakekalling og pedagogiske
   mutasjoner viser aktør, assignment, kapabilitet, ressurs og tidspunkt.
-- [ ] Reconciler-operasjonen registrerer utløp idempotent som
+- [x] Reconciler-operasjonen registrerer utløp idempotent som
   `staff_assignment.expired`, også ved parallelle retry, mens
   tilgangsavgjørelsen alltid bruker tidsfeltet direkte.
-- [ ] Browserklienten har read-only grants mot tabellene og kan ikke mutere
+- [x] Browserklienten har read-only grants mot tabellene og kan ikke mutere
   assignments eller pedagogiske data direkte.
 
 ### Migrasjon og kompatibilitet
 
-- [ ] Hele migrasjonskjeden bygger fra tom database.
-- [ ] Representativ `00000–00006`-database kan oppgraderes til A1.
-- [ ] Eksisterende elev-, oppgave-, status- og kødata er uendret etter
+- [x] Hele migrasjonskjeden bygger fra tom database.
+- [x] Representativ `00000–00006`-database kan oppgraderes til A1.
+- [x] Eksisterende elev-, oppgave-, status- og kødata er uendret etter
   oppgradering.
-- [ ] Eksisterende mutasjonstilgang fra lærerklassemedlemskap er bevart gjennom
+- [x] Eksisterende mutasjonstilgang fra lærerklassemedlemskap er bevart gjennom
   eksplisitte klasseoppdrag, ikke legacy-fallback, uten å gi owner nye
   skriverettigheter i andre klasser.
-- [ ] Owner AAL2 uten klasseassignment kan bruke kontrollplanet, men får ingen
+- [x] Owner AAL2 uten klasseassignment kan bruke kontrollplanet, men får ingen
   pedagogiske klasse-, elev-, oppgave-, kø- eller støtterader.
-- [ ] Backfill gjetter ikke pedagogisk jobbetikett og lager ikke assignment for
+- [x] Backfill gjetter ikke pedagogisk jobbetikett og lager ikke assignment for
   elever.
-- [ ] Nye tabeller har RLS, dokumenterte grants og ingen anonym tilgang.
+- [x] Nye tabeller har RLS, dokumenterte grants og ingen anonym tilgang.
 
 ### UI, UX og E06
 
-- [ ] Eier kan opprette og tilbakekalle ett oppdrag gjennom hele UI-flyten.
-- [ ] Ansatt ser bare tildelte klasser og tillatte handlinger.
-- [ ] Vanlig ansatt ser ikke **Tilganger** eller owner-only-handlinger.
-- [ ] Direkte navigasjon til `/v3/teacher/access` fra owner AAL1, ansatt/vikar
+- [x] Eier kan opprette og tilbakekalle ett oppdrag gjennom hele UI-flyten.
+- [x] Ansatt ser bare tildelte klasser og tillatte handlinger.
+- [x] Vanlig ansatt ser ikke **Tilganger** eller owner-only-handlinger.
+- [x] Direkte navigasjon til `/v3/teacher/access` fra owner AAL1, ansatt/vikar
   AAL2, elev og other-org-aktør returnerer ingen kontrollplanmetadata.
-- [ ] Owner AAL1 kan heller ikke lese andre brukeres konto-, assignment- eller
+- [x] Owner AAL1 kan heller ikke lese andre brukeres konto-, assignment- eller
   scopemetadata direkte gjennom authenticated RLS/RPC; egen MFA-identitet er
   eneste dokumenterte unntak.
 - [ ] Hver kapabilitet styrer den dokumenterte synlige kontrollen, mens direkte
   action/RPC fortsatt avviser når kontrollen er skjult.
-- [ ] Interne assignments vises med menneskelig navn og kilde, aldri rå kode,
+- [x] Interne assignments vises med menneskelig navn og kilde, aldri rå kode,
   og tilbakekalling forklarer konsekvensen før bekreftelse.
-- [ ] De fire assignment-statusene er forståelige uten farge.
-- [ ] Dialog/sheet har navn, beskrivelse, fokusfelle, Escape/lukk og fokusretur.
+- [x] De fire assignment-statusene er forståelige uten farge.
+- [x] Dialog/sheet har navn, beskrivelse, fokusfelle, Escape/lukk og fokusretur.
 - [ ] Alle handlinger kan utføres med tastatur og berøring uten hover eller
   drag.
 - [ ] Ingen kjernehandling eller synlig fokus skjules ved noen målviewport
   eller 200 prosent reflow.
-- [ ] Reduced motion fjerner bevegelse uten å endre innhold eller bekreftelse.
-- [ ] Mobilmenyen og tilgangsdialogen har korrekt inert/fokus/Escape/fokusretur,
+- [x] Reduced motion fjerner bevegelse uten å endre innhold eller bekreftelse.
+- [x] Mobilmenyen og tilgangsdialogen har korrekt inert/fokus/Escape/fokusretur,
   og tilgangstap annonseres før fokus lander i en trygg tomtilstand.
 - [ ] Safe-area, virtuelt tastatur og overstyrt systemfont/linjeavstand gir ikke
   skjulte felt, handlinger eller fokus.
-- [ ] Axe A/AA, runtime- og overflow-kontroller har ingen ukjente avvik.
+- [x] Axe A/AA, runtime- og overflow-kontroller har ingen ukjente avvik.
 - [ ] NVDA/VoiceOver og ekte touch kontrolleres manuelt før Kontrollpunkt A kan
   omtales som ferdig; dersom dette ikke er tilgjengelig, markeres A1-porten
   eksplisitt uverifisert og A1 kalles ikke fullført.
+
+### Verifikasjonsstatus
+
+Følgende automatiske porter er grønne mot syntetiske data og lokal
+Docker/Supabase:
+
+- `npm run verify:checkpoint`;
+- `npm run test:db:staff`;
+- `npm run test:e2e:full` – 24/24 i Chromium;
+- `npm run test:e2e:full:webkit` – 24/24 i WebKit.
+
+Databasetesten dekker tom database, representativ oppgradering, atomisk
+fail-closed preflight, RLS/RPC/grants, backfill, audit, idempotens og
+samtidighet. De autentiserte browserløypene dekker owner → vikar →
+tilbakekalling, stale handlinger, fem målviewports, tastaturflyt, fokus,
+reduced motion, axe A/AA, runtime-feil og horisontal overflow. Semantiske
+QA-bilder ligger lokalt under `test-results/chromium-full` og
+`test-results/webkit-full`.
+
+Følgende utvidede automatiske bevis er fortsatt åpne og overpåstås ikke:
+
+- full negativ server-action-matrise for alle ugyldige assignment-input;
+- komplett direkte matrise for forfalskede kontrollhandlinger mot owner AAL1,
+  vanlig ansatt, elev og eier i annen organisasjon;
+- en bevisst redusert kapabilitetsfixture som tester hvert synlig UI-innsteg;
+- positiv produksjonsinngang for planforhåndsvisning/publisering i hele
+  service/action-matrisen;
+- et servernivåbevis på at expiry-reconcile committes før en etterfølgende
+  autorisasjonsnekt.
+
+Automatiserte emuleringer og layoutproxyer erstatter ikke en fysisk
+enhetskontroll:
+
+| Port | Status | Automatisert bevis som finnes |
+| --- | --- | --- |
+| Faktisk 200 % browserzoom | Uverifisert | 720 × 450 reflowproxy med tekstoverstyring |
+| NVDA/VoiceOver | Uverifisert | Axe og semantiske tastaturtester |
+| Ekte touch | Uverifisert | Touch-emulering og 44 × 44-geometri |
+| Safe-area/notch | Uverifisert | Responsiv CSS og statiske viewports |
+| Ekte virtuelt tastatur | Uverifisert | Redusert viewporthøyde |
+| Orienteringsbytte på enhet | Uverifisert | Separate portrett-/landskapsprosjekter |
+
+A1 omtales derfor ikke som fullført.
 
 ## 9. Test- og bevismatrise
 
@@ -677,8 +722,6 @@ ikke kildefiler. Hovedagenten vurderer alle funn og gjør rettingene.
 ## 12. Arbeidsloop og porter
 
 ### Rask indre port
-
-Når de planlagte scriptnavnene finnes:
 
 ```text
 node --test tests/staff-assignment-policy.test.mjs tests/staff-authorization-boundary.test.mjs

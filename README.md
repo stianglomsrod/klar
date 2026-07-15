@@ -11,15 +11,25 @@ piloten.
 
 ## Hva prototypen gjør nå
 
-Læreren kan:
+Eieren med AAL2 kan:
 
 - logge inn med e-post, passord og TOTP-basert tofaktorautentisering;
 - opprette klasser og pseudonyme prototypeelever;
+- gi og tilbakekalle klasse- og tidsavgrensede oppdrag for eksisterende,
+  navngitte voksne organisasjonsmedlemmer.
+
+En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
+
+- se bare klassene oppdraget omfatter;
 - publisere oppgaver til alle elever i en klasse;
 - importere en DOCX-ukeplan til en redigerbar forhåndsvisning og bekrefte en
   samlet, transaksjonell publisering;
 - følge oppgavefremdrift og en sikker, sanntidsoppdatert hjelpekø;
 - angi hvor mye struktur den enkelte eleven skal få se.
+
+Vanlige ansatte kan ikke opprette kontoer eller klasser eller forvalte
+ansattoppdrag. Eierens kontrollplantilgang gir ikke i seg selv pedagogisk
+tilgang til en klasse.
 
 Eleven kan:
 
@@ -68,8 +78,11 @@ implementasjon og driftsklarhet.
 - Anonyme klienter har ingen tabelltilgang. Autentiserte klienter er read-only
   og avgrenses med RLS. Alle mutasjoner går gjennom autoriserte serverhandlinger
   og eksplisitte service-role-RPC-er.
-- Lærerhandlinger krever medlemskap, riktig klasse/organisasjon og AAL2. Elevens
-  handlinger bindes til den verifiserte brukeren.
+- Pedagogiske voksenhandlinger krever nåværende voksenmedlemskap i
+  organisasjonen, AAL2, et aktivt tids- og klasseavgrenset oppdrag og den
+  eksplisitte kapabiliteten handlingen trenger. Eierens kontrollplan er separat
+  og gir ikke automatisk pedagogisk tilgang. Elevens handlinger bindes til den
+  verifiserte brukeren.
 - Elevkoder lagres som HMAC-SHA256-avtrykk med en separat server-pepper; Klar
   lagrer ikke elevpassord i klartekst.
 - Sikkerhetsheadere, kill switch, miljøvalidering, auditthendelser og eksplisitt
@@ -98,6 +111,7 @@ npm run build
 npm run test:e2e:install
 npm run test:e2e
 npm run verify:checkpoint
+npm run test:db:staff
 ```
 
 Den offentlige Playwright-suiten er rask og bruker ingen testkontoer. For
@@ -106,6 +120,7 @@ autentiserte elev-/lærerflater finnes en separat, lokal-only suite:
 ```bash
 # Krever Docker Desktop. Kommandoene nullstiller den lokale Supabase-databasen.
 npm run test:e2e:auth
+npm run test:e2e:staff
 npm run test:e2e:visual
 npm run test:e2e:full
 npm run test:e2e:full:webkit
@@ -115,20 +130,24 @@ Runneren starter Supabase på `127.0.0.1:54321`, avviser alle andre verter,
 oppretter bare syntetiske fixtures, gjennomfører lærerens TOTP-oppsett gjennom
 UI og lagrer separate, ignorerte browsertilstander for elev og lærer. Den
 bruker aldri det linkede pilotprosjektet som reserve. Visuelle kjøringer lagrer
-QA-artefakter i `test-results`; historiske prototypebilder er ikke
-pixel-baselines.
+QA-artefakter i `test-results/<browser>-<modus>`; historiske prototypebilder
+er ikke pixel-baselines.
 
 Den autentiserte suiten er verifisert lokalt i Chromium og WebKit. Den er
-foreløpig en eksplisitt kontrollpunktport fordi en komplett Supabase-stack er
-vesentlig tyngre enn dagens CI-jobber. CI beholder offentlig Playwright-smoke
-og den separate migrasjons-/RLS-jobben frem til en egen cachet Docker-jobb er
-besluttet.
+fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
+Playwright-smoke og kjører den separate databasepakken i både tomt og
+representativt oppgraderingsscenario.
+
+A1s automatiske porter er grønne, men faktiske kontroller med 200 prosent
+browserzoom, NVDA/VoiceOver, ekte touch, notch/safe-area, virtuelt tastatur og
+live orienteringsbytte gjenstår. A1 omtales derfor ikke som fullført.
 
 CI gjør i tillegg følgende:
 
-- bygger en tom PostgreSQL 17-database fra alle 3.0-migrasjonene;
-- kjører RLS- og RPC-smoketesten i
-  [`supabase/verification/rls_smoke.sql`](./supabase/verification/rls_smoke.sql);
+- bygger både en tom PostgreSQL 17-database og en representativ
+  `00000–00006`-database som oppgraderes til A1;
+- verifiserer migrasjon, backfill, fail-closed preflight, RLS, RPC, grants,
+  audit, idempotens og samtidighet for ansattoppdrag;
 - tester tastaturtilgang, smal elevskjerm og automatiske WCAG A/AA-funn i
   Chromium;
 - avviser high/critical funn i produksjonsavhengigheter.

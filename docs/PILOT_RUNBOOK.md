@@ -11,7 +11,11 @@ beskriver tekniske utviklings- og driftsgrep, ikke en produksjonsutrulling.
   er ikke del av første pilot.
 - Elevkontoer bruker korte visningsnavn, tilfeldig intern e-post, elevkode og
   et separat passord. Klar lagrer bare HMAC-avtrykket av elevkoden.
-- Lærerkontoer bruker e-post, passord og TOTP-basert tofaktorautentisering.
+- Voksne bruker personlige kontoer med e-post, passord og TOTP-basert
+  tofaktorautentisering. Pedagogisk tilgang krever i tillegg AAL2 og et aktivt,
+  klasseavgrenset oppdrag.
+- A1 kan bare gi oppdrag til eksisterende voksne organisasjonsmedlemmer.
+  Invitasjon og opprettelse av nye ansattkontoer er ikke implementert.
 
 ## Miljøer
 
@@ -41,10 +45,19 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
 6. Sett bootstrap-variablene lokalt og kjør
    `npm run pilot:bootstrap-owner`. Passordet gis til eieren via en annen kanal
    og skrives ikke ut av skriptet.
-7. Kjør `npm ci`, `npm run test:e2e:install` og
-   `npm run verify:checkpoint` fra en ren utsjekk før pilotversjonen slippes.
-8. På en utviklermaskin med Docker, kjør `npm run test:e2e:auth`. Runneren
-   nullstiller bare lokal Supabase på loopback og skal aldri peke mot piloten.
+7. Kjør `npm ci`, `npm run test:e2e:install` og følgende porter fra en ren
+   utsjekk før pilotversjonen slippes:
+
+   ```text
+   npm run verify:checkpoint
+   npm run test:db:staff
+   npm run test:e2e:full
+   npm run test:e2e:full:webkit
+   ```
+
+8. Database- og E2E-runnerne bruker bare syntetiske data og nullstiller bare
+   lokale Docker/Supabase-ressurser. E2E-runneren avviser andre verter enn
+   loopback og skal aldri peke mot piloten.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: elev → oppgave → status → hjelpekø.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
@@ -54,8 +67,13 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
 - CI er grønn for nøyaktig commit som er deployet.
 - `PILOT_ENABLED`, 2.x-, push- og KI-flagg har forventet verdi.
 - En elev kan bare se egne oppgaver, egen hjelpekøstatus og egne visningsvalg.
-- En lærer kan bare se klasser og elever vedkommende er medlem av.
-- Læreroperasjoner stopper uten AAL2/TOTP.
+- En ansatt kan bare se en klasse når et aktivt oppdrag gir
+  `class.workspace.read` for akkurat den klassen.
+- Pedagogiske voksenoperasjoner stopper uten AAL2/TOTP, ved feil scope og når
+  oppdraget er utløpt eller tilbakekalt. En allerede åpen side gir ingen
+  snarvei; neste serverlesing eller handling skal avvises.
+- En eier uten klasseoppdrag kan bruke kontrollplanet, men kan ikke lese eller
+  mutere pedagogiske data i klassen.
 - Smart Import viser en redigerbar forhåndsvisning og krever eksplisitt
   bekreftelse før publisering.
 - Innlogging, elevens dagsflate og lærerens klasseflate kan brukes med tastatur
@@ -90,8 +108,24 @@ Ved mistenkt feil eller uønsket tilgang:
 
 ## Verifiserte sikkerhetsgrenser
 
-CI bygger databasen fra null og kjører
-[`rls_smoke.sql`](../supabase/verification/rls_smoke.sql). Testen kontrollerer
-RLS på alle pilottabeller, ingen anonym tabelltilgang, autentiserte klienter
-som read-only, isolasjon mellom organisasjoner, serverstyrte mutasjoner,
-hjelpekøens livsløp, Smart Import-batch og elevens visningsvalg.
+CI bygger databasen både fra null og fra en representativ `00000–00006`-
+tilstand. Ansattpakken kontrollerer eksakt backfill, atomisk fail-closed
+preflight, owner-only kontrollplan, RLS/RPC/grants, ingen anonym skrivetilgang,
+idempotens og samtidighet. Lokal autentisert E2E i Chromium og WebKit
+kontrollerer owner → vikar → tilbakekalling, AAL1/AAL2, avgrenset klasseflate,
+stale handlinger og responsive/tilgjengelige QA-proxyer. Testene bruker bare
+syntetiske data og lokal Supabase.
+
+## Manuelle enhetsporter før Kontrollpunkt A kan lukkes
+
+De automatiske proxyene er nyttige, men erstatter ikke følgende kontroller på
+reelt utstyr:
+
+- [ ] faktisk 200 prosent browserzoom/reflow;
+- [ ] NVDA og VoiceOver;
+- [ ] ekte touch og trykkmål;
+- [ ] notch/safe-area;
+- [ ] ekte virtuelt tastatur;
+- [ ] live bytte mellom portrett og landskap.
+
+Kontrollpunkt A1 skal ikke omtales som fullført før disse er dokumentert.
