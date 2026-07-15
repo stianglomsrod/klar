@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { getPublicSupabaseEnvironment } from "@/lib/env/public";
 
 /**
  * GET /auth/callback
@@ -20,10 +21,11 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(new URL("/login", origin));
+  const { url, anonKey } = getPublicSupabaseEnvironment();
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {
@@ -69,22 +71,40 @@ export async function GET(request: NextRequest) {
     // Session exists from the earlier successful exchange — continue normally.
   }
 
-  // Determine redirect based on role
+  // Determine redirect from organization membership and MFA state.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
+    const { data: memberships } = await supabase
+      .from("memberships")
       .select("role")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id);
 
-    if (profile?.role === "teacher") {
-      response.headers.set("location", new URL("/teacher", origin).toString());
-    } else if (profile?.role === "student") {
-      response.headers.set("location", new URL("/student", origin).toString());
+    const isTeacher = memberships?.some(
+      (membership) =>
+        membership.role === "owner" || membership.role === "teacher",
+    );
+    const isStudent = memberships?.some(
+      (membership) => membership.role === "student",
+    );
+
+    if (isTeacher) {
+      const { data: assurance } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const destination =
+        assurance?.currentLevel === "aal2"
+          ? "/v3/teacher"
+          : assurance?.nextLevel === "aal2"
+            ? "/v3/mfa/challenge"
+            : "/v3/mfa/enroll";
+      response.headers.set("location", new URL(destination, origin).toString());
+    } else if (isStudent) {
+      response.headers.set(
+        "location",
+        new URL("/v3/student", origin).toString(),
+      );
     }
   }
 

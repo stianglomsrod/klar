@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "3.0"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      NEXT_PUBLIC_FEATURE_PUSH_NOTIFICATIONS: "false"
+      NEXT_PUBLIC_FEATURE_LEGACY_2X: "false"
+      FEATURE_SMART_IMPORT_AI: "false"
+      PILOT_ENABLED: "true"
+      STUDENT_CODE_PEPPER: ci-placeholder-pepper-at-least-32-characters
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm audit --omit=dev --audit-level=high
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results
+          if-no-files-found: ignore
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+      - run: psql -f supabase/verification/bootstrap_supabase_stub.sql
+      - run: psql -f supabase/migrations/20260714000000_initial_core.sql
+      - run: psql -f supabase/migrations/20260714000001_authorization.sql
+      - run: psql -f supabase/migrations/20260714000002_prototype_auth.sql
+      - run: psql -f supabase/migrations/20260714000003_core_operations.sql
+      - run: psql -f supabase/migrations/20260714000004_help_queue_operations.sql
+      - run: psql -f supabase/migrations/20260714000005_plan_import_operations.sql
+      - run: psql -f supabase/migrations/20260714000006_student_experience.sql
+      - run: psql -f supabase/verification/rls_smoke.sql

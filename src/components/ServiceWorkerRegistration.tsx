@@ -8,11 +8,12 @@ import { useEffect } from "react";
  */
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
-        /* Silent — SW registration failure is non-critical */
-      });
-    }
+    if (!("serviceWorker" in navigator)) return;
+
+    // Remove a stale 2.x push worker when a browser is moved to the 3.0 pilot.
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      void Promise.all(registrations.map((registration) => registration.unregister()));
+    });
   }, []);
 
   return null;
