@@ -55,6 +55,10 @@ erstattes av emulatorbeviset.
 
 ### Kontrollpunkt A – felles fundament
 
+Første vertikale slice er scope-låst i
+[`Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne`](./qa/CONTROL_POINT_A1.md).
+A1 er forberedt, men ikke implementert.
+
 Start E05 og E06 som tverrgående fundament:
 
 - modeller aktive ansattoppdrag og virkeområder;
