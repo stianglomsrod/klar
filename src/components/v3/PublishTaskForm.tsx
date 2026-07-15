@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { publishClassTaskAction } from "@/app/actions/v3/task-actions";
+import { redirectIfStaffAccessEnded } from "./staff-access-ended";
 
 export function PublishTaskForm({ classId }: { classId: string }) {
   const router = useRouter();
@@ -30,6 +31,7 @@ export function PublishTaskForm({ classId }: { classId: string }) {
         supportLevel: Number(supportLevel),
       });
       if (!result.success) {
+        if (redirectIfStaffAccessEnded(result, classId)) return;
         setError(result.error);
         return;
       }

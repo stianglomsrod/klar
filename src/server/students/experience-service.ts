@@ -1,6 +1,9 @@
 import "server-only";
 
-import { requireAnyStudentActor, requireClassRole } from "@/server/auth/authorize";
+import {
+  requireAnyStudentActor,
+  requireStaffCapability,
+} from "@/server/auth/authorize";
 import { isUuid } from "@/server/auth/policy";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
@@ -62,13 +65,32 @@ export async function updateClassStudentExperience(
   input: StudentExperience,
 ): Promise<StudentExperience> {
   if (!isUuid(studentId)) throw new PrototypeDataError("Ugyldig elev-ID.");
-  const actor = await requireClassRole(classId, ["teacher"]);
-  return persistExperience(
-    actor.organizationId,
-    studentId,
-    actor.userId,
-    validateExperience(input),
+  const actor = await requireStaffCapability(
+    classId,
+    "student_support.update",
   );
+  const validated = validateExperience(input);
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin.rpc(
+    "update_student_experience_for_staff",
+    {
+      p_organization_id: actor.organizationId,
+      p_class_id: actor.classId,
+      p_student_id: studentId,
+      p_actor_id: actor.userId,
+      p_staff_assignment_id: actor.staffAssignmentId,
+      p_support_level: validated.supportLevel,
+      p_progress_enabled: validated.progressEnabled,
+    },
+  );
+  if (error || !data) {
+    await requireStaffCapability(classId, "student_support.update");
+    throw new PrototypeDataError("Kunne ikke lagre elevens visningsvalg.");
+  }
+  return {
+    supportLevel: data.support_level as SupportLevel,
+    progressEnabled: data.progress_enabled,
+  };
 }
 
 async function persistExperience(

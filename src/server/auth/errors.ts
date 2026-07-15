@@ -2,6 +2,7 @@ export type AuthorizationErrorCode =
   | "INVALID_RESOURCE_ID"
   | "UNAUTHENTICATED"
   | "MFA_REQUIRED"
+  | "STAFF_ACCESS_ENDED"
   | "FORBIDDEN"
   | "AUTHORIZATION_LOOKUP_FAILED";
 

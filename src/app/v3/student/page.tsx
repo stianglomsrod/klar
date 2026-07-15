@@ -12,7 +12,7 @@ export default async function PrototypeStudentPage() {
   ]);
 
   return (
-    <main className="min-h-screen bg-sky-50 px-5 py-8 text-slate-950">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-sky-50 px-5 py-8 text-slate-950 focus:outline-none">
       <div className="mx-auto max-w-3xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
           Klar 3.0

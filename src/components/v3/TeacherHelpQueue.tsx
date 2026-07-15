@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/v3/help-actions";
 import type { TeacherHelpQueueItem } from "@/server/help/help-service";
 import { useHelpQueueRealtime } from "./useHelpQueueRealtime";
+import { redirectIfStaffAccessEnded } from "./staff-access-ended";
 
 export function TeacherHelpQueue({
   classId,
@@ -23,13 +24,18 @@ export function TeacherHelpQueue({
 
   async function mutate(
     requestId: string,
-    action: () => Promise<{ success: boolean; error?: string }>,
+    action: () => Promise<{
+      success: boolean;
+      error?: string;
+      accessEnded?: true;
+    }>,
   ) {
     setLoadingId(requestId);
     setError(null);
     try {
       const result = await action();
       if (!result.success) {
+        if (redirectIfStaffAccessEnded(result, classId)) return;
         setError(result.error ?? "Kunne ikke oppdatere hjelpekøen.");
         return;
       }
@@ -65,7 +71,7 @@ export function TeacherHelpQueue({
                   {index + 1}. {request.studentName}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  {request.status === "waiting" ? "Venter" : "Sett av lærer"}
+                  {request.status === "waiting" ? "Venter" : "Sett av ansatt"}
                 </p>
               </div>
               {request.status === "waiting" ? (
@@ -75,7 +81,7 @@ export function TeacherHelpQueue({
                     mutate(request.id, () => claimStudentHelpAction(classId, request.id))
                   }
                   disabled={loadingId === request.id}
-                  className="rounded-xl bg-amber-700 px-4 py-2.5 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 disabled:bg-slate-500"
+                  className="min-h-11 rounded-xl bg-amber-700 px-4 py-2.5 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2 disabled:bg-slate-500"
                 >
                   {loadingId === request.id ? "Oppdaterer …" : "Jeg tar denne"}
                 </button>
@@ -86,12 +92,12 @@ export function TeacherHelpQueue({
                     mutate(request.id, () => resolveStudentHelpAction(classId, request.id))
                   }
                   disabled={loadingId === request.id}
-                  className="rounded-xl bg-emerald-700 px-4 py-2.5 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:bg-slate-500"
+                  className="min-h-11 rounded-xl bg-emerald-700 px-4 py-2.5 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2 disabled:bg-slate-500"
                 >
                   {loadingId === request.id ? "Oppdaterer …" : "Ferdig hjulpet"}
                 </button>
               ) : (
-                <span className="text-sm font-semibold text-slate-600">Tatt av en annen lærer</span>
+                <span className="text-sm font-semibold text-slate-600">Tatt av en annen ansatt</span>
               )}
             </li>
           ))}

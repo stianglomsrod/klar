@@ -6,6 +6,7 @@ import {
   previewImportedPlanAction,
   publishImportedPlanAction,
 } from "@/app/actions/v3/import-actions";
+import { redirectIfStaffAccessEnded } from "./staff-access-ended";
 import type { ImportedTask } from "@/server/import/types";
 
 type EditableTask = ImportedTask & { clientId: string };
@@ -17,7 +18,15 @@ function withClientIds(tasks: ImportedTask[]): EditableTask[] {
   }));
 }
 
-export function SmartImportPanel({ classId }: { classId: string }) {
+export function SmartImportPanel({
+  classId,
+  canPreview,
+  canPublish,
+}: {
+  classId: string;
+  canPreview: boolean;
+  canPublish: boolean;
+}) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [tasks, setTasks] = useState<EditableTask[]>([]);
@@ -26,6 +35,8 @@ export function SmartImportPanel({ classId }: { classId: string }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [publishing, setPublishing] = useState(false);
+
+  if (!canPreview) return null;
 
   async function preview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,8 +47,9 @@ export function SmartImportPanel({ classId }: { classId: string }) {
     setTasks([]);
     setWarnings([]);
     try {
-      const result = await previewImportedPlanAction(formData);
+      const result = await previewImportedPlanAction(classId, formData);
       if (!result.success) {
+        if (redirectIfStaffAccessEnded(result, classId)) return;
         setError(result.error);
         return;
       }
@@ -65,6 +77,7 @@ export function SmartImportPanel({ classId }: { classId: string }) {
   }
 
   async function publish() {
+    if (!canPublish) return;
     setPublishing(true);
     setError(null);
     setSuccess(null);
@@ -78,6 +91,7 @@ export function SmartImportPanel({ classId }: { classId: string }) {
       }));
       const result = await publishImportedPlanAction(classId, payload);
       if (!result.success) {
+        if (redirectIfStaffAccessEnded(result, classId)) return;
         setError(result.error);
         return;
       }
@@ -126,7 +140,7 @@ export function SmartImportPanel({ classId }: { classId: string }) {
         <button
           type="submit"
           disabled={previewing || publishing}
-          className="rounded-xl border border-indigo-700 px-4 py-2.5 font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:border-slate-400 disabled:text-slate-500"
+          className="min-h-11 rounded-xl border border-indigo-700 px-4 py-2.5 font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:border-slate-400 disabled:text-slate-500"
         >
           {previewing ? "Leser dokumentet …" : "Lag forhåndsvisning"}
         </button>
@@ -202,7 +216,7 @@ export function SmartImportPanel({ classId }: { classId: string }) {
                 <button
                   type="button"
                   onClick={() => setTasks((current) => current.filter((item) => item.clientId !== task.clientId))}
-                  className="rounded-xl px-3 py-2.5 font-semibold text-red-700 underline-offset-4 hover:underline focus:outline-none focus:ring-2 focus:ring-red-600"
+                  className="min-h-11 rounded-xl px-3 py-2.5 font-semibold text-red-700 underline-offset-4 hover:underline focus:outline-none focus:ring-2 focus:ring-red-600"
                   aria-label={`Fjern oppgave ${index + 1}: ${task.title}`}
                 >
                   Fjern
@@ -213,17 +227,20 @@ export function SmartImportPanel({ classId }: { classId: string }) {
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
             <p className="max-w-2xl text-sm text-slate-600">
-              Ved publisering opprettes oppgavene og tildeles elevene i klassen i én
-              samlet operasjon.
+              {canPublish
+                ? "Ved publisering opprettes oppgavene og tildeles elevene i klassen i én samlet operasjon."
+                : "Du kan kontrollere forslagene, men dette oppdraget gir ikke tilgang til å publisere dem."}
             </p>
-            <button
-              type="button"
-              onClick={publish}
-              disabled={publishing || tasks.some((task) => !task.title.trim())}
-              className="rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
-            >
-              {publishing ? "Publiserer …" : `Bekreft og publiser ${tasks.length}`}
-            </button>
+            {canPublish && (
+              <button
+                type="button"
+                onClick={publish}
+                disabled={publishing || tasks.some((task) => !task.title.trim())}
+                className="min-h-11 rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
+              >
+                {publishing ? "Publiserer …" : `Bekreft og publiser ${tasks.length}`}
+              </button>
+            )}
           </div>
         </div>
       )}

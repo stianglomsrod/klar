@@ -13,14 +13,15 @@ import {
   type ImportedTask,
 } from "@/server/import/types";
 import { MAX_PLAN_FILE_BYTES } from "@/server/import/docx-safety";
+import { authorizationFailure, type ActionFailure } from "./action-errors";
 
 type PreviewResult =
   | { success: true; preview: ImportedPlanPreview }
-  | { success: false; error: string };
+  | ActionFailure;
 
 type PublishResult =
   | { success: true; publishedCount: number }
-  | { success: false; error: string };
+  | ActionFailure;
 
 function knownError(error: unknown): string | null {
   if (
@@ -33,7 +34,14 @@ function knownError(error: unknown): string | null {
   return null;
 }
 
+function failure(error: unknown, fallback: string): ActionFailure {
+  const authorization = authorizationFailure(error);
+  if (authorization) return authorization;
+  return { success: false, error: knownError(error) ?? fallback };
+}
+
 export async function previewImportedPlanAction(
+  classId: string,
   formData: FormData,
 ): Promise<PreviewResult> {
   try {
@@ -45,17 +53,14 @@ export async function previewImportedPlanAction(
       return { success: false, error: "DOCX-filen må være mellom 1 byte og 2 MB." };
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
-    const preview = await previewImportedPlan({
+    const preview = await previewImportedPlan(classId, {
       fileName: file.name,
       mimeType: file.type,
       bytes,
     });
     return { success: true, preview };
   } catch (error) {
-    return {
-      success: false,
-      error: knownError(error) ?? "Dokumentet kunne ikke tolkes.",
-    };
+    return failure(error, "Dokumentet kunne ikke tolkes.");
   }
 }
 
@@ -68,9 +73,6 @@ export async function publishImportedPlanAction(
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true, publishedCount };
   } catch (error) {
-    return {
-      success: false,
-      error: knownError(error) ?? "Planen kunne ikke publiseres.",
-    };
+    return failure(error, "Planen kunne ikke publiseres.");
   }
 }

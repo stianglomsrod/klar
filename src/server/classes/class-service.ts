@@ -1,25 +1,31 @@
 import "server-only";
 
 import {
-  requireAnyTeacherActor,
-  requireClassRole,
   requireOrganizationRole,
+  requireStaffCapability,
+  requireStaffIdentity,
 } from "@/server/auth/authorize";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
 import type { SupportLevel } from "@/server/students/experience-service";
+import type { StaffCapability, StaffJobLabel } from "@/server/auth/policy";
+import { listActiveStaffClassGrants } from "@/server/staff/staff-service";
 
 export type TeacherClassSummary = {
   id: string;
   name: string;
   academicYear: string | null;
   studentCount: number;
+  assignmentId: string;
+  jobLabel: StaffJobLabel;
+  capabilities: StaffCapability[];
 };
 
 export type TeacherDashboard = {
   organizationId: string;
   organizationName: string;
   classes: TeacherClassSummary[];
+  isOwner: boolean;
 };
 
 export type ClassStudentSummary = {
@@ -46,10 +52,14 @@ export type TeacherClassWorkspace = {
   academicYear: string | null;
   students: ClassStudentSummary[];
   tasks: PublishedTaskSummary[];
+  staffAssignmentId: string;
+  capabilities: StaffCapability[];
+  isOwner: boolean;
 };
 
 export async function getTeacherDashboard(): Promise<TeacherDashboard> {
-  const actor = await requireAnyTeacherActor();
+  const actor = await requireStaffIdentity();
+  const grants = await listActiveStaffClassGrants(actor);
   const admin = getSupabaseAdminClient();
   const { data: organization, error: organizationError } = await admin
     .from("organizations")
@@ -58,16 +68,15 @@ export async function getTeacherDashboard(): Promise<TeacherDashboard> {
     .single();
   if (organizationError || !organization) throw new PrototypeDataError();
 
-  let classIds: string[] | null = null;
-  if (actor.organizationRole === "teacher") {
-    const { data: memberships, error } = await admin
-      .from("class_memberships")
-      .select("class_id")
-      .eq("organization_id", actor.organizationId)
-      .eq("user_id", actor.userId)
-      .eq("role", "teacher");
-    if (error) throw new PrototypeDataError();
-    classIds = memberships.map((membership) => membership.class_id);
+  const classIds = grants.map((grant) => grant.classId);
+
+  if (classIds.length === 0) {
+    return {
+      organizationId: actor.organizationId,
+      organizationName: organization.name,
+      classes: [],
+      isOwner: actor.organizationRole === "owner",
+    };
   }
 
   let classQuery = admin
@@ -77,16 +86,7 @@ export async function getTeacherDashboard(): Promise<TeacherDashboard> {
     .is("archived_at", null)
     .order("name");
 
-  if (classIds) {
-    if (classIds.length === 0) {
-      return {
-        organizationId: actor.organizationId,
-        organizationName: organization.name,
-        classes: [],
-      };
-    }
-    classQuery = classQuery.in("id", classIds);
-  }
+  classQuery = classQuery.in("id", classIds);
 
   const { data: classes, error: classesError } = await classQuery;
   if (classesError) throw new PrototypeDataError();
@@ -105,14 +105,27 @@ export async function getTeacherDashboard(): Promise<TeacherDashboard> {
     }
   }
 
+  const confirmedGrants = await listActiveStaffClassGrants(actor);
+  const confirmedGrantByClass = new Map(
+    confirmedGrants.map((grant) => [grant.classId, grant]),
+  );
+
   return {
     organizationId: actor.organizationId,
     organizationName: organization.name,
-    classes: classes.map((classRow) => ({
+    isOwner: actor.organizationRole === "owner",
+    classes: classes.filter((classRow) => confirmedGrantByClass.has(classRow.id)).map((classRow) => ({
       id: classRow.id,
       name: classRow.name,
       academicYear: classRow.academic_year,
       studentCount: counts.get(classRow.id) ?? 0,
+      assignmentId:
+        confirmedGrantByClass.get(classRow.id)?.assignmentId ?? "",
+      jobLabel:
+        confirmedGrantByClass.get(classRow.id)?.jobLabel ??
+        "legacy_teacher",
+      capabilities:
+        confirmedGrantByClass.get(classRow.id)?.capabilities ?? [],
     })),
   };
 }
@@ -124,7 +137,6 @@ export async function createTeacherClass(input: {
 }): Promise<string> {
   const actor = await requireOrganizationRole(input.organizationId, [
     "owner",
-    "teacher",
   ]);
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 1 || name.length > 80) {
@@ -150,7 +162,7 @@ export async function createTeacherClass(input: {
 export async function getTeacherClassWorkspace(
   classId: string,
 ): Promise<TeacherClassWorkspace> {
-  const actor = await requireClassRole(classId, ["teacher"]);
+  const actor = await requireStaffCapability(classId, "class.workspace.read");
   const admin = getSupabaseAdminClient();
   const { data: classRow, error: classError } = await admin
     .from("classes")
@@ -159,6 +171,16 @@ export async function getTeacherClassWorkspace(
     .eq("organization_id", actor.organizationId)
     .single();
   if (classError || !classRow) throw new PrototypeDataError();
+
+  const { data: organizationMembership, error: membershipError } = await admin
+    .from("memberships")
+    .select("role")
+    .eq("organization_id", actor.organizationId)
+    .eq("user_id", actor.userId)
+    .maybeSingle();
+  if (membershipError || !organizationMembership) {
+    throw new PrototypeDataError();
+  }
 
   const { data: studentMemberships, error: studentMembershipError } =
     await admin
@@ -213,6 +235,11 @@ export async function getTeacherClassWorkspace(
     states.data.map((state) => [state.assignment_id, state.status]),
   );
 
+  const confirmedActor = await requireStaffCapability(
+    classId,
+    "class.workspace.read",
+  );
+
   return {
     id: classRow.id,
     organizationId: classRow.organization_id,
@@ -252,5 +279,8 @@ export async function getTeacherClassWorkspace(
         ).length,
       };
     }),
+    staffAssignmentId: confirmedActor.staffAssignmentId,
+    capabilities: confirmedActor.capabilities,
+    isOwner: organizationMembership.role === "owner",
   };
 }

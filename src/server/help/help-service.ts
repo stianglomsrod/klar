@@ -1,6 +1,10 @@
 import "server-only";
 
-import { requireAnyStudentActor, requireClassRole } from "@/server/auth/authorize";
+import {
+  requireAnyStudentActor,
+  requireClassRole,
+  requireStaffCapability,
+} from "@/server/auth/authorize";
 import { isUuid } from "@/server/auth/policy";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
@@ -101,7 +105,7 @@ export async function cancelOwnHelp(requestId: string): Promise<void> {
 export async function getTeacherHelpQueue(
   classId: string,
 ): Promise<TeacherHelpQueueItem[]> {
-  const actor = await requireClassRole(classId, ["teacher"]);
+  const actor = await requireStaffCapability(classId, "help_queue.manage");
   const admin = getSupabaseAdminClient();
   await admin.rpc("expire_help_requests");
   const { data: requests, error } = await admin
@@ -122,6 +126,8 @@ export async function getTeacherHelpQueue(
     profiles.data.map((profile) => [profile.id, profile.display_name]),
   );
 
+  await requireStaffCapability(classId, "help_queue.manage");
+
   return requests
     .filter((request) => isActiveStatus(request.status))
     .map((request) => ({
@@ -133,34 +139,51 @@ export async function getTeacherHelpQueue(
     }));
 }
 
-async function requireTeacherForRequest(requestId: string) {
+async function requireStaffForRequest(classId: string, requestId: string) {
+  if (!isUuid(classId)) throw new PrototypeDataError("Ugyldig klasse-ID.");
   if (!isUuid(requestId)) throw new PrototypeDataError("Ugyldig kø-ID.");
+  const actor = await requireStaffCapability(classId, "help_queue.manage");
   const admin = getSupabaseAdminClient();
   const { data: request, error } = await admin
     .from("help_requests")
     .select("class_id")
     .eq("id", requestId)
+    .eq("class_id", classId)
     .single();
   if (error || !request) throw new PrototypeDataError("Fant ikke køplassen.");
-  return requireClassRole(request.class_id, ["teacher"]);
+  return actor;
 }
 
-export async function claimStudentHelp(requestId: string): Promise<void> {
-  const actor = await requireTeacherForRequest(requestId);
+export async function claimStudentHelp(
+  classId: string,
+  requestId: string,
+): Promise<void> {
+  const actor = await requireStaffForRequest(classId, requestId);
   const admin = getSupabaseAdminClient();
   const { error } = await admin.rpc("claim_student_help", {
     p_request_id: requestId,
     p_teacher_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
   });
-  if (error) throw new PrototypeDataError("Kunne ikke ta køplassen.");
+  if (error) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError("Kunne ikke ta køplassen.");
+  }
 }
 
-export async function resolveStudentHelp(requestId: string): Promise<void> {
-  const actor = await requireTeacherForRequest(requestId);
+export async function resolveStudentHelp(
+  classId: string,
+  requestId: string,
+): Promise<void> {
+  const actor = await requireStaffForRequest(classId, requestId);
   const admin = getSupabaseAdminClient();
   const { error } = await admin.rpc("resolve_student_help", {
     p_request_id: requestId,
     p_teacher_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
   });
-  if (error) throw new PrototypeDataError("Kunne ikke fullføre køplassen.");
+  if (error) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError("Kunne ikke fullføre køplassen.");
+  }
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { updateClassStudentExperienceAction } from "@/app/actions/v3/experience-actions";
 import type { SupportLevel } from "@/server/students/experience-service";
+import { redirectIfStaffAccessEnded } from "./staff-access-ended";
 
 export function TeacherStudentExperienceEditor({
   classId,
@@ -34,6 +35,7 @@ export function TeacherStudentExperienceEditor({
         progressEnabled,
       });
       if (!result.success) {
+        if (redirectIfStaffAccessEnded(result, classId)) return;
         setError(result.error);
         return;
       }
@@ -49,7 +51,7 @@ export function TeacherStudentExperienceEditor({
 
   return (
     <details className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
-      <summary className="cursor-pointer font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+      <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600">
         Tilpass visning
       </summary>
       <form onSubmit={save} className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
@@ -61,26 +63,26 @@ export function TeacherStudentExperienceEditor({
             id={`support-${studentId}`}
             value={supportLevel}
             onChange={(event) => setSupportLevel(Number(event.target.value) as SupportLevel)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+            className="mt-1 block min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600"
           >
             <option value={1}>Kort</option>
             <option value={2}>Vanlig</option>
             <option value={3}>Mer oversikt</option>
           </select>
         </div>
-        <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+        <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
           <input
             type="checkbox"
             checked={progressEnabled}
             onChange={(event) => setProgressEnabled(event.target.checked)}
-            className="h-4 w-4 accent-indigo-700"
+            className="h-5 w-5 accent-indigo-700"
           />
           Vis fremdrift
         </label>
         <button
           type="submit"
           disabled={saving}
-          className="rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
+          className="min-h-11 rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
         >
           {saving ? "Lagrer …" : "Lagre"}
         </button>

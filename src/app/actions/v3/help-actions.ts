@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAuthorizationError } from "@/server/auth/errors";
 import { isPrototypeDataError } from "@/server/data/errors";
 import {
   cancelOwnHelp,
@@ -10,8 +9,9 @@ import {
   resolveStudentHelp,
 } from "@/server/help/help-service";
 import type { ActiveStudentHelpRequest } from "@/server/help/help-service";
+import { authorizationFailure, type ActionFailure } from "./action-errors";
 
-type MutationResult = { success: true } | { success: false; error: string };
+type MutationResult = { success: true } | ActionFailure;
 type StudentHelpMutationResult =
   | { success: true; activeRequest: ActiveStudentHelpRequest | null }
   | { success: false; error: string };
@@ -19,10 +19,10 @@ type StudentHelpMutationResult =
 function resultFromError(
   error: unknown,
   fallback: string,
-): { success: false; error: string } {
-  if (isAuthorizationError(error) || isPrototypeDataError(error)) {
-    return { success: false, error: error.message };
-  }
+): ActionFailure {
+  const authorization = authorizationFailure(error);
+  if (authorization) return authorization;
+  if (isPrototypeDataError(error)) return { success: false, error: error.message };
   return { success: false, error: fallback };
 }
 
@@ -56,7 +56,7 @@ export async function claimStudentHelpAction(
   requestId: string,
 ): Promise<MutationResult> {
   try {
-    await claimStudentHelp(requestId);
+    await claimStudentHelp(classId, requestId);
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {
@@ -69,7 +69,7 @@ export async function resolveStudentHelpAction(
   requestId: string,
 ): Promise<MutationResult> {
   try {
-    await resolveStudentHelp(requestId);
+    await resolveStudentHelp(classId, requestId);
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {

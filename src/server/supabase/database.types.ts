@@ -16,6 +16,24 @@ export type HelpRequestStatus =
   | "resolved"
   | "cancelled"
   | "expired";
+export type StaffJobLabel =
+  | "contact_teacher"
+  | "subject_teacher"
+  | "special_educator"
+  | "substitute"
+  | "legacy_teacher"
+  | "operational_owner";
+export type StaffAssignmentSource =
+  | "manual"
+  | "legacy_backfill"
+  | "class_creation";
+export type StaffCapability =
+  | "class.workspace.read"
+  | "task.publish"
+  | "plan.preview"
+  | "plan.publish"
+  | "help_queue.manage"
+  | "student_support.update";
 
 type TableDefinition<Row, Insert> = {
   Row: Row;
@@ -131,6 +149,41 @@ type AuditEventRow = {
   entity_id: string | null;
   metadata: Json;
   occurred_at: string;
+  authorizing_staff_assignment_id: string | null;
+  authorizing_capability: StaffCapability | null;
+};
+
+type StaffAssignmentRow = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  job_label: StaffJobLabel;
+  profile_version: "class_pedagogy_v1";
+  starts_at: string;
+  ends_at: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  source: StaffAssignmentSource;
+  created_by: string | null;
+  idempotency_key: string;
+  request_fingerprint: string;
+  expiry_audited_at: string | null;
+  version: number;
+  created_at: string;
+};
+
+type StaffAssignmentClassScopeRow = {
+  assignment_id: string;
+  organization_id: string;
+  class_id: string;
+  created_at: string;
+};
+
+type StaffAssignmentCapabilityRow = {
+  assignment_id: string;
+  capability: StaffCapability;
+  profile_version: "class_pedagogy_v1";
+  created_at: string;
 };
 
 type StudentLoginCodeRow = {
@@ -283,6 +336,47 @@ export type Database = {
           entity_id?: string | null;
           metadata?: Json;
           occurred_at?: string;
+          authorizing_staff_assignment_id?: string | null;
+          authorizing_capability?: StaffCapability | null;
+        }
+      >;
+      staff_assignments: TableDefinition<
+        StaffAssignmentRow,
+        {
+          id?: string;
+          organization_id: string;
+          user_id: string;
+          job_label: StaffJobLabel;
+          profile_version?: "class_pedagogy_v1";
+          starts_at: string;
+          ends_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
+          source: StaffAssignmentSource;
+          created_by?: string | null;
+          idempotency_key: string;
+          request_fingerprint: string;
+          expiry_audited_at?: string | null;
+          version?: number;
+          created_at?: string;
+        }
+      >;
+      staff_assignment_class_scopes: TableDefinition<
+        StaffAssignmentClassScopeRow,
+        {
+          assignment_id: string;
+          organization_id: string;
+          class_id: string;
+          created_at?: string;
+        }
+      >;
+      staff_assignment_capabilities: TableDefinition<
+        StaffAssignmentCapabilityRow,
+        {
+          assignment_id: string;
+          capability: StaffCapability;
+          profile_version?: "class_pedagogy_v1";
+          created_at?: string;
         }
       >;
       student_login_codes: TableDefinition<
@@ -353,6 +447,7 @@ export type Database = {
         Args: {
           p_class_id: string;
           p_actor_id: string;
+          p_staff_assignment_id: string;
           p_title: string;
           p_description?: string | null;
           p_subject?: string | null;
@@ -388,15 +483,28 @@ export type Database = {
         Returns: HelpRequestRow;
       };
       claim_student_help: {
-        Args: { p_request_id: string; p_teacher_id: string };
+        Args: {
+          p_request_id: string;
+          p_teacher_id: string;
+          p_staff_assignment_id: string;
+        };
         Returns: HelpRequestRow;
       };
       resolve_student_help: {
-        Args: { p_request_id: string; p_teacher_id: string };
+        Args: {
+          p_request_id: string;
+          p_teacher_id: string;
+          p_staff_assignment_id: string;
+        };
         Returns: HelpRequestRow;
       };
       publish_plan_to_class: {
-        Args: { p_class_id: string; p_actor_id: string; p_tasks: Json };
+        Args: {
+          p_class_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_tasks: Json;
+        };
         Returns: string[];
       };
       update_student_experience: {
@@ -409,6 +517,51 @@ export type Database = {
         };
         Returns: StudentExperienceSettingsRow;
       };
+      update_student_experience_for_staff: {
+        Args: {
+          p_organization_id: string;
+          p_class_id: string;
+          p_student_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_support_level: number;
+          p_progress_enabled: boolean;
+        };
+        Returns: StudentExperienceSettingsRow;
+      };
+      resolve_active_staff_assignment: {
+        Args: {
+          p_actor_id: string;
+          p_class_id: string;
+          p_capability: StaffCapability;
+        };
+        Returns: string | null;
+      };
+      reconcile_expired_staff_assignments: {
+        Args: { p_organization_id?: string | null };
+        Returns: number;
+      };
+      create_staff_assignment: {
+        Args: {
+          p_organization_id: string;
+          p_actor_id: string;
+          p_target_user_id: string;
+          p_class_id: string;
+          p_job_label: StaffJobLabel;
+          p_starts_at: string;
+          p_ends_at: string;
+          p_idempotency_key: string;
+        };
+        Returns: string;
+      };
+      revoke_staff_assignment: {
+        Args: {
+          p_organization_id: string;
+          p_actor_id: string;
+          p_assignment_id: string;
+        };
+        Returns: StaffAssignmentRow;
+      };
     };
     Enums: {
       organization_role: OrganizationRole;
@@ -416,6 +569,9 @@ export type Database = {
       task_publication_status: TaskPublicationStatus;
       student_task_status: StudentTaskStatus;
       help_request_status: HelpRequestStatus;
+      staff_job_label: StaffJobLabel;
+      staff_assignment_source: StaffAssignmentSource;
+      staff_capability: StaffCapability;
     };
     CompositeTypes: Record<string, never>;
   };

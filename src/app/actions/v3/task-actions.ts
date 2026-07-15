@@ -8,8 +8,9 @@ import {
   updateOwnTaskStatus,
 } from "@/server/tasks/task-service";
 import type { StudentTaskStatus } from "@/server/supabase/database.types";
+import { authorizationFailure, type ActionFailure } from "./action-errors";
 
-type MutationResult = { success: true } | { success: false; error: string };
+type MutationResult = { success: true } | ActionFailure;
 
 export async function publishClassTaskAction(input: {
   classId: string;
@@ -24,9 +25,9 @@ export async function publishClassTaskAction(input: {
     revalidatePath(`/v3/teacher/classes/${input.classId}`);
     return { success: true };
   } catch (error) {
-    if (isAuthorizationError(error) || isPrototypeDataError(error)) {
-      return { success: false, error: error.message };
-    }
+    const authorization = authorizationFailure(error);
+    if (authorization) return authorization;
+    if (isPrototypeDataError(error)) return { success: false, error: error.message };
     return { success: false, error: "Kunne ikke publisere oppgaven." };
   }
 }

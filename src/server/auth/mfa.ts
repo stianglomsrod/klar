@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient as createSessionClient } from "@/utils/supabase/server";
-import { requireAnyTeacherActor } from "./authorize";
+import { requireStaffIdentity } from "./authorize";
 
 export type MfaEnrollmentResult =
   | {
@@ -17,7 +17,7 @@ export type MfaVerificationResult =
   | { success: false; error: string };
 
 export async function beginTeacherMfaEnrollment(): Promise<MfaEnrollmentResult> {
-  await requireAnyTeacherActor({ enforceMfa: false });
+  await requireStaffIdentity({ enforceMfa: false });
   const sessionClient = await createSessionClient();
   const { data: factors, error: factorError } =
     await sessionClient.auth.mfa.listFactors();
@@ -61,7 +61,7 @@ export async function verifyTeacherMfa(
   code: string,
   requestedFactorId?: string,
 ): Promise<MfaVerificationResult> {
-  await requireAnyTeacherActor({ enforceMfa: false });
+  await requireStaffIdentity({ enforceMfa: false });
   if (!/^\d{6}$/.test(code)) {
     return { success: false, error: "Koden må bestå av seks siffer." };
   }

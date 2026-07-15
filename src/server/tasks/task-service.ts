@@ -1,6 +1,9 @@
 import "server-only";
 
-import { requireAnyStudentActor, requireClassRole } from "@/server/auth/authorize";
+import {
+  requireAnyStudentActor,
+  requireStaffCapability,
+} from "@/server/auth/authorize";
 import { isUuid } from "@/server/auth/policy";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
@@ -30,7 +33,7 @@ export async function publishClassTask(input: {
   estimatedMinutes?: number;
   supportLevel?: number;
 }): Promise<string> {
-  const actor = await requireClassRole(input.classId, ["teacher"]);
+  const actor = await requireStaffCapability(input.classId, "task.publish");
   const title = input.title.trim().replace(/\s+/g, " ");
   if (title.length < 1 || title.length > 160) {
     throw new PrototypeDataError("Oppgavetittelen må være mellom 1 og 160 tegn.");
@@ -65,13 +68,17 @@ export async function publishClassTask(input: {
   const { data, error } = await admin.rpc("publish_task_to_class", {
     p_class_id: actor.classId,
     p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
     p_title: title,
     p_description: description,
     p_subject: subject,
     p_estimated_minutes: estimatedMinutes,
     p_support_level: supportLevel,
   });
-  if (error || !data) throw new PrototypeDataError("Kunne ikke publisere oppgaven.");
+  if (error || !data) {
+    await requireStaffCapability(input.classId, "task.publish");
+    throw new PrototypeDataError("Kunne ikke publisere oppgaven.");
+  }
   return data;
 }
 

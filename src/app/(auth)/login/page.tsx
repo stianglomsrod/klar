@@ -42,7 +42,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-12 text-slate-950">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-slate-100 px-4 py-12 text-slate-950 focus:outline-none">
       <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-md items-center">
         <section
           aria-labelledby="login-heading"

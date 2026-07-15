@@ -1,22 +1,22 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isAuthorizationError } from "@/server/auth/errors";
 import { isPrototypeDataError } from "@/server/data/errors";
 import {
   updateClassStudentExperience,
   updateOwnStudentExperience,
   type StudentExperience,
 } from "@/server/students/experience-service";
+import { authorizationFailure, type ActionFailure } from "./action-errors";
 
 type ExperienceResult =
   | { success: true; experience: StudentExperience }
-  | { success: false; error: string };
+  | ActionFailure;
 
 function failure(error: unknown): ExperienceResult {
-  if (isAuthorizationError(error) || isPrototypeDataError(error)) {
-    return { success: false, error: error.message };
-  }
+  const authorization = authorizationFailure(error);
+  if (authorization) return authorization;
+  if (isPrototypeDataError(error)) return { success: false, error: error.message };
   return { success: false, error: "Kunne ikke lagre visningsvalgene." };
 }
 

@@ -65,11 +65,11 @@ export function MfaPanel({ mode }: MfaPanelProps) {
         Klar 3.0
       </p>
       <h1 id="mfa-heading" className="mt-2 text-3xl font-bold tracking-tight">
-        {mode === "enroll" ? "Sikre lærerkontoen" : "Bekreft innloggingen"}
+        {mode === "enroll" ? "Sikre ansattkontoen" : "Bekreft innloggingen"}
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-600">
         {mode === "enroll"
-          ? "Koble kontoen til en autentiseringsapp før du åpner lærerflaten."
+          ? "Koble kontoen til en autentiseringsapp før du åpner ansattflaten."
           : "Skriv inn den seks-sifrede koden fra autentiseringsappen."}
       </p>
 

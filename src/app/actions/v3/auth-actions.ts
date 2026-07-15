@@ -1,5 +1,7 @@
 "use server";
 
+import { redirect } from "next/navigation";
+
 import {
   signInWithPrototypeCredentials,
   signOutPrototypeUser,
@@ -22,6 +24,7 @@ export async function signInPrototypeAction(
 
 export async function signOutPrototypeAction(): Promise<void> {
   await signOutPrototypeUser();
+  redirect("/login");
 }
 
 export async function beginTeacherMfaEnrollmentAction(): Promise<MfaEnrollmentResult> {

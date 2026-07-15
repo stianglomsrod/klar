@@ -2,6 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+.skip-link {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 100;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link:focus-visible {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  overflow: visible;
+  clip: auto;
+  clip-path: none;
+  white-space: normal;
+  border-radius: 0.5rem;
+  background: #020617;
+  color: #fff;
+  font-weight: 600;
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px #020617;
+}
+
 body {
   background-color: #f7f8fb;
   background-image: radial-gradient(
@@ -56,6 +90,132 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.staff-mobile-header {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.staff-shell-content {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+.staff-drawer__content {
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+  padding-right: max(1.25rem, env(safe-area-inset-right));
+}
+
+.staff-drawer {
+  inset: 0 auto 0 0;
+  border: 0;
+}
+
+.staff-dialog {
+  width: min(42rem, calc(100vw - 2rem));
+  max-width: none;
+  max-height: min(52rem, calc(100dvh - 2rem));
+  margin: auto;
+  overflow: hidden;
+  border: 0;
+}
+
+.staff-dialog--confirm {
+  width: min(30rem, calc(100vw - 2rem));
+}
+
+.staff-dialog__content {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  max-height: min(52rem, calc(100dvh - 2rem));
+}
+
+.staff-dialog__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.staff-assignment-status {
+  display: inline-flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+}
+
+.staff-assignment-status--active {
+  color: #166534;
+  background: #f0fdf4;
+}
+
+.staff-assignment-status--scheduled {
+  color: #3730a3;
+  background: #eef2ff;
+}
+
+.staff-assignment-status--expired,
+.staff-assignment-status--revoked {
+  color: #475569;
+  background: #f8fafc;
+}
+
+@media (max-width: 767px) {
+  .staff-dialog:not(.staff-dialog--confirm) {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .staff-dialog:not(.staff-dialog--confirm) .staff-dialog__content {
+    height: 100dvh;
+    max-height: none;
+  }
+
+  .staff-dialog__content > header {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .staff-dialog__content > footer {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .staff-dialog:not(.staff-dialog--confirm) {
+    inset: 0 0 0 auto;
+    width: min(36rem, 84vw);
+    height: 100dvh;
+    max-height: none;
+    margin: 0 0 0 auto;
+    border-radius: 1rem 0 0 1rem;
+  }
+
+  .staff-dialog:not(.staff-dialog--confirm) .staff-dialog__content {
+    height: 100dvh;
+    max-height: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .staff-dialog__content > header,
+  .staff-dialog__scroll,
+  .staff-dialog__content > footer {
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

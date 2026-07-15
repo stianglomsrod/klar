@@ -7,9 +7,11 @@ import {
   type AssuranceLevel,
   type ClassRole,
   type OrganizationRole,
+  type StaffCapability,
   isAllowedRole,
   isClassRole,
   isOrganizationRole,
+  isStaffCapability,
   isUuid,
   requiresAal2,
 } from "./policy";
@@ -28,6 +30,14 @@ export type ClassAuthorization = AuthenticatedActor & {
   organizationId: string;
   classId: string;
   classRole: ClassRole;
+};
+
+export type StaffAuthorization = AuthenticatedActor & {
+  organizationId: string;
+  classId: string;
+  staffAssignmentId: string;
+  capability: StaffCapability;
+  capabilities: StaffCapability[];
 };
 
 type ElevatedAccessOptions = {
@@ -183,7 +193,7 @@ export async function requireClassRole(
   };
 }
 
-export async function requireAnyTeacherActor(
+export async function requireStaffIdentity(
   options: ElevatedAccessOptions = {},
 ): Promise<OrganizationAuthorization> {
   const actor = await requireAuthenticatedActor();
@@ -193,6 +203,7 @@ export async function requireAnyTeacherActor(
     .select("organization_id, role")
     .eq("user_id", actor.userId)
     .in("role", ["owner", "teacher"])
+    .order("organization_id")
     .limit(1)
     .maybeSingle();
 
@@ -200,7 +211,7 @@ export async function requireAnyTeacherActor(
     throw new AuthorizationError(
       "AUTHORIZATION_LOOKUP_FAILED",
       500,
-      "Kunne ikke kontrollere lærertilgangen.",
+      "Kunne ikke kontrollere ansattilgangen.",
     );
   }
 
@@ -213,7 +224,7 @@ export async function requireAnyTeacherActor(
     throw new AuthorizationError(
       "FORBIDDEN",
       403,
-      "Denne operasjonen krever en lærerkonto.",
+      "Denne operasjonen krever en ansattkonto.",
     );
   }
 
@@ -225,6 +236,145 @@ export async function requireAnyTeacherActor(
     ...actor,
     organizationId: membership.organization_id,
     organizationRole: membership.role,
+  };
+}
+
+async function reconcileExpiredCandidate(
+  actorId: string,
+  classId: string,
+): Promise<void> {
+  const admin = getSupabaseAdminClient();
+  const { data: scopes, error: scopesError } = await admin
+    .from("staff_assignment_class_scopes")
+    .select("assignment_id, organization_id")
+    .eq("class_id", classId);
+  if (scopesError || scopes.length === 0) return;
+
+  const assignmentIds = scopes.map((scope) => scope.assignment_id);
+  const { data: assignments, error: assignmentsError } = await admin
+    .from("staff_assignments")
+    .select("organization_id, ends_at, revoked_at, expiry_audited_at")
+    .eq("user_id", actorId)
+    .in("id", assignmentIds);
+  if (assignmentsError) return;
+
+  const now = Date.now();
+  const organizationIds = new Set(
+    assignments
+      .filter(
+        (assignment) =>
+          assignment.revoked_at === null &&
+          assignment.expiry_audited_at === null &&
+          assignment.ends_at !== null &&
+          Date.parse(assignment.ends_at) <= now,
+      )
+      .map((assignment) => assignment.organization_id),
+  );
+
+  await Promise.all(
+    [...organizationIds].map((organizationId) =>
+      admin.rpc("reconcile_expired_staff_assignments", {
+        p_organization_id: organizationId,
+      }),
+    ),
+  );
+}
+
+export async function requireStaffCapability(
+  classId: string,
+  capability: StaffCapability,
+): Promise<StaffAuthorization> {
+  assertResourceId(classId, "Klasse-ID");
+  if (!isStaffCapability(capability)) {
+    throw new AuthorizationError(
+      "FORBIDDEN",
+      403,
+      "Denne handlingen er ikke tilgjengelig.",
+    );
+  }
+
+  const actor = await requireAuthenticatedActor();
+  if (actor.assuranceLevel !== "aal2") {
+    throw new AuthorizationError(
+      "MFA_REQUIRED",
+      403,
+      "Denne ansattoperasjonen krever tofaktorautentisering.",
+    );
+  }
+
+  const admin = getSupabaseAdminClient();
+  const { data: staffAssignmentId, error: resolveError } = await admin.rpc(
+    "resolve_active_staff_assignment",
+    {
+      p_actor_id: actor.userId,
+      p_class_id: classId,
+      p_capability: capability,
+    },
+  );
+
+  if (resolveError) {
+    throw new AuthorizationError(
+      "AUTHORIZATION_LOOKUP_FAILED",
+      500,
+      "Kunne ikke kontrollere ansattoppdraget.",
+    );
+  }
+
+  if (!staffAssignmentId || !isUuid(staffAssignmentId)) {
+    await reconcileExpiredCandidate(actor.userId, classId);
+    throw new AuthorizationError(
+      "STAFF_ACCESS_ENDED",
+      403,
+      "Tilgangen til denne klassen er avsluttet.",
+    );
+  }
+
+  const [{ data: assignment, error: assignmentError }, capabilitiesResult] =
+    await Promise.all([
+      admin
+        .from("staff_assignments")
+        .select("organization_id, user_id")
+        .eq("id", staffAssignmentId)
+        .eq("user_id", actor.userId)
+        .single(),
+      admin
+        .from("staff_assignment_capabilities")
+        .select("capability")
+        .eq("assignment_id", staffAssignmentId),
+    ]);
+
+  if (
+    assignmentError ||
+    !assignment ||
+    !isUuid(assignment.organization_id) ||
+    capabilitiesResult.error
+  ) {
+    throw new AuthorizationError(
+      "AUTHORIZATION_LOOKUP_FAILED",
+      500,
+      "Kunne ikke lese ansattoppdraget.",
+    );
+  }
+
+  const capabilities = capabilitiesResult.data
+    .map((row) => row.capability)
+    .filter(isStaffCapability);
+
+  if (!capabilities.includes(capability)) {
+    throw new AuthorizationError(
+      "STAFF_ACCESS_ENDED",
+      403,
+      "Tilgangen til denne handlingen er avsluttet.",
+    );
+  }
+
+  return {
+    ...actor,
+    organizationId: assignment.organization_id,
+    classId,
+    staffAssignmentId,
+    capability,
+    capabilities,
   };
 }
 

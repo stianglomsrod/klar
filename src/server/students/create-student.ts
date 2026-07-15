@@ -2,7 +2,11 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import { getStudentCodePepper } from "@/lib/env/server";
-import { requireClassRole } from "@/server/auth/authorize";
+import {
+  requireOrganizationRole,
+  requireStaffIdentity,
+} from "@/server/auth/authorize";
+import { isUuid } from "@/server/auth/policy";
 import {
   digestStudentCode,
   generateStudentCode,
@@ -38,9 +42,22 @@ export async function createPrototypeStudent(
   classId: string,
   displayNameInput: string,
 ): Promise<CreatedPrototypeStudent> {
-  const authorization = await requireClassRole(classId, ["teacher"]);
-  const displayName = normalizeDisplayName(displayNameInput);
+  if (!isUuid(classId)) throw new StudentProvisioningError("Ugyldig klasse-ID.");
+  const identity = await requireStaffIdentity();
+  const authorization = await requireOrganizationRole(identity.organizationId, [
+    "owner",
+  ]);
   const admin = getSupabaseAdminClient();
+  const { data: targetClass, error: classError } = await admin
+    .from("classes")
+    .select("id")
+    .eq("id", classId)
+    .eq("organization_id", authorization.organizationId)
+    .single();
+  if (classError || !targetClass) {
+    throw new StudentProvisioningError("Klassen finnes ikke i organisasjonen.");
+  }
+  const displayName = normalizeDisplayName(displayNameInput);
   const password = generateStudentPassword();
   const internalEmail = `student-${randomUUID()}@accounts.klar.invalid`;
   const { data: authData, error: authError } =
@@ -69,7 +86,7 @@ export async function createPrototypeStudent(
     const { error: classMembershipError } = await admin
       .from("class_memberships")
       .insert({
-        class_id: authorization.classId,
+        class_id: targetClass.id,
         organization_id: authorization.organizationId,
         user_id: userId,
         role: "student",
@@ -89,7 +106,7 @@ export async function createPrototypeStudent(
       event_name: "student.created",
       entity_type: "profile",
       entity_id: userId,
-      metadata: { class_id: authorization.classId },
+      metadata: { class_id: targetClass.id },
     });
     if (auditError) throw auditError;
 

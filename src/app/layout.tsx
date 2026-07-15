@@ -18,13 +18,11 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <a
           href="#main-content"
-          className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-slate-950 px-4 py-3 font-semibold text-white transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-950"
+          className="skip-link"
         >
           Hopp til hovedinnhold
         </a>
-        <div id="main-content" tabIndex={-1} className="focus:outline-none">
-          {children}
-        </div>
+        {children}
         <ServiceWorkerRegistration />
       </body>
     </html>
