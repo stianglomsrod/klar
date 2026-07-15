@@ -52,7 +52,7 @@ export async function beginTeacherMfaEnrollment(): Promise<MfaEnrollmentResult> 
   return {
     success: true,
     factorId: data.id,
-    qrCode: `data:image/svg+xml;utf-8,${encodeURIComponent(data.totp.qr_code)}`,
+    qrCode: data.totp.qr_code,
     secret: data.totp.secret,
   };
 }
