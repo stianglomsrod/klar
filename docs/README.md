@@ -33,6 +33,12 @@ tilgjengelighetsfeil.
 - [Epic-oversikt](./epics/README.md) – sporbare arbeidsområder og status.
 - [Pilotrunbook](./PILOT_RUNBOOK.md) – det nåværende, avgrensede pilotmiljøet
   og verifiserte driftsgrenser.
+- [Visuell QA-mal](./qa/VISUAL_QA_TEMPLATE.md) – matrise og dokumentert
+  kontrollpunkt for responsive, tilgjengelige elev- og ansattflater.
+- [Kontrollpunkt 0](./qa/CONTROL_POINT_0.md) – arbeidsloop, lokal testharness,
+  verifikasjonsstatus og gjenværende porter.
+- [Visuell QA for kontrollpunkt 0](./qa/CONTROL_POINT_0_VISUAL_QA.md) – utfylt
+  matrise, semantisk vurdering og kjente produktgap.
 
 ## Dokumenttyper
 

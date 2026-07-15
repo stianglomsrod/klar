@@ -41,11 +41,13 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
 6. Sett bootstrap-variablene lokalt og kjør
    `npm run pilot:bootstrap-owner`. Passordet gis til eieren via en annen kanal
    og skrives ikke ut av skriptet.
-7. Kjør `npm ci`, `npm run check`, `npm run build` og `npm run test:e2e` fra en
-   ren utsjekk før pilotversjonen slippes.
-8. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
+7. Kjør `npm ci`, `npm run test:e2e:install` og
+   `npm run verify:checkpoint` fra en ren utsjekk før pilotversjonen slippes.
+8. På en utviklermaskin med Docker, kjør `npm run test:e2e:auth`. Runneren
+   nullstiller bare lokal Supabase på loopback og skal aldri peke mot piloten.
+9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: elev → oppgave → status → hjelpekø.
-9. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
+10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
 
 ## Minimumskontroll før hver testøkt
 

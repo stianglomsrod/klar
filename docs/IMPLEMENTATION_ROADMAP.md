@@ -38,6 +38,21 @@ E06 gjelder i alle leveranser fra første komponent og første E2E-test.
 
 ## Anbefalt leveranserekkefølge
 
+### Kontrollpunkt 0 – arbeids- og QA-fundament
+
+**Status:** Fullført og lokalt verifisert i Chromium og WebKit.
+
+Før produktleveransene etableres en repo-skill, varige agentregler,
+lokal-only syntetiske Supabase-fixtures, separate elev-/lærersesjoner,
+responsiv screenshotmatrise og en deterministisk kontrollpunktport. Se
+[`docs/qa/CONTROL_POINT_0.md`](./qa/CONTROL_POINT_0.md) for bevis og kjente
+manuelle enhetsporter.
+
+**Utgangskrav:** Oppfylt. Arbeidsflyt, tom lokal database, Supabase Auth/MFA,
+rolleisolasjon, offentlig smoke og visuell matrise er grønne. Ekte touch,
+skjermleser og 200 % browserzoom følger den relevante produktslicen og kan ikke
+erstattes av emulatorbeviset.
+
 ### Kontrollpunkt A – felles fundament
 
 Start E05 og E06 som tverrgående fundament:

@@ -97,7 +97,32 @@ npm run check
 npm run build
 npm run test:e2e:install
 npm run test:e2e
+npm run verify:checkpoint
 ```
+
+Den offentlige Playwright-suiten er rask og bruker ingen testkontoer. For
+autentiserte elev-/lærerflater finnes en separat, lokal-only suite:
+
+```bash
+# Krever Docker Desktop. Kommandoene nullstiller den lokale Supabase-databasen.
+npm run test:e2e:auth
+npm run test:e2e:visual
+npm run test:e2e:full
+npm run test:e2e:full:webkit
+```
+
+Runneren starter Supabase på `127.0.0.1:54321`, avviser alle andre verter,
+oppretter bare syntetiske fixtures, gjennomfører lærerens TOTP-oppsett gjennom
+UI og lagrer separate, ignorerte browsertilstander for elev og lærer. Den
+bruker aldri det linkede pilotprosjektet som reserve. Visuelle kjøringer lagrer
+QA-artefakter i `test-results`; historiske prototypebilder er ikke
+pixel-baselines.
+
+Den autentiserte suiten er verifisert lokalt i Chromium og WebKit. Den er
+foreløpig en eksplisitt kontrollpunktport fordi en komplett Supabase-stack er
+vesentlig tyngre enn dagens CI-jobber. CI beholder offentlig Playwright-smoke
+og den separate migrasjons-/RLS-jobben frem til en egen cachet Docker-jobb er
+besluttet.
 
 CI gjør i tillegg følgende:
 

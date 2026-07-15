@@ -1,0 +1,7 @@
+interface:
+  display_name: "Klar kontrollpunkt-loop"
+  short_description: "Implementer og verifiser én Klar-slice"
+  default_prompt: "Bruk $klar-loop til å implementere og verifisere én avgrenset Klar 3.0-slice."
+
+policy:
+  allow_implicit_invocation: false
