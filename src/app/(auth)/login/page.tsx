@@ -73,7 +73,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form method="post" onSubmit={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="identifier" className="text-sm font-semibold">
                 Elevkode eller e-post
