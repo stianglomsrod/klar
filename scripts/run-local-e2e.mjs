@@ -19,13 +19,13 @@ const playwright = path.join(
 );
 const npm = process.env.npm_execpath;
 
-function getLocalKongContainer() {
+function getLocalContainer(service) {
   const config = readFileSync(path.join(root, "supabase", "config.toml"), "utf8");
   const projectId = config.match(/^project_id\s*=\s*"([^"]+)"/m)?.[1];
   if (!projectId || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(projectId)) {
     throw new Error("Fant ikke et trygt lokalt project_id i Supabase-konfigurasjonen.");
   }
-  return `supabase_kong_${projectId}`;
+  return `supabase_${service}_${projectId}`;
 }
 
 const modeArgument = process.argv.find((argument) => argument.startsWith("--mode="));
@@ -34,8 +34,8 @@ const browserArgument = process.argv.find((argument) =>
 );
 const mode = modeArgument?.split("=")[1] ?? "smoke";
 const browser = browserArgument?.split("=")[1] ?? "chromium";
-if (!["smoke", "visual", "full"].includes(mode)) {
-  throw new Error("E2E-modus må være smoke, visual eller full.");
+if (!["smoke", "staff", "visual", "full"].includes(mode)) {
+  throw new Error("E2E-modus må være smoke, staff, visual eller full.");
 }
 if (!["chromium", "webkit"].includes(browser)) {
   throw new Error("E2E-browser må være chromium eller webkit.");
@@ -99,7 +99,11 @@ run(process.execPath, [supabase, "start"], { suppressStdout: true });
 run(process.execPath, [supabase, "db", "reset", "--local"]);
 // A local reset recreates service containers. Restarting the local gateway
 // makes it resolve their new Docker addresses before health checks and seeding.
-run("docker", ["restart", getLocalKongContainer()], { suppressStdout: true });
+run(
+  "docker",
+  ["restart", getLocalContainer("auth"), getLocalContainer("kong")],
+  { suppressStdout: true },
+);
 const status = parseSupabaseEnv(
   run(process.execPath, [supabase, "status", "--output", "env"], {
     capture: true,
@@ -124,8 +128,18 @@ const testEnvironment = {
   KLAR_E2E_BROWSER: browser,
   KLAR_E2E_OWNER_EMAIL: "owner@e2e.klar.invalid",
   KLAR_E2E_OWNER_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_SUBSTITUTE_EMAIL: "substitute@e2e.klar.invalid",
+  KLAR_E2E_SUBSTITUTE_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_VISUAL_STAFF_EMAIL: "visual-staff@e2e.klar.invalid",
+  KLAR_E2E_VISUAL_STAFF_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_VISUAL_OWNER_EMAIL: "visual-owner@e2e.klar.invalid",
+  KLAR_E2E_VISUAL_OWNER_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_OTHER_STAFF_EMAIL: "other-staff@e2e.klar.invalid",
+  KLAR_E2E_OTHER_STAFF_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   KLAR_E2E_STUDENT_CODE: `E2E-${randomBytes(5).toString("hex").toUpperCase()}`,
   KLAR_E2E_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_VISUAL_STUDENT_CODE: `VIS-${randomBytes(5).toString("hex").toUpperCase()}`,
+  KLAR_E2E_VISUAL_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   PILOT_ENABLED: "true",
   NEXT_PUBLIC_FEATURE_LEGACY_2X: "false",
   NEXT_PUBLIC_FEATURE_PUSH_NOTIFICATIONS: "false",

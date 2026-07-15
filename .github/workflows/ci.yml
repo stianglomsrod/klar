@@ -46,35 +46,17 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      PGHOST: 127.0.0.1
-      PGPORT: 5432
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: postgres
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [empty, upgrade]
 
     steps:
       - uses: actions/checkout@v4
-      - run: psql -f supabase/verification/bootstrap_supabase_stub.sql
-      - run: psql -f supabase/migrations/20260714000000_initial_core.sql
-      - run: psql -f supabase/migrations/20260714000001_authorization.sql
-      - run: psql -f supabase/migrations/20260714000002_prototype_auth.sql
-      - run: psql -f supabase/migrations/20260714000003_core_operations.sql
-      - run: psql -f supabase/migrations/20260714000004_help_queue_operations.sql
-      - run: psql -f supabase/migrations/20260714000005_plan_import_operations.sql
-      - run: psql -f supabase/migrations/20260714000006_student_experience.sql
-      - run: psql -f supabase/verification/rls_smoke.sql
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run test:db:staff:${{ matrix.scenario }}

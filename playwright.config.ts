@@ -16,6 +16,7 @@ const mode = process.env.KLAR_E2E_MODE ?? "smoke";
 const authBrowser: "chromium" | "webkit" =
   process.env.KLAR_E2E_BROWSER === "webkit" ? "webkit" : "chromium";
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
+const outputNamespace = authenticated ? `${authBrowser}-${mode}` : "public";
 
 const targets = [
   { name: "small-mobile", width: 360, height: 640, hasTouch: true },
@@ -27,11 +28,16 @@ const targets = [
 
 const projects: NonNullable<PlaywrightTestConfig["projects"]> = [];
 
-if (!authenticated || mode !== "visual") {
+if (!authenticated || mode === "smoke" || mode === "full") {
+  const publicBrowser = authenticated ? authBrowser : "chromium";
   projects.push({
-    name: "public-chromium",
+    name: `public-${publicBrowser}`,
     testMatch: /pilot\.spec\.ts/,
-    use: { ...devices["Desktop Chrome"] },
+    use: {
+      ...(publicBrowser === "webkit"
+        ? devices["Desktop Safari"]
+        : devices["Desktop Chrome"]),
+    },
   });
 }
 
@@ -66,11 +72,23 @@ if (authenticated) {
         dependencies: ["auth-setup"],
         use: {
           browserName: authBrowser,
-          storageState: path.join(authDirectory, "teacher.json"),
+          storageState: path.join(authDirectory, "owner-aal2.json"),
           viewport: { width: 1440, height: 900 },
         },
       },
     );
+  }
+
+  if (mode === "staff" || mode === "full") {
+    projects.push({
+      name: "staff-lifecycle",
+      testMatch: /authenticated\/staff-lifecycle\.spec\.ts/,
+      dependencies: ["auth-setup"],
+      use: {
+        browserName: authBrowser,
+        viewport: { width: 1440, height: 900 },
+      },
+    });
   }
 
   if (mode === "visual" || mode === "full") {
@@ -82,7 +100,7 @@ if (authenticated) {
           dependencies: ["auth-setup"],
           use: {
             browserName: authBrowser,
-            storageState: path.join(authDirectory, "student.json"),
+            storageState: path.join(authDirectory, "visual-student.json"),
             viewport: { width: target.width, height: target.height },
             hasTouch: target.hasTouch,
           },
@@ -93,20 +111,42 @@ if (authenticated) {
           dependencies: ["auth-setup"],
           use: {
             browserName: authBrowser,
-            storageState: path.join(authDirectory, "teacher.json"),
+            storageState: path.join(authDirectory, "visual-staff-aal2.json"),
+            viewport: { width: target.width, height: target.height },
+            hasTouch: target.hasTouch,
+          },
+        },
+        {
+          name: `visual-owner-access-${target.name}`,
+          testMatch: /visual\/owner-access\.visual\.spec\.ts/,
+          dependencies: ["auth-setup"],
+          use: {
+            browserName: authBrowser,
+            storageState: path.join(authDirectory, "visual-owner-aal2.json"),
             viewport: { width: target.width, height: target.height },
             hasTouch: target.hasTouch,
           },
         },
       );
     }
+    projects.push({
+      name: "visual-owner-access-reflow-200",
+      testMatch: /visual\/staff-reflow\.visual\.spec\.ts/,
+      dependencies: ["auth-setup"],
+      use: {
+        browserName: authBrowser,
+        storageState: path.join(authDirectory, "visual-owner-aal2.json"),
+        // 1440 × 900 at 200 % browser zoom has approximately this CSS viewport.
+        viewport: { width: 720, height: 450 },
+      },
+    });
   }
 }
 
 export default defineConfig({
   testDir: "./tests/e2e",
   respectGitIgnore: false,
-  outputDir: "./test-results",
+  outputDir: path.join("./test-results", outputNamespace),
   fullyParallel: !authenticated,
   workers: authenticated ? 4 : undefined,
   forbidOnly: Boolean(process.env.CI),

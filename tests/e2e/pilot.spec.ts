@@ -8,14 +8,26 @@ async function expectNoAxeViolations(page: import("@playwright/test").Page) {
 
 test("login is keyboard reachable and has no detectable WCAG A/AA violations", async ({
   page,
+  browserName,
 }) => {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Logg inn" })).toBeVisible();
 
-  await page.keyboard.press("Tab");
   const skipLink = page.getByRole("link", { name: "Hopp til hovedinnhold" });
+  if (browserName === "webkit") {
+    // Headless WebKit mirrors Safari with full keyboard access disabled and
+    // skips links in its Tab order. Focus the same native link directly, then
+    // verify its keyboard activation and the form's real Tab order below.
+    await skipLink.focus();
+  } else {
+    await page.keyboard.press("Tab");
+  }
   await expect(skipLink).toBeFocused();
   await expect(skipLink).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#main-content")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByLabel("Elevkode eller e-post")).toBeFocused();
 
   await expectNoAxeViolations(page);
 });

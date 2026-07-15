@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export async function expectNoAxeViolations(page: Page) {
   const scan = await new AxeBuilder({ page })
@@ -8,10 +8,42 @@ export async function expectNoAxeViolations(page: Page) {
   expect(scan.violations).toEqual([]);
 }
 export async function expectNoHorizontalOverflow(page: Page) {
-  const overflows = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  const overflows = await page.evaluate(() => {
+    const candidates: Array<[string, Element]> = [
+      ["document", document.documentElement],
+      ...Array.from(
+        document.querySelectorAll("dialog[open], .staff-dialog__scroll"),
+      ).map((element, index) => [`dialog-${index}`, element] as [string, Element]),
+    ];
+    return candidates
+      .filter(([, element]) => element.scrollWidth > element.clientWidth + 1)
+      .map(([label]) => label);
+  });
+  expect(overflows).toEqual([]);
+}
+
+export async function expectMinimumTargetSize(
+  locator: Locator,
+  minimum = 44,
+) {
+  const boxes = await locator.evaluateAll((elements) =>
+    elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        label:
+          element.getAttribute("aria-label") ??
+          element.textContent?.trim() ??
+          element.tagName,
+        width: box.width,
+        height: box.height,
+      };
+    }),
   );
-  expect(overflows).toBe(false);
+  expect(boxes.length, "Fant ingen synlige trykkmål å måle").toBeGreaterThan(0);
+  expect(
+    boxes.filter((box) => box.width < minimum || box.height < minimum),
+    `Trykkmål skal være minst ${minimum} × ${minimum} CSS-piksler`,
+  ).toEqual([]);
 }
 
 export function observeRuntimeErrors(page: Page) {

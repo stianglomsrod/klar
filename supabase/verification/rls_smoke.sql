@@ -110,6 +110,17 @@ insert into public.class_memberships (
     '11111111-1111-1111-1111-111111111111'
   );
 
+select public.create_staff_assignment(
+  'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+  'cccccccc-cccc-cccc-cccc-cccccccccccc',
+  'contact_teacher',
+  transaction_timestamp() - interval '1 day',
+  transaction_timestamp() + interval '1 day',
+  '12345678-1234-4234-8234-123456789001'
+);
+
 insert into public.task_definitions (
   id,
   organization_id,
@@ -199,15 +210,20 @@ insert into public.student_experience_settings (
   );
 
 do $$
+declare
+  table_without_rls text;
 begin
-  if (
-    select count(*)
-    from pg_class
-    where relnamespace = 'public'::regnamespace
-      and relkind = 'r'
-      and relrowsecurity
-  ) <> 12 then
-    raise exception 'Expected RLS on all twelve prototype tables';
+  select class.relname
+  into table_without_rls
+  from pg_class as class
+  where class.relnamespace = 'public'::regnamespace
+    and class.relkind = 'r'
+    and not class.relrowsecurity
+  order by class.relname
+  limit 1;
+
+  if table_without_rls is not null then
+    raise exception 'Public table lacks RLS: %', table_without_rls;
   end if;
 
   if has_table_privilege('anon', 'public.profiles', 'SELECT') then
@@ -246,8 +262,8 @@ $$;
 
 set local role authenticated;
 select set_config(
-  'request.jwt.claim.sub',
-  '33333333-3333-3333-3333-333333333333',
+  'request.jwt.claims',
+  '{"sub":"33333333-3333-3333-3333-333333333333","aal":"aal1","role":"authenticated"}',
   true
 );
 
@@ -285,8 +301,8 @@ $$;
 reset role;
 set local role authenticated;
 select set_config(
-  'request.jwt.claim.sub',
-  '22222222-2222-2222-2222-222222222222',
+  'request.jwt.claims',
+  '{"sub":"22222222-2222-2222-2222-222222222222","aal":"aal2","role":"authenticated"}',
   true
 );
 
@@ -336,10 +352,21 @@ declare
   initial_help_id uuid;
   queue_request public.help_requests;
   experience_settings public.student_experience_settings;
+  staff_assignment_id uuid;
+  owner_assignment_id uuid;
 begin
+  select assignment.id
+  into staff_assignment_id
+  from public.staff_assignments as assignment
+  join public.staff_assignment_class_scopes as scope
+    on scope.assignment_id = assignment.id
+  where assignment.user_id = '22222222-2222-2222-2222-222222222222'
+    and scope.class_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    and assignment.revoked_at is null;
+
   created_class_id := public.create_class_for_teacher(
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-    '22222222-2222-2222-2222-222222222222',
+    '11111111-1111-1111-1111-111111111111',
     'Class created by RPC',
     '2026/2027'
   );
@@ -348,15 +375,59 @@ begin
     select 1
     from public.class_memberships
     where class_id = created_class_id
-      and user_id = '22222222-2222-2222-2222-222222222222'
+      and user_id = '11111111-1111-1111-1111-111111111111'
       and role = 'teacher'
   ) then
     raise exception 'Class RPC did not assign its teacher';
   end if;
 
+  select assignment.id
+  into owner_assignment_id
+  from public.staff_assignments as assignment
+  join public.staff_assignment_class_scopes as scope
+    on scope.assignment_id = assignment.id
+  where assignment.organization_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    and assignment.user_id = '11111111-1111-1111-1111-111111111111'
+    and assignment.job_label = 'operational_owner'
+    and assignment.source = 'class_creation'
+    and assignment.starts_at = transaction_timestamp()
+    and assignment.ends_at is null
+    and assignment.revoked_at is null
+    and scope.organization_id = assignment.organization_id
+    and scope.class_id = created_class_id;
+
+  if owner_assignment_id is null
+    or (
+      select count(*)
+      from public.staff_assignment_capabilities
+      where assignment_id = owner_assignment_id
+    ) <> 6
+    or not exists (
+      select 1
+      from public.audit_events
+      where event_name = 'class.created'
+        and actor_id = '11111111-1111-1111-1111-111111111111'
+        and entity_id = created_class_id
+        and metadata ->> 'operational_owner_assignment_id' = owner_assignment_id::text
+    )
+    or not exists (
+      select 1
+      from public.audit_events
+      where event_name = 'staff_assignment.created'
+        and actor_id = '11111111-1111-1111-1111-111111111111'
+        and entity_id = owner_assignment_id
+        and metadata ->> 'class_id' = created_class_id::text
+        and metadata ->> 'job_label' = 'operational_owner'
+        and metadata ->> 'source' = 'class_creation'
+    )
+  then
+    raise exception 'Class RPC did not atomically create its operational owner authorization';
+  end if;
+
   published_task_id := public.publish_task_to_class(
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     '22222222-2222-2222-2222-222222222222',
+    staff_assignment_id,
     'Task created by RPC'
   );
 
@@ -373,6 +444,7 @@ begin
   published_plan_ids := public.publish_plan_to_class(
     'cccccccc-cccc-cccc-cccc-cccccccccccc',
     '22222222-2222-2222-2222-222222222222',
+    staff_assignment_id,
     '[
       {"title":"Imported task one","subject":"Norsk","support_level":2},
       {"title":"Imported task two","estimated_minutes":15,"support_level":3}
@@ -404,10 +476,12 @@ begin
     raise exception 'Student status RPC did not persist completion';
   end if;
 
-  experience_settings := public.update_student_experience(
+  experience_settings := public.update_student_experience_for_staff(
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'cccccccc-cccc-cccc-cccc-cccccccccccc',
     '33333333-3333-3333-3333-333333333333',
     '22222222-2222-2222-2222-222222222222',
+    staff_assignment_id,
     1::smallint,
     true
   );
@@ -436,7 +510,8 @@ begin
 
   queue_request := public.claim_student_help(
     initial_help_id,
-    '22222222-2222-2222-2222-222222222222'
+    '22222222-2222-2222-2222-222222222222',
+    staff_assignment_id
   );
   if queue_request.status <> 'claimed' then
     raise exception 'Teacher could not claim the help request';
@@ -444,7 +519,8 @@ begin
 
   queue_request := public.resolve_student_help(
     initial_help_id,
-    '22222222-2222-2222-2222-222222222222'
+    '22222222-2222-2222-2222-222222222222',
+    staff_assignment_id
   );
   if queue_request.status <> 'resolved' then
     raise exception 'Teacher could not resolve the help request';
@@ -466,4 +542,63 @@ end;
 $$;
 
 reset role;
+
+create function pg_temp.fail_class_creation_audit()
+returns trigger
+language plpgsql
+as $$
+begin
+  raise exception 'forced class audit failure';
+end;
+$$;
+
+create trigger a1_force_class_audit_failure
+before insert on public.audit_events
+for each row
+when (
+  new.event_name = 'class.created'
+  and new.metadata ->> 'academic_year' = 'ROLLBACK'
+)
+execute function pg_temp.fail_class_creation_audit();
+
+do $$
+declare
+  class_count_before integer;
+  assignment_count_before integer;
+  scope_count_before integer;
+  capability_count_before integer;
+  audit_count_before integer;
+  forced_failure boolean := false;
+begin
+  select count(*) into class_count_before from public.classes;
+  select count(*) into assignment_count_before from public.staff_assignments;
+  select count(*) into scope_count_before from public.staff_assignment_class_scopes;
+  select count(*) into capability_count_before from public.staff_assignment_capabilities;
+  select count(*) into audit_count_before from public.audit_events;
+
+  begin
+    perform public.create_class_for_teacher(
+      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      '11111111-1111-1111-1111-111111111111',
+      'Rollback class',
+      'ROLLBACK'
+    );
+  exception when others then
+    forced_failure := sqlerrm = 'forced class audit failure';
+  end;
+
+  if not forced_failure
+    or (select count(*) from public.classes) <> class_count_before
+    or (select count(*) from public.staff_assignments) <> assignment_count_before
+    or (select count(*) from public.staff_assignment_class_scopes) <> scope_count_before
+    or (select count(*) from public.staff_assignment_capabilities) <> capability_count_before
+    or (select count(*) from public.audit_events) <> audit_count_before
+    or exists (select 1 from public.classes where name = 'Rollback class')
+  then
+    raise exception 'Class control-plane RPC did not roll back atomically after audit failure';
+  end if;
+end;
+$$;
+
+drop trigger a1_force_class_audit_failure on public.audit_events;
 rollback;

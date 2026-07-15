@@ -19,5 +19,25 @@ returns uuid
 language sql
 stable
 as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub',
+    nullif(current_setting('request.jwt.claim.sub', true), '')
+  )::uuid;
+$$;
+
+create function auth.jwt()
+returns jsonb
+language sql
+stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+    jsonb_strip_nulls(
+      jsonb_build_object(
+        'sub', nullif(current_setting('request.jwt.claim.sub', true), ''),
+        'aal', nullif(current_setting('request.jwt.claim.aal', true), ''),
+        'role', nullif(current_setting('request.jwt.claim.role', true), '')
+      )
+    )
+  );
 $$;

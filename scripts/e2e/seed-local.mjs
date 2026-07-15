@@ -11,23 +11,69 @@ function required(name) {
 const IDS = {
   owner: "10000000-0000-4000-8000-000000000001",
   student: "10000000-0000-4000-8000-000000000002",
+  substitute: "10000000-0000-4000-8000-000000000003",
+  visualStaff: "10000000-0000-4000-8000-000000000004",
+  otherStaff: "10000000-0000-4000-8000-000000000005",
+  otherOwner: "10000000-0000-4000-8000-000000000006",
+  visualStudent: "10000000-0000-4000-8000-000000000007",
+  visualOwner: "10000000-0000-4000-8000-000000000008",
+  visualAssignee: "10000000-0000-4000-8000-000000000009",
   organization: "20000000-0000-4000-8000-000000000001",
+  otherOrganization: "20000000-0000-4000-8000-000000000002",
+  visualControlOrganization: "20000000-0000-4000-8000-000000000003",
   class: "30000000-0000-4000-8000-000000000001",
+  visualClass: "30000000-0000-4000-8000-000000000002",
+  otherClass: "30000000-0000-4000-8000-000000000003",
+  visualControlClass: "30000000-0000-4000-8000-000000000004",
   taskOne: "40000000-0000-4000-8000-000000000001",
   taskTwo: "40000000-0000-4000-8000-000000000002",
+  visualTask: "40000000-0000-4000-8000-000000000003",
   assignmentOne: "50000000-0000-4000-8000-000000000001",
   assignmentTwo: "50000000-0000-4000-8000-000000000002",
+  visualAssignment: "50000000-0000-4000-8000-000000000003",
 };
 
 const url = assertLocalSupabaseUrl(required("NEXT_PUBLIC_SUPABASE_URL"));
 const anonKey = required("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const serviceRoleKey = required("SUPABASE_SERVICE_ROLE_KEY");
 const pepper = required("STUDENT_CODE_PEPPER");
-const ownerPassword = required("KLAR_E2E_OWNER_PASSWORD");
-const studentPassword = required("KLAR_E2E_STUDENT_PASSWORD");
 const studentCode = required("KLAR_E2E_STUDENT_CODE")
   .toUpperCase()
   .replace(/[\s_]+/g, "-");
+const visualStudentCode = required("KLAR_E2E_VISUAL_STUDENT_CODE")
+  .toUpperCase()
+  .replace(/[\s_]+/g, "-");
+
+const credentials = {
+  owner: {
+    email: required("KLAR_E2E_OWNER_EMAIL"),
+    password: required("KLAR_E2E_OWNER_PASSWORD"),
+  },
+  substitute: {
+    email: required("KLAR_E2E_SUBSTITUTE_EMAIL"),
+    password: required("KLAR_E2E_SUBSTITUTE_PASSWORD"),
+  },
+  visualStaff: {
+    email: required("KLAR_E2E_VISUAL_STAFF_EMAIL"),
+    password: required("KLAR_E2E_VISUAL_STAFF_PASSWORD"),
+  },
+  visualOwner: {
+    email: required("KLAR_E2E_VISUAL_OWNER_EMAIL"),
+    password: required("KLAR_E2E_VISUAL_OWNER_PASSWORD"),
+  },
+  otherStaff: {
+    email: required("KLAR_E2E_OTHER_STAFF_EMAIL"),
+    password: required("KLAR_E2E_OTHER_STAFF_PASSWORD"),
+  },
+  student: {
+    email: "student@e2e.klar.invalid",
+    password: required("KLAR_E2E_STUDENT_PASSWORD"),
+  },
+  visualStudent: {
+    email: "visual-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
+  },
+};
 
 const admin = createClient(url, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
@@ -42,14 +88,18 @@ const { data: blockedSignup, error: blockedSignupError } =
     password: `Blocked-${randomBytes(18).toString("base64url")}aA1!`,
   });
 if (!blockedSignupError) {
-  if (blockedSignup.user) {
-    await admin.auth.admin.deleteUser(blockedSignup.user.id);
-  }
+  if (blockedSignup.user) await admin.auth.admin.deleteUser(blockedSignup.user.id);
   throw new Error("Lokal Auth tillot offentlig registrering.");
 }
 
-async function createUser(attributes) {
-  const { data, error } = await admin.auth.admin.createUser(attributes);
+async function createUser({ id, email, password, displayName }) {
+  const { data, error } = await admin.auth.admin.createUser({
+    id,
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { display_name: displayName },
+  });
   if (error || !data.user) {
     throw error ?? new Error("Lokal E2E-bruker ble ikke opprettet.");
   }
@@ -60,73 +110,225 @@ async function insert(table, rows) {
   if (error) throw error;
 }
 
-await createUser({
-  id: IDS.owner,
-  email: "owner@e2e.klar.invalid",
-  password: ownerPassword,
-  email_confirm: true,
-  user_metadata: { display_name: "Testlærer" },
-});
-await createUser({
-  id: IDS.student,
-  email: "student@e2e.klar.invalid",
-  password: studentPassword,
-  email_confirm: true,
-  user_metadata: { display_name: "Testelev" },
-});
+async function createAssignment({
+  organizationId,
+  ownerId,
+  userId,
+  classId,
+  jobLabel,
+  key,
+  startsAt = "2020-01-01T00:00:00.000Z",
+  endsAt = "2099-12-31T23:59:59.000Z",
+}) {
+  const { data, error } = await admin.rpc("create_staff_assignment", {
+    p_organization_id: organizationId,
+    p_actor_id: ownerId,
+    p_target_user_id: userId,
+    p_class_id: classId,
+    p_job_label: jobLabel,
+    p_starts_at: startsAt,
+    p_ends_at: endsAt,
+    p_idempotency_key: key,
+  });
+  if (error || !data) throw error ?? new Error("E2E-assignment ble ikke opprettet.");
+  return data;
+}
 
-await insert("organizations", {
-  id: IDS.organization,
-  name: "Klar E2E",
-  created_by: IDS.owner,
-});
+async function revokeAssignment({ organizationId, ownerId, assignmentId }) {
+  const { error } = await admin.rpc("revoke_staff_assignment", {
+    p_organization_id: organizationId,
+    p_actor_id: ownerId,
+    p_assignment_id: assignmentId,
+  });
+  if (error) throw error;
+}
+
+await Promise.all([
+  createUser({ id: IDS.owner, ...credentials.owner, displayName: "Testeier" }),
+  createUser({ id: IDS.student, ...credentials.student, displayName: "Testelev" }),
+  createUser({ id: IDS.substitute, ...credentials.substitute, displayName: "Livsløpsvikar" }),
+  createUser({ id: IDS.visualStaff, ...credentials.visualStaff, displayName: "Visuell faglærer" }),
+  createUser({ id: IDS.otherStaff, ...credentials.otherStaff, displayName: "Ansatt annen skole" }),
+  createUser({
+    id: IDS.otherOwner,
+    email: "other-owner@e2e.klar.invalid",
+    password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+    displayName: "Eier annen skole",
+  }),
+  createUser({
+    id: IDS.visualStudent,
+    ...credentials.visualStudent,
+    displayName: "Visuell elev",
+  }),
+  createUser({
+    id: IDS.visualOwner,
+    ...credentials.visualOwner,
+    displayName: "Visuell eier",
+  }),
+  createUser({
+    id: IDS.visualAssignee,
+    email: "visual-assignee@e2e.klar.invalid",
+    password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+    displayName: "Visuell ansatt",
+  }),
+]);
+
+await insert("organizations", [
+  { id: IDS.organization, name: "Klar E2E", created_by: IDS.owner },
+  {
+    id: IDS.otherOrganization,
+    name: "Annen E2E-skole",
+    created_by: IDS.otherOwner,
+  },
+  {
+    id: IDS.visualControlOrganization,
+    name: "Visuell kontrollskole",
+    created_by: IDS.visualOwner,
+  },
+]);
 await insert("memberships", [
+  { organization_id: IDS.organization, user_id: IDS.owner, role: "owner", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.substitute, role: "teacher", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.visualStaff, role: "teacher", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.otherOrganization, user_id: IDS.otherOwner, role: "owner", created_by: IDS.otherOwner },
+  { organization_id: IDS.otherOrganization, user_id: IDS.otherStaff, role: "teacher", created_by: IDS.otherOwner },
+  { organization_id: IDS.visualControlOrganization, user_id: IDS.visualOwner, role: "owner", created_by: IDS.visualOwner },
+  { organization_id: IDS.visualControlOrganization, user_id: IDS.visualAssignee, role: "teacher", created_by: IDS.visualOwner },
+]);
+await insert("classes", [
   {
+    id: IDS.class,
     organization_id: IDS.organization,
-    user_id: IDS.owner,
-    role: "owner",
+    name: "Testklasse 3A",
+    academic_year: "2026/2027",
     created_by: IDS.owner,
   },
   {
+    id: IDS.visualClass,
     organization_id: IDS.organization,
-    user_id: IDS.student,
-    role: "student",
+    name: "Visuell klasse 4B",
+    academic_year: "2026/2027",
     created_by: IDS.owner,
+  },
+  {
+    id: IDS.otherClass,
+    organization_id: IDS.otherOrganization,
+    name: "Annen skole 5C",
+    academic_year: "2026/2027",
+    created_by: IDS.otherOwner,
+  },
+  {
+    id: IDS.visualControlClass,
+    organization_id: IDS.visualControlOrganization,
+    name: "Visuell kontrollklasse 6D",
+    academic_year: "2026/2027",
+    created_by: IDS.visualOwner,
   },
 ]);
-await insert("classes", {
-  id: IDS.class,
-  organization_id: IDS.organization,
-  name: "Testklasse 3A",
-  academic_year: "2026/2027",
-  created_by: IDS.owner,
-});
 await insert("class_memberships", [
-  {
-    class_id: IDS.class,
-    organization_id: IDS.organization,
-    user_id: IDS.owner,
-    role: "teacher",
-    created_by: IDS.owner,
-  },
-  {
-    class_id: IDS.class,
-    organization_id: IDS.organization,
-    user_id: IDS.student,
-    role: "student",
-    created_by: IDS.owner,
-  },
+  { class_id: IDS.class, organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
+  { class_id: IDS.visualClass, organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
 ]);
+
+const { data: visualOperationalClass, error: visualOperationalClassError } =
+  await admin.rpc("create_class_for_teacher", {
+    p_organization_id: IDS.visualControlOrganization,
+    p_actor_id: IDS.visualOwner,
+    p_name: "Visuell systemklasse 7E",
+    p_academic_year: "2026/2027",
+  });
+if (visualOperationalClassError || !visualOperationalClass) {
+  throw visualOperationalClassError ?? new Error("Systemklassen for visuell QA mangler.");
+}
+
+await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.owner,
+  classId: IDS.class,
+  jobLabel: "contact_teacher",
+  key: "60000000-0000-4000-8000-000000000001",
+});
+await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.visualStaff,
+  classId: IDS.visualClass,
+  jobLabel: "subject_teacher",
+  key: "60000000-0000-4000-8000-000000000002",
+});
+await createAssignment({
+  organizationId: IDS.otherOrganization,
+  ownerId: IDS.otherOwner,
+  userId: IDS.otherStaff,
+  classId: IDS.otherClass,
+  jobLabel: "substitute",
+  key: "60000000-0000-4000-8000-000000000003",
+});
+await createAssignment({
+  organizationId: IDS.visualControlOrganization,
+  ownerId: IDS.visualOwner,
+  userId: IDS.visualAssignee,
+  classId: IDS.visualControlClass,
+  jobLabel: "contact_teacher",
+  key: "60000000-0000-4000-8000-000000000004",
+});
+await createAssignment({
+  organizationId: IDS.visualControlOrganization,
+  ownerId: IDS.visualOwner,
+  userId: IDS.visualAssignee,
+  classId: IDS.visualControlClass,
+  jobLabel: "subject_teacher",
+  startsAt: "2098-01-01T00:00:00.000Z",
+  endsAt: "2099-01-01T00:00:00.000Z",
+  key: "60000000-0000-4000-8000-000000000005",
+});
+await createAssignment({
+  organizationId: IDS.visualControlOrganization,
+  ownerId: IDS.visualOwner,
+  userId: IDS.visualAssignee,
+  classId: IDS.visualControlClass,
+  jobLabel: "special_educator",
+  startsAt: "2020-01-01T00:00:00.000Z",
+  endsAt: "2021-01-01T00:00:00.000Z",
+  key: "60000000-0000-4000-8000-000000000006",
+});
+const visualRevokedAssignment = await createAssignment({
+  organizationId: IDS.visualControlOrganization,
+  ownerId: IDS.visualOwner,
+  userId: IDS.visualAssignee,
+  classId: IDS.visualControlClass,
+  jobLabel: "substitute",
+  key: "60000000-0000-4000-8000-000000000007",
+});
+await revokeAssignment({
+  organizationId: IDS.visualControlOrganization,
+  ownerId: IDS.visualOwner,
+  assignmentId: visualRevokedAssignment,
+});
 
 const codeDigest = createHmac("sha256", pepper)
   .update(studentCode, "utf8")
   .digest("hex");
-await insert("student_login_codes", {
-  user_id: IDS.student,
-  organization_id: IDS.organization,
-  code_digest: codeDigest,
-  created_by: IDS.owner,
-});
+const visualStudentCodeDigest = createHmac("sha256", pepper)
+  .update(visualStudentCode, "utf8")
+  .digest("hex");
+await insert("student_login_codes", [
+  {
+    user_id: IDS.student,
+    organization_id: IDS.organization,
+    code_digest: codeDigest,
+    created_by: IDS.owner,
+  },
+  {
+    user_id: IDS.visualStudent,
+    organization_id: IDS.organization,
+    code_digest: visualStudentCodeDigest,
+    created_by: IDS.owner,
+  },
+]);
 
 await insert("task_definitions", [
   {
@@ -157,6 +359,20 @@ await insert("task_definitions", [
     published_at: "2020-01-01T08:00:00.000Z",
     created_by: IDS.owner,
   },
+  {
+    id: IDS.visualTask,
+    organization_id: IDS.organization,
+    class_id: IDS.visualClass,
+    title: "Visuell arbeidsoppgave",
+    description: "Syntetisk og stabil visuell fixture.",
+    subject: "Samfunnsfag",
+    estimated_minutes: 12,
+    support_level: 2,
+    position: 0,
+    publication_status: "published",
+    published_at: "2020-01-01T08:00:00.000Z",
+    created_by: IDS.visualStaff,
+  },
 ]);
 await insert("task_assignments", [
   {
@@ -179,21 +395,48 @@ await insert("task_assignments", [
     visible_from: "2020-01-01T08:00:00.000Z",
     due_at: "2099-12-31T14:00:00.000Z",
   },
+  {
+    id: IDS.visualAssignment,
+    organization_id: IDS.organization,
+    class_id: IDS.visualClass,
+    task_definition_id: IDS.visualTask,
+    student_id: IDS.visualStudent,
+    assigned_by: IDS.visualStaff,
+    visible_from: "2020-01-01T08:00:00.000Z",
+    due_at: "2099-12-31T14:00:00.000Z",
+  },
 ]);
-await insert("student_task_state", {
-  assignment_id: IDS.assignmentTwo,
-  organization_id: IDS.organization,
-  student_id: IDS.student,
-  status: "completed",
-  started_at: "2020-01-01T08:15:00.000Z",
-  completed_at: "2020-01-01T08:25:00.000Z",
-});
-await insert("student_experience_settings", {
-  organization_id: IDS.organization,
-  student_id: IDS.student,
-  support_level: 2,
-  progress_enabled: true,
-  updated_by: IDS.owner,
-});
+await insert("student_task_state", [
+  {
+    assignment_id: IDS.assignmentTwo,
+    organization_id: IDS.organization,
+    student_id: IDS.student,
+    status: "completed",
+    started_at: "2020-01-01T08:15:00.000Z",
+    completed_at: "2020-01-01T08:25:00.000Z",
+  },
+  {
+    assignment_id: IDS.visualAssignment,
+    organization_id: IDS.organization,
+    student_id: IDS.visualStudent,
+    status: "not_started",
+  },
+]);
+await insert("student_experience_settings", [
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.student,
+    support_level: 2,
+    progress_enabled: true,
+    updated_by: IDS.owner,
+  },
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.visualStudent,
+    support_level: 2,
+    progress_enabled: false,
+    updated_by: IDS.visualStaff,
+  },
+]);
 
-console.log("Lokal E2E-fixture er klar med én lærer, én elev og to oppgaver.");
+console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual- og other-org-data.");
