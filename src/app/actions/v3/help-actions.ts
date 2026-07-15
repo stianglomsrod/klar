@@ -9,10 +9,17 @@ import {
   requestOwnHelp,
   resolveStudentHelp,
 } from "@/server/help/help-service";
+import type { ActiveStudentHelpRequest } from "@/server/help/help-service";
 
 type MutationResult = { success: true } | { success: false; error: string };
+type StudentHelpMutationResult =
+  | { success: true; activeRequest: ActiveStudentHelpRequest | null }
+  | { success: false; error: string };
 
-function resultFromError(error: unknown, fallback: string): MutationResult {
+function resultFromError(
+  error: unknown,
+  fallback: string,
+): { success: false; error: string } {
   if (isAuthorizationError(error) || isPrototypeDataError(error)) {
     return { success: false, error: error.message };
   }
@@ -22,11 +29,11 @@ function resultFromError(error: unknown, fallback: string): MutationResult {
 export async function requestOwnHelpAction(
   classId: string,
   taskAssignmentId?: string,
-): Promise<MutationResult> {
+): Promise<StudentHelpMutationResult> {
   try {
-    await requestOwnHelp(classId, taskAssignmentId);
+    const activeRequest = await requestOwnHelp(classId, taskAssignmentId);
     revalidatePath("/v3/student");
-    return { success: true };
+    return { success: true, activeRequest };
   } catch (error) {
     return resultFromError(error, "Kunne ikke be om hjelp.");
   }
@@ -34,11 +41,11 @@ export async function requestOwnHelpAction(
 
 export async function cancelOwnHelpAction(
   requestId: string,
-): Promise<MutationResult> {
+): Promise<StudentHelpMutationResult> {
   try {
     await cancelOwnHelp(requestId);
     revalidatePath("/v3/student");
-    return { success: true };
+    return { success: true, activeRequest: null };
   } catch (error) {
     return resultFromError(error, "Kunne ikke avbryte hjelpeforespørselen.");
   }

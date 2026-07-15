@@ -38,7 +38,8 @@ export default async function PrototypeTeacherPage() {
                   >
                     <h3 className="text-xl font-bold">{classRow.name}</h3>
                     <p className="mt-2 text-sm text-slate-600">
-                      {classRow.studentCount} elever
+                      {classRow.studentCount}{" "}
+                      {classRow.studentCount === 1 ? "elev" : "elever"}
                       {classRow.academicYear ? ` · ${classRow.academicYear}` : ""}
                     </p>
                   </Link>

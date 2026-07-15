@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   cancelOwnHelpAction,
@@ -11,13 +11,26 @@ import { useHelpQueueRealtime } from "./useHelpQueueRealtime";
 
 export function StudentHelpControl({ state }: { state: StudentHelpState }) {
   const router = useRouter();
+  const [activeRequest, setActiveRequest] = useState(state.activeRequest);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useHelpQueueRealtime(state.classId ?? "unassigned");
 
+  useEffect(() => {
+    setActiveRequest(state.activeRequest);
+  }, [state.activeRequest]);
+
   if (!state.classId) return null;
 
-  async function mutate(action: () => Promise<{ success: boolean; error?: string }>) {
+  async function mutate(
+    action: () => Promise<
+      | {
+          success: true;
+          activeRequest: StudentHelpState["activeRequest"];
+        }
+      | { success: false; error: string }
+    >,
+  ) {
     setLoading(true);
     setError(null);
     try {
@@ -26,6 +39,7 @@ export function StudentHelpControl({ state }: { state: StudentHelpState }) {
         setError(result.error ?? "Kunne ikke oppdatere hjelpekøen.");
         return;
       }
+      setActiveRequest(result.activeRequest);
       router.refresh();
     } finally {
       setLoading(false);
@@ -37,17 +51,17 @@ export function StudentHelpControl({ state }: { state: StudentHelpState }) {
       <h2 id="help-heading" className="text-2xl font-bold">
         Trenger du hjelp?
       </h2>
-      {state.activeRequest ? (
+      {activeRequest ? (
         <>
           <p className="mt-2 text-slate-200" aria-live="polite">
-            {state.activeRequest.status === "waiting"
+            {activeRequest.status === "waiting"
               ? "Du står i kø. Læreren ser forespørselen din."
               : "En lærer har sett forespørselen og kommer til deg."}
           </p>
           <button
             type="button"
             onClick={() =>
-              mutate(() => cancelOwnHelpAction(state.activeRequest?.id ?? ""))
+              mutate(() => cancelOwnHelpAction(activeRequest.id))
             }
             disabled={loading}
             className="mt-4 rounded-xl border border-white/40 px-4 py-2.5 font-semibold focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-60"

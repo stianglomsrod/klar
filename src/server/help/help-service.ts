@@ -14,6 +14,10 @@ export type StudentHelpState = {
   } | null;
 };
 
+export type ActiveStudentHelpRequest = NonNullable<
+  StudentHelpState["activeRequest"]
+>;
+
 export type TeacherHelpQueueItem = {
   id: string;
   studentName: string;
@@ -64,19 +68,23 @@ export async function getStudentHelpState(): Promise<StudentHelpState> {
 export async function requestOwnHelp(
   classId: string,
   taskAssignmentId?: string,
-): Promise<void> {
+): Promise<ActiveStudentHelpRequest> {
   const actor = await requireClassRole(classId, ["student"]);
   if (taskAssignmentId && !isUuid(taskAssignmentId)) {
     throw new PrototypeDataError("Ugyldig oppgave-ID.");
   }
 
   const admin = getSupabaseAdminClient();
-  const { error } = await admin.rpc("request_student_help", {
+  const { data, error } = await admin.rpc("request_student_help", {
     p_class_id: actor.classId,
     p_student_id: actor.userId,
     p_task_assignment_id: taskAssignmentId ?? null,
   });
-  if (error) throw new PrototypeDataError("Kunne ikke be om hjelp.");
+  if (error || !data || !isActiveStatus(data.status)) {
+    throw new PrototypeDataError("Kunne ikke be om hjelp.");
+  }
+
+  return { id: data.id, status: data.status };
 }
 
 export async function cancelOwnHelp(requestId: string): Promise<void> {
