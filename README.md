@@ -44,6 +44,19 @@ hvert som behovet blir mindre.
 - Innlevering av bilder, lyd eller fritekst om elever er ikke del av kjernen.
 - Motivasjonsvisningen er frivillig og ikke-konkurrerende.
 
+## Avklart målbilde
+
+Den videre produktretningen er samlet i
+[`docs/product/DOMAIN_CONTRACT.md`](./docs/product/DOMAIN_CONTRACT.md), med
+sporbare leveranser i [`docs/epics`](./docs/epics) og anbefalt rekkefølge i
+[`docs/IMPLEMENTATION_ROADMAP.md`](./docs/IMPLEMENTATION_ROADMAP.md).
+
+Disse dokumentene beskriver målbildet og skal ikke leses som en liste over
+ferdige pilotfunksjoner. Avsnittene «Hva prototypen gjør nå» og «Avgrensning
+for første skolepilot», sammen med
+[`docs/PILOT_RUNBOOK.md`](./docs/PILOT_RUNBOOK.md), er fasit for nåværende
+implementasjon og driftsklarhet.
+
 ## Arkitektur og sikkerhetsmodell
 
 - Next.js 16, React 19 og TypeScript med strengt lintnivå for 3.0-koden.
