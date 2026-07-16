@@ -141,10 +141,10 @@ Playwright-smoke og kjører den separate databasepakken i både tomt og
 representativt oppgraderingsscenario.
 
 A1s automatiske porter er grønne. Faktisk 200 prosent browserzoom og NVDA er
-bestått; VoiceOver-testen på iPad pågår med ett åpent fokusavvik ved live
-orienteringsbytte. Ekte touch på hele enhetsmatrisen, notch/safe-area, virtuelt
-tastatur og full live orienteringsport gjenstår. A1 omtales derfor ikke som
-fullført.
+bestått. VoiceOver-testen på iPad har bestått navigasjonsfokus ved live
+orienteringsbytte, men har ett åpent dialogaktiveringsavvik på lokal HTTP. Ekte
+touch på hele enhetsmatrisen, notch/safe-area, virtuelt tastatur og full live
+orienteringsport gjenstår. A1 omtales derfor ikke som fullført.
 
 Den lokale A1-suiten dekker også ugyldige oppdragsinput, forfalskede
 kontrollhandlinger, en redusert testprofil for kapabiliteter, positiv

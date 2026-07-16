@@ -10,8 +10,21 @@ test("lagrer ownerens tilgangsliste og responsive opprett-flyt", async ({
   page,
 }, testInfo) => {
   const expectNoRuntimeErrors = observeRuntimeErrors(page);
+  const withoutNativeRandomUuid =
+    testInfo.project.name === "visual-owner-access-ipad-portrait";
+  if (withoutNativeRandomUuid) {
+    await page.addInitScript(() => {
+      Object.defineProperty(window.crypto, "randomUUID", {
+        configurable: true,
+        value: undefined,
+      });
+    });
+  }
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/v3/teacher/access");
+  if (withoutNativeRandomUuid) {
+    expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe("undefined");
+  }
   await expect(page.getByRole("heading", { name: "Tilganger" })).toBeVisible();
   await expect(page.locator(".staff-assignment-status--active")).toHaveCount(2);
   await expect(page.locator(".staff-assignment-status--scheduled")).toHaveCount(1);

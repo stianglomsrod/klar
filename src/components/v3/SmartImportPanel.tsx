@@ -6,6 +6,7 @@ import {
   previewImportedPlanAction,
   publishImportedPlanAction,
 } from "@/app/actions/v3/import-actions";
+import { createClientUuid } from "@/lib/client-uuid";
 import { redirectIfStaffAccessEnded } from "./staff-access-ended";
 import type { ImportedTask } from "@/server/import/types";
 
@@ -14,7 +15,7 @@ type EditableTask = ImportedTask & { clientId: string };
 function withClientIds(tasks: ImportedTask[]): EditableTask[] {
   return tasks.map((task, index) => ({
     ...task,
-    clientId: `${index}-${crypto.randomUUID()}`,
+    clientId: `${index}-${createClientUuid()}`,
   }));
 }
 

@@ -17,6 +17,7 @@ import type {
   StaffCapability,
   StaffJobLabel,
 } from "@/server/auth/policy";
+import { createClientUuid } from "@/lib/client-uuid";
 import { restoreDialogFocus, trapDialogFocus } from "./dialog-focus";
 
 const JOB_LABELS: Record<StaffJobLabel, string> = {
@@ -132,7 +133,7 @@ export function StaffAccessManager({
     setError(null);
     setMessage(null);
     setTimes(initialTimes());
-    setIdempotencyKey(crypto.randomUUID());
+    setIdempotencyKey(createClientUuid());
     createDialog.current?.showModal();
   }
 
