@@ -77,7 +77,7 @@ export default async function TeacherClassPage({
         </div>
 
         {(workspace.isOwner || canPublishTask) && (
-          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div className="mt-8 grid gap-6 xl:grid-cols-2">
             {workspace.isOwner && <CreateStudentForm classId={workspace.id} />}
             {canPublishTask && <PublishTaskForm classId={workspace.id} />}
           </div>
@@ -89,7 +89,7 @@ export default async function TeacherClassPage({
           canPublish={canPublishPlan}
         />
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+        <div className="mt-8 grid gap-6 xl:grid-cols-2">
           <section
             aria-labelledby="students-heading"
             className="rounded-2xl border border-slate-200 bg-white p-5"
