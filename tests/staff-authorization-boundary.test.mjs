@@ -77,6 +77,17 @@ describe("staff authorization boundary", () => {
       ),
       2,
     );
+    const supportReadBoundary = read(
+      "src/server/classes/support-read-boundary.ts",
+    );
+    assert.match(
+      workspaceService,
+      /readStudentSupportSettingsAtBoundary\([\s\S]*?authorize:\s*\(\)\s*=>\s*retainStudentSupportAccess\(classId\)[\s\S]*?from\(["']student_experience_settings["']\)/,
+    );
+    assert.match(
+      supportReadBoundary,
+      /if \(!\(await authorize\(\)\)\)[\s\S]*?await select\([\s\S]*?if \(!\(await authorize\(\)\)\)/,
+    );
     assert.doesNotMatch(workspaceService, /requireOrganizationRole/);
     assert.equal(occurrences(classService, /requireOrganizationRole\(/g), 1);
     assert.match(
@@ -102,6 +113,42 @@ describe("staff authorization boundary", () => {
     assert.match(
       migration,
       /drop function public\.publish_task_to_class\([\s\S]*?timestamptz\s*\);/,
+    );
+
+    const supportReadHardening = read(
+      "supabase/migrations/20260715000001_staff_support_read_hardening.sql",
+    );
+    assert.match(
+      supportReadHardening,
+      /student_experience_select_authorized[\s\S]*?student_support\.update/,
+    );
+    assert.doesNotMatch(
+      supportReadHardening,
+      /student_experience_select_authorized[\s\S]*?class\.workspace\.read/,
+    );
+    assert.match(
+      supportReadHardening,
+      /create trigger staff_assignment_scopes_guard_insert[\s\S]*?before insert on public\.staff_assignment_class_scopes/,
+    );
+    assert.match(
+      supportReadHardening,
+      /create trigger staff_assignment_capabilities_guard_insert[\s\S]*?before insert on public\.staff_assignment_capabilities/,
+    );
+    assert.match(
+      supportReadHardening,
+      /add column profile_sealed_at timestamptz[\s\S]*?create constraint trigger staff_assignment_requires_sealed_profile/,
+    );
+    assert.match(
+      supportReadHardening,
+      /profile_sealed_at is not null[\s\S]*?immutable after creation/,
+    );
+    assert.match(
+      supportReadHardening,
+      /try_seal_staff_assignment_profile[\s\S]*?count\(\*\) = cardinality\(expected_capabilities\)[\s\S]*?set profile_sealed_at = transaction_timestamp\(\)/,
+    );
+    assert.match(
+      supportReadHardening,
+      /revoke all on function public\.try_seal_staff_assignment_profile\(\)[\s\S]*?service_role/,
     );
   });
 

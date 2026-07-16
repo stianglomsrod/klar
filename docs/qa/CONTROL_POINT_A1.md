@@ -198,12 +198,17 @@ pedagogiske flyter:
 
 | Kapabilitet | Nåværende flyt |
 | --- | --- |
-| `class.workspace.read` | Klasse, elever, oppgaver og relevant status i tildelt klasse |
+| `class.workspace.read` | Klasse, elever, oppgaver og ikke-sensitive arbeidsstatuser i tildelt klasse |
 | `task.publish` | Publisere oppgave til tildelt klasse |
 | `plan.preview` | Tolke plan med tildelt klasse som eksplisitt kontekst |
 | `plan.publish` | Publisere kontrollert plan til tildelt klasse |
 | `help_queue.manage` | Se, overta og løse klassens eksisterende hjelpekø |
 | `student_support.update` | Endre eksisterende støtte-/progresjonsvisning for elev i klassen |
+
+Elevens støtte- og motivasjonsinnstillinger er ikke en generell arbeidsstatus.
+Direkte voksenlesing og endring av `student_experience_settings` krever
+`student_support.update`; `class.workspace.read` alene skal verken lese eller
+returnere de faktiske innstillingene.
 
 Ukjente og nye kapabiliteter er deny-by-default. Notater, medier, belønninger,
 retur og funksjoner fra senere epics skal ikke snikes inn i profilen før de har
@@ -318,7 +323,7 @@ Capability og synlig kontroll skal kobles eksplisitt:
 
 | Autorisasjon | Synlig UI |
 | --- | --- |
-| `class.workspace.read` | Klassenavn, elevliste, oppgaver og relevante statusflater |
+| `class.workspace.read` | Klassenavn, elevliste, oppgaver og ikke-sensitive arbeidsstatusflater |
 | `task.publish` | `PublishTaskForm` |
 | `plan.preview` | Opplasting og forhåndsvisning i `SmartImportPanel` |
 | `plan.publish` | Publiseringshandlingen i `SmartImportPanel` |

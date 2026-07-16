@@ -10,6 +10,7 @@ declare
   teacher_assignment_id uuid := overlay(overlay(md5(
     'a1-assignment:83000000-0000-4000-8000-000000000002:81000000-0000-4000-8000-000000000003'
   ) placing '5' from 13 for 1) placing '8' from 17 for 1)::uuid;
+  signature text;
 begin
   select array_agg(
     assignment.user_id::text || '|' || scope.class_id::text || '|' || assignment.job_label::text
@@ -69,6 +70,33 @@ begin
     raise exception 'Backfill scope/profile cardinality failed';
   end if;
   if exists (
+    select 1
+    from public.staff_assignments
+    where profile_sealed_at is null
+  ) then
+    raise exception 'Backfilled assignment profile remained unsealed';
+  end if;
+  if (
+    select count(*)
+    from pg_trigger
+    where tgrelid in (
+      'public.staff_assignments'::regclass,
+      'public.staff_assignment_class_scopes'::regclass,
+      'public.staff_assignment_capabilities'::regclass
+    )
+      and tgname = any(array[
+        'staff_assignments_guard_profile_seal',
+        'staff_assignment_scopes_guard_insert',
+        'staff_assignment_capabilities_guard_insert',
+        'zz_staff_assignment_scopes_try_seal',
+        'zz_staff_assignment_capabilities_try_seal',
+        'staff_assignment_requires_sealed_profile'
+      ])
+      and tgenabled = 'O'
+  ) <> 6 then
+    raise exception 'Assignment profile seal triggers were not restored after upgrade';
+  end if;
+  if exists (
     select 1 from public.staff_assignments
     where id::text !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
   ) then
@@ -118,10 +146,25 @@ begin
     raise exception 'Legacy support setting changed during upgrade';
   end if;
 
-  if to_regprocedure('public.publish_task_to_class(uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)') is not null
-    or to_regprocedure('public.publish_task_to_class(uuid,uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)') is null
-  then
-    raise exception 'RPC cutover is incomplete after upgrade';
-  end if;
+  foreach signature in array array[
+    'public.publish_task_to_class(uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)',
+    'public.publish_plan_to_class(uuid,uuid,jsonb)',
+    'public.claim_student_help(uuid,uuid)',
+    'public.resolve_student_help(uuid,uuid)'
+  ] loop
+    if to_regprocedure(signature) is not null then
+      raise exception 'Legacy RPC still exists after upgrade: %', signature;
+    end if;
+  end loop;
+  foreach signature in array array[
+    'public.publish_task_to_class(uuid,uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)',
+    'public.publish_plan_to_class(uuid,uuid,uuid,jsonb)',
+    'public.claim_student_help(uuid,uuid,uuid)',
+    'public.resolve_student_help(uuid,uuid,uuid)'
+  ] loop
+    if to_regprocedure(signature) is null then
+      raise exception 'Assignment-bound RPC is missing after upgrade: %', signature;
+    end if;
+  end loop;
 end;
 $$;

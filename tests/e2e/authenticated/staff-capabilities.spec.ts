@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import { assertLocalSupabaseUrl } from "../../../scripts/e2e/local-safety.mjs";
 import {
   expectNoAxeViolations,
@@ -21,6 +27,7 @@ import {
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const organizationId = "20000000-0000-4000-8000-000000000002";
 const classId = "30000000-0000-4000-8000-000000000003";
+const wrongClassId = "30000000-0000-4000-8000-000000000001";
 const staffId = "10000000-0000-4000-8000-000000000005";
 const studentId = "10000000-0000-4000-8000-000000000010";
 const helpRequestId = "70000000-0000-4000-8000-000000000004";
@@ -28,6 +35,233 @@ const retainedCapabilities = [
   "class.workspace.read",
   "plan.preview",
 ] as const;
+
+type CapturedRawAction = {
+  url: string;
+  headers: Record<string, string>;
+  body: Buffer;
+};
+
+type CapturedMultipartPart = {
+  name: string;
+  filename?: string;
+  mimeType?: string;
+  bodyStart: number;
+  bodyEnd: number;
+};
+
+async function captureRawNextServerAction(
+  page: Page,
+  expectedClassId: string,
+  trigger: () => Promise<void>,
+): Promise<CapturedRawAction> {
+  let captured = false;
+  let resolveCapture!: (value: CapturedRawAction) => void;
+  const capture = new Promise<CapturedRawAction>((resolve) => {
+    resolveCapture = resolve;
+  });
+  const handler = async (route: Route) => {
+    const request = route.request();
+    if (captured || request.method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    const allHeaders = await request.allHeaders();
+    const contentType = allHeaders["content-type"] ?? "";
+    if (
+      typeof allHeaders["next-action"] === "string" &&
+      contentType.startsWith("multipart/form-data")
+    ) {
+      const body = request.postDataBuffer();
+      if (!body) throw new Error("Server Action mangler request-body.");
+      if (body.indexOf(expectedClassId, 0, "utf8") < 0) {
+        await route.continue();
+        return;
+      }
+      captured = true;
+      const headers: Record<string, string> = {};
+      for (const name of [
+        "accept",
+        "content-type",
+        "next-action",
+        "next-router-state-tree",
+        "next-url",
+        "x-deployment-id",
+      ]) {
+        const value = allHeaders[name];
+        if (value) headers[name] = value;
+      }
+      await route.abort("blockedbyclient");
+      resolveCapture({ url: request.url(), headers, body });
+      return;
+    }
+    await route.continue();
+  };
+
+  await page.route(page.url(), handler);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      (async () => {
+        await trigger();
+        return await capture;
+      })(),
+      new Promise<CapturedRawAction>((_, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Fangst av Server Action overskred 20 sekunder.")),
+          20_000,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+    await page.unrouteAll({ behavior: "wait" });
+  }
+}
+
+function parseCapturedMultipart(
+  body: Buffer,
+  contentType: string,
+): CapturedMultipartPart[] {
+  const boundaryMatch = /boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType);
+  const boundary = boundaryMatch?.[1] ?? boundaryMatch?.[2];
+  if (!boundary) throw new Error("Multipart-boundary mangler i Server Action.");
+
+  const marker = Buffer.from(`--${boundary}`, "utf8");
+  const crlf = Buffer.from("\r\n", "utf8");
+  const headerSeparator = Buffer.from("\r\n\r\n", "utf8");
+  const nextMarker = Buffer.from(`\r\n--${boundary}`, "utf8");
+  let markerOffset = body.indexOf(marker);
+  if (markerOffset !== 0) {
+    throw new Error("Multipart-body starter ikke med forventet boundary.");
+  }
+
+  const parts: CapturedMultipartPart[] = [];
+  while (true) {
+    const markerEnd = markerOffset + marker.length;
+    const markerSuffix = body.subarray(markerEnd, markerEnd + 2);
+    if (markerSuffix.equals(Buffer.from("--", "utf8"))) break;
+    if (!markerSuffix.equals(crlf)) {
+      throw new Error("Multipart-boundary har ugyldig avslutning.");
+    }
+
+    const headerStart = markerEnd + crlf.length;
+    const headerEnd = body.indexOf(headerSeparator, headerStart);
+    if (headerEnd < 0) throw new Error("Multipart-headere er ufullstendige.");
+    const bodyStart = headerEnd + headerSeparator.length;
+    const bodyEnd = body.indexOf(nextMarker, bodyStart);
+    if (bodyEnd < bodyStart) {
+      throw new Error("Multipart-delen mangler avsluttende boundary.");
+    }
+
+    const headers = body.subarray(headerStart, headerEnd).toString("latin1");
+    const disposition =
+      /(?:^|\r\n)Content-Disposition:\s*form-data;\s*name="([^"]+)"(?:;\s*filename="([^"]*)")?(?:\r\n|$)/i.exec(
+        headers,
+      );
+    if (!disposition) {
+      throw new Error("Multipart-delen mangler gyldig Content-Disposition.");
+    }
+    const mimeType =
+      /(?:^|\r\n)Content-Type:\s*([^\r\n]+)/i.exec(headers)?.[1]?.trim();
+    parts.push({
+      name: disposition[1],
+      filename: disposition[2],
+      mimeType,
+      bodyStart,
+      bodyEnd,
+    });
+    markerOffset = bodyEnd + crlf.length;
+  }
+  if (parts.length === 0) throw new Error("Multipart-body mangler deler.");
+  return parts;
+}
+
+function forgeCapturedMultipartClassAction(
+  body: Buffer,
+  contentType: string,
+  fieldName: string,
+  expectedMimeType: string,
+  fileBytes: Buffer,
+  fromClassId: string,
+  toClassId: string,
+): Buffer {
+  const parts = parseCapturedMultipart(body, contentType);
+  const roots = parts.filter((part) => part.name === "0" && !part.filename);
+  expect(roots, "Server Action skal ha ett metadatafelt").toHaveLength(1);
+  const root = roots[0];
+  if (!root) throw new Error("Server Action mangler metadatafeltet 0.");
+
+  const rootBody = body.subarray(root.bodyStart, root.bodyEnd);
+  let actionMetadata: unknown;
+  try {
+    actionMetadata = JSON.parse(rootBody.toString("utf8"));
+  } catch {
+    throw new Error("Server Action-metadata kunne ikke dekodes som JSON.");
+  }
+  if (!Array.isArray(actionMetadata) || actionMetadata.length !== 2) {
+    throw new Error("Server Action-metadata har uventet form.");
+  }
+  expect(actionMetadata[0]).toBe(fromClassId);
+  const fileReference =
+    typeof actionMetadata[1] === "string"
+      ? /^\$K([0-9a-f]+)$/i.exec(actionMetadata[1])
+      : null;
+  if (!fileReference) {
+    throw new Error("Server Action-metadata mangler filreferanse.");
+  }
+
+  const wireFieldName = `_${fileReference[1]}_${fieldName}`;
+  const fileParts = parts.filter(
+    (part) => part.name === wireFieldName && part.filename !== undefined,
+  );
+  expect(fileParts, `Filfeltet ${wireFieldName} skal forekomme én gang`).toHaveLength(
+    1,
+  );
+  const filePart = fileParts[0];
+  if (!filePart) throw new Error(`Filfeltet ${wireFieldName} mangler.`);
+  expect(filePart.filename).toBeTruthy();
+  expect(filePart.mimeType).toBe(expectedMimeType);
+  expect(fileBytes.length).toBeGreaterThan(0);
+
+  const sourceId = Buffer.from(fromClassId, "utf8");
+  const targetId = Buffer.from(toClassId, "utf8");
+  expect(sourceId.length).toBe(targetId.length);
+  const classOffset = rootBody.indexOf(sourceId);
+  expect(classOffset, "Kildeklassen mangler i metadatafeltet").toBeGreaterThanOrEqual(
+    0,
+  );
+  expect(
+    rootBody.indexOf(sourceId, classOffset + sourceId.length),
+    "Kildeklassen forekommer flere ganger i metadatafeltet",
+  ).toBe(-1);
+
+  const forged = Buffer.from(body);
+  targetId.copy(forged, root.bodyStart + classOffset);
+  return Buffer.concat([
+    forged.subarray(0, filePart.bodyStart),
+    fileBytes,
+    forged.subarray(filePart.bodyEnd),
+  ]);
+}
+
+async function replayRawAction(
+  context: BrowserContext,
+  baseURL: string,
+  action: CapturedRawAction,
+  body: Buffer,
+) {
+  return context.request.fetch(action.url, {
+    method: "POST",
+    headers: {
+      ...action.headers,
+      origin: new URL(baseURL).origin,
+    },
+    data: body,
+    maxRedirects: 0,
+    timeout: 20_000,
+  });
+}
 
 test.use({
   storageState: path.join(authDirectory, "other-org-staff-aal2.json"),
@@ -38,7 +272,9 @@ test.setTimeout(90_000);
 test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   context,
   page,
+  baseURL,
 }) => {
+  if (!baseURL) throw new Error("Playwright baseURL mangler.");
   const database = await openLocalDatabase();
   const apiUrl = assertLocalSupabaseUrl(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -208,6 +444,52 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       progress_enabled: true,
     });
 
+    const wrongClassPreviewPage = await context.newPage();
+    await wrongClassPreviewPage.goto(`/v3/teacher/classes/${classId}`);
+    const wrongClassPreviewPanel = wrongClassPreviewPage.getByRole("region", {
+      name: "Smart Import",
+    });
+    await wrongClassPreviewPanel
+      .getByLabel("Ukeplan, maks 2 MB")
+      .setInputFiles({
+        name: "syntetisk-feil-klasse.docx",
+        mimeType: DOCX_MIME,
+        buffer: weeklyPlanDocx,
+      });
+    const capturedPreview = await captureRawNextServerAction(
+      wrongClassPreviewPage,
+      classId,
+      () =>
+        wrongClassPreviewPanel
+          .getByRole("button", { name: "Lag forhåndsvisning" })
+          .click(),
+    );
+    expect(capturedPreview.headers["content-type"]).toContain(
+      "multipart/form-data",
+    );
+    const wrongClassResponse = await replayRawAction(
+      context,
+      baseURL,
+      capturedPreview,
+      forgeCapturedMultipartClassAction(
+        capturedPreview.body,
+        capturedPreview.headers["content-type"],
+        "plan",
+        DOCX_MIME,
+        weeklyPlanDocx,
+        classId,
+        wrongClassId,
+      ),
+    );
+    expect(wrongClassResponse.status()).toBe(200);
+    expect(wrongClassResponse.headers()["content-type"]).toContain(
+      "text/x-component",
+    );
+    expect(await wrongClassResponse.text()).toContain(
+      "Tilgangen til denne klassen er avsluttet.",
+    );
+    expect(await readProtectedState()).toEqual(baseline);
+
     await retainOnlyCapabilities(
       database,
       assignmentId,
@@ -358,11 +640,21 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
         p_progress_enabled: false,
       }),
     ]);
-    expect(
-      [taskRpc, planRpc, helpRpc, supportRpc].every(
-        (result) => result.error !== null,
-      ),
-    ).toBe(true);
+    for (const [result, expectedMessage] of [
+      [taskRpc, "Staff assignment does not authorize task publishing"],
+      [planRpc, "Staff assignment does not authorize plan publishing"],
+      [
+        helpRpc,
+        "Staff assignment does not authorize help queue management",
+      ],
+      [
+        supportRpc,
+        "Staff assignment does not authorize student support updates",
+      ],
+    ] as const) {
+      expect(result.error?.code).toBe("P0001");
+      expect(result.error?.message).toBe(expectedMessage);
+    }
 
     const postState = await readProtectedState();
     expect(postState).toEqual(baseline);
@@ -399,6 +691,76 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       [assignmentId],
     );
     expect(assignmentState.rows[0]?.is_active).toBe(true);
+
+    await restoreCapabilityProfile(database, assignmentId);
+    const stalePreviewPage = await context.newPage();
+    await stalePreviewPage.goto(`/v3/teacher/classes/${classId}`);
+    const stalePreviewPanel = stalePreviewPage.getByRole("region", {
+      name: "Smart Import",
+    });
+    await stalePreviewPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
+      name: "syntetisk-forhandsvisning.docx",
+      mimeType: DOCX_MIME,
+      buffer: weeklyPlanDocx,
+    });
+    const beforePreviewDenial = await readProtectedState();
+    const withoutPlanPreview = STAFF_CAPABILITIES.filter(
+      (capability) => capability !== "plan.preview",
+    ) as [string, ...string[]];
+    await retainOnlyCapabilities(
+      database,
+      assignmentId,
+      withoutPlanPreview,
+    );
+    await stalePreviewPanel
+      .getByRole("button", { name: "Lag forhåndsvisning" })
+      .click();
+    await expect(stalePreviewPage).toHaveURL(
+      new RegExp(`${classId}\\?access=ended$`),
+    );
+    expect(await readProtectedState()).toEqual(beforePreviewDenial);
+
+    const withoutPreviewPage = await context.newPage();
+    await withoutPreviewPage.goto(`/v3/teacher/classes/${classId}`);
+    await expect(
+      withoutPreviewPage.getByRole("heading", { name: "Annen skole 5C" }),
+    ).toBeVisible();
+    await expect(
+      withoutPreviewPage.getByText("Elev ved annen skole", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      withoutPreviewPage.getByText("Oppgave ved annen skole", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      withoutPreviewPage.getByRole("region", { name: "Smart Import" }),
+    ).toHaveCount(0);
+
+    await restoreCapabilityProfile(database, assignmentId);
+    const withoutWorkspace = STAFF_CAPABILITIES.filter(
+      (capability) => capability !== "class.workspace.read",
+    ) as [string, ...string[]];
+    await retainOnlyCapabilities(database, assignmentId, withoutWorkspace);
+    const dashboardWithoutWorkspace = await context.newPage();
+    await dashboardWithoutWorkspace.goto("/v3/teacher");
+    await expect(
+      dashboardWithoutWorkspace.getByText("Annen skole 5C", { exact: true }),
+    ).toHaveCount(0);
+
+    const classWithoutWorkspace = await context.newPage();
+    await classWithoutWorkspace.goto(`/v3/teacher/classes/${classId}`);
+    await expect(
+      classWithoutWorkspace.getByRole("heading", {
+        name: "Tilgangen er avsluttet",
+      }),
+    ).toBeVisible();
+    await expect(
+      classWithoutWorkspace.getByText("Elev ved annen skole", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      classWithoutWorkspace.getByText("Oppgave ved annen skole", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
   } finally {
     if (assignmentId) {
       await restoreCapabilityProfile(database, assignmentId);

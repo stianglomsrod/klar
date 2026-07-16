@@ -26,6 +26,9 @@ const preA1Migrations = [
   "20260714000006_student_experience.sql",
 ];
 const a1Migration = "20260715000000_staff_assignments.sql";
+const a1FollowupMigrations = [
+  "20260715000001_staff_support_read_hardening.sql",
+];
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -164,6 +167,12 @@ function runSql(containerName, relativePath, { expectFailure = false } = {}) {
 function applyPreA1(containerName) {
   runSql(containerName, "supabase/verification/bootstrap_supabase_stub.sql");
   for (const migration of preA1Migrations) {
+    runSql(containerName, `supabase/migrations/${migration}`);
+  }
+}
+
+function applyA1Followups(containerName) {
+  for (const migration of a1FollowupMigrations) {
     runSql(containerName, `supabase/migrations/${migration}`);
   }
 }
@@ -475,6 +484,7 @@ async function runEmptyScenario() {
   try {
     applyPreA1(container.name);
     runSql(container.name, `supabase/migrations/${a1Migration}`);
+    applyA1Followups(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/staff_concurrency_fixture.sql");
@@ -491,6 +501,7 @@ function runUpgradeScenario() {
     applyPreA1(positive.name);
     runSql(positive.name, "supabase/verification/staff_upgrade_fixture.sql");
     runSql(positive.name, `supabase/migrations/${a1Migration}`);
+    applyA1Followups(positive.name);
     runSql(positive.name, "supabase/verification/staff_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);

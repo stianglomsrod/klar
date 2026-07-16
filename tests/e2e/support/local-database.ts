@@ -23,29 +23,39 @@ export async function restoreCapabilityProfile(
   client: Client,
   assignmentId: string,
 ): Promise<void> {
-  await client.query(
-    `
-      insert into public.staff_assignment_capabilities (
-        assignment_id,
-        capability,
-        profile_version
-      )
-      select
-        $1::uuid,
-        capability,
-        'class_pedagogy_v1'
-      from unnest(array[
-        'class.workspace.read',
-        'task.publish',
-        'plan.preview',
-        'plan.publish',
-        'help_queue.manage',
-        'student_support.update'
-      ]::public.staff_capability[]) as capability
-      on conflict (assignment_id, capability) do nothing
-    `,
-    [assignmentId],
-  );
+  await client.query("begin");
+  try {
+    // Test-only repair after fault injection. Production code never bypasses
+    // immutable assignment child triggers.
+    await client.query("set local session_replication_role = replica");
+    await client.query(
+      `
+        insert into public.staff_assignment_capabilities (
+          assignment_id,
+          capability,
+          profile_version
+        )
+        select
+          $1::uuid,
+          capability,
+          'class_pedagogy_v1'
+        from unnest(array[
+          'class.workspace.read',
+          'task.publish',
+          'plan.preview',
+          'plan.publish',
+          'help_queue.manage',
+          'student_support.update'
+        ]::public.staff_capability[]) as capability
+        on conflict (assignment_id, capability) do nothing
+      `,
+      [assignmentId],
+    );
+    await client.query("commit");
+  } catch (error) {
+    await client.query("rollback");
+    throw error;
+  }
 }
 
 export async function retainOnlyCapabilities(

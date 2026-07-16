@@ -168,6 +168,7 @@ type StaffAssignmentRow = {
   idempotency_key: string;
   request_fingerprint: string;
   expiry_audited_at: string | null;
+  profile_sealed_at: string | null;
   version: number;
   created_at: string;
 };
@@ -357,6 +358,7 @@ export type Database = {
           idempotency_key: string;
           request_fingerprint: string;
           expiry_audited_at?: string | null;
+          profile_sealed_at?: never;
           version?: number;
           created_at?: string;
         }

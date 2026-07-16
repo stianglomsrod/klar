@@ -5,11 +5,16 @@ import {
   requireStaffCapability,
   requireStaffIdentity,
 } from "@/server/auth/authorize";
+import { isAuthorizationError } from "@/server/auth/errors";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
 import type { SupportLevel } from "@/server/students/experience-service";
 import type { StaffCapability, StaffJobLabel } from "@/server/auth/policy";
 import { listActiveStaffClassGrants } from "@/server/staff/staff-service";
+import {
+  readStudentSupportSettingsAtBoundary,
+  resolveStudentSupportSetting,
+} from "./support-read-boundary";
 
 export type TeacherClassSummary = {
   id: string;
@@ -56,6 +61,19 @@ export type TeacherClassWorkspace = {
   capabilities: StaffCapability[];
   isOwner: boolean;
 };
+
+async function retainStudentSupportAccess(classId: string): Promise<boolean> {
+  try {
+    await requireStaffCapability(classId, "student_support.update");
+    return true;
+  } catch (error) {
+    if (!isAuthorizationError(error) || error.code !== "STAFF_ACCESS_ENDED") {
+      throw error;
+    }
+    await requireStaffCapability(classId, "class.workspace.read");
+    return false;
+  }
+}
 
 export async function getTeacherDashboard(): Promise<TeacherDashboard> {
   const actor = await requireStaffIdentity();
@@ -196,16 +214,24 @@ export async function getTeacherClassWorkspace(
     : { data: [], error: null };
   if (profiles.error) throw new PrototypeDataError();
 
-  const experienceSettings = studentIds.length
-    ? await admin
-        .from("student_experience_settings")
-        .select("student_id, support_level, progress_enabled")
-        .eq("organization_id", actor.organizationId)
-        .in("student_id", studentIds)
-    : { data: [], error: null };
-  if (experienceSettings.error) throw new PrototypeDataError();
+  const supportSettings = actor.capabilities.includes("student_support.update")
+    ? await readStudentSupportSettingsAtBoundary({
+        organizationId: actor.organizationId,
+        studentIds,
+        authorize: () => retainStudentSupportAccess(classId),
+        select: async ({ organizationId, studentIds: scopedStudentIds }) => {
+          const result = await admin
+            .from("student_experience_settings")
+            .select("student_id, support_level, progress_enabled")
+            .eq("organization_id", organizationId)
+            .in("student_id", scopedStudentIds);
+          if (result.error) throw new PrototypeDataError();
+          return result.data;
+        },
+      })
+    : { available: false, rows: [] };
   const experienceByStudent = new Map(
-    experienceSettings.data.map((settings) => [settings.student_id, settings]),
+    supportSettings.rows.map((settings) => [settings.student_id, settings]),
   );
 
   const { data: tasks, error: tasksError } = await admin
@@ -239,6 +265,10 @@ export async function getTeacherClassWorkspace(
     classId,
     "class.workspace.read",
   );
+  const supportSettingsAvailable =
+    supportSettings.available &&
+    confirmedActor.capabilities.includes("student_support.update");
+  if (!supportSettingsAvailable) experienceByStudent.clear();
 
   return {
     id: classRow.id,
@@ -250,7 +280,10 @@ export async function getTeacherClassWorkspace(
         const studentAssignments = assignments.filter(
           (assignment) => assignment.student_id === profile.id,
         );
-        const experience = experienceByStudent.get(profile.id);
+        const experience = resolveStudentSupportSetting(
+          experienceByStudent,
+          profile.id,
+        );
         return {
           id: profile.id,
           displayName: profile.display_name,
@@ -258,8 +291,8 @@ export async function getTeacherClassWorkspace(
           completedTasks: studentAssignments.filter(
             (assignment) => statusByAssignment.get(assignment.id) === "completed",
           ).length,
-          supportLevel: (experience?.support_level ?? 2) as SupportLevel,
-          progressEnabled: experience?.progress_enabled ?? false,
+          supportLevel: experience.supportLevel as SupportLevel,
+          progressEnabled: experience.progressEnabled,
         };
       })
       .sort((first, second) =>

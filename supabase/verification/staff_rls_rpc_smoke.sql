@@ -89,6 +89,11 @@ insert into public.student_experience_settings (
   ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000007', 2, false, '10000000-0000-4000-8000-000000000005'),
   ('20000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000009', 3, true, '10000000-0000-4000-8000-000000000008');
 
+-- Seal fixture assignments before testing that no child scope or capability
+-- can be appended after the atomic creation transaction has committed.
+commit;
+begin;
+
 do $$
 declare
   missing_rls text;
@@ -98,12 +103,18 @@ declare
   protected_function oid;
   negative_case record;
   denial_message text;
+  denial_sqlstate text;
   assignments_before integer;
   audits_before integer;
   inclusive_assignment uuid;
   exact_end_assignment uuid;
   revoked_assignment uuid;
   future_assignment uuid;
+  immutable_case record;
+  signature text;
+  assignment_rows_before integer;
+  scope_rows_before integer;
+  capability_rows_before integer;
 begin
   select class.relname into missing_rls
   from pg_class as class
@@ -213,9 +224,43 @@ begin
       raise exception 'Anon can execute protected helper %', protected_function::regprocedure;
     end if;
   end loop;
-  if to_regprocedure('public.publish_task_to_class(uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)') is not null then
-    raise exception 'Legacy task publishing RPC still exists';
-  end if;
+  foreach signature in array array[
+    'public.expected_staff_assignment_capabilities(text)',
+    'public.guard_staff_assignment_seal_state()',
+    'public.guard_staff_assignment_child_insert()',
+    'public.try_seal_staff_assignment_profile()',
+    'public.require_sealed_staff_assignment_profile()'
+  ] loop
+    if to_regprocedure(signature) is null then
+      raise exception 'Assignment seal helper is missing: %', signature;
+    end if;
+    if has_function_privilege('anon', signature, 'EXECUTE')
+      or has_function_privilege('authenticated', signature, 'EXECUTE')
+      or has_function_privilege('service_role', signature, 'EXECUTE')
+    then
+      raise exception 'Assignment seal helper is externally executable: %', signature;
+    end if;
+  end loop;
+  foreach signature in array array[
+    'public.publish_task_to_class(uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)',
+    'public.publish_plan_to_class(uuid,uuid,jsonb)',
+    'public.claim_student_help(uuid,uuid)',
+    'public.resolve_student_help(uuid,uuid)'
+  ] loop
+    if to_regprocedure(signature) is not null then
+      raise exception 'Legacy RPC still exists: %', signature;
+    end if;
+  end loop;
+  foreach signature in array array[
+    'public.publish_task_to_class(uuid,uuid,uuid,text,text,text,smallint,smallint,timestamptz,timestamptz)',
+    'public.publish_plan_to_class(uuid,uuid,uuid,jsonb)',
+    'public.claim_student_help(uuid,uuid,uuid)',
+    'public.resolve_student_help(uuid,uuid,uuid)'
+  ] loop
+    if to_regprocedure(signature) is null then
+      raise exception 'Assignment-bound RPC is missing: %', signature;
+    end if;
+  end loop;
 
   select count(*) into capability_count
   from public.staff_assignment_capabilities as capability
@@ -484,8 +529,472 @@ begin
   ) then
     raise exception 'Future assignment authorized before its inclusive start';
   end if;
+
+  perform public.revoke_staff_assignment(
+    '20000000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000001',
+    future_assignment
+  );
+  select count(*) into assignment_rows_before
+  from public.staff_assignments where id = future_assignment;
+  select count(*) into scope_rows_before
+  from public.staff_assignment_class_scopes where assignment_id = future_assignment;
+  select count(*) into capability_rows_before
+  from public.staff_assignment_capabilities where assignment_id = future_assignment;
+
+  if exists (
+    select 1
+    from public.staff_assignments as assignment
+    where assignment.profile_sealed_at is null
+  ) then
+    raise exception 'A completed assignment profile remained unsealed';
+  end if;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    insert into public.staff_assignment_class_scopes (
+      assignment_id,
+      organization_id,
+      class_id
+    ) values (
+      future_assignment,
+      '20000000-0000-4000-8000-000000000001',
+      '30000000-0000-4000-8000-000000000002'
+    );
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment scope and capabilities are immutable after creation'
+  then
+    raise exception 'Assignment scope insert was not guarded: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    insert into public.staff_assignments (
+      id,
+      organization_id,
+      user_id,
+      job_label,
+      starts_at,
+      ends_at,
+      source,
+      created_by,
+      idempotency_key,
+      request_fingerprint,
+      profile_sealed_at
+    ) values (
+      '80000000-0000-4000-8000-000000000003',
+      '20000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000005',
+      'substitute',
+      transaction_timestamp(),
+      transaction_timestamp() + interval '1 hour',
+      'manual',
+      '10000000-0000-4000-8000-000000000001',
+      '80000000-0000-4000-8000-000000000004',
+      md5('presealed-staff-assignment'),
+      transaction_timestamp()
+    );
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment profile must be sealed by the database'
+    or exists (
+      select 1
+      from public.staff_assignments
+      where id = '80000000-0000-4000-8000-000000000003'
+    )
+  then
+    raise exception 'Pre-sealed assignment insert was not rejected atomically: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    insert into public.staff_assignments (
+      id,
+      organization_id,
+      user_id,
+      job_label,
+      starts_at,
+      ends_at,
+      source,
+      created_by,
+      idempotency_key,
+      request_fingerprint
+    ) values (
+      '80000000-0000-4000-8000-000000000005',
+      '20000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000005',
+      'substitute',
+      transaction_timestamp(),
+      transaction_timestamp() + interval '1 hour',
+      'manual',
+      '10000000-0000-4000-8000-000000000001',
+      '80000000-0000-4000-8000-000000000006',
+      md5('forged-seal-staff-assignment')
+    );
+    perform set_config(
+      'klar.staff_assignment_seal_id',
+      '80000000-0000-4000-8000-000000000005',
+      true
+    );
+    update public.staff_assignments
+    set profile_sealed_at = transaction_timestamp()
+    where id = '80000000-0000-4000-8000-000000000005';
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment profile seal is immutable'
+    or exists (
+      select 1
+      from public.staff_assignments
+      where id = '80000000-0000-4000-8000-000000000005'
+    )
+  then
+    raise exception 'Forged incomplete profile seal was not rejected atomically: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    insert into public.staff_assignment_capabilities (
+      assignment_id,
+      capability
+    ) values (
+      future_assignment,
+      'class.workspace.read'
+    );
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment scope and capabilities are immutable after creation'
+  then
+    raise exception 'Assignment capability insert was not guarded: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    insert into public.staff_assignments (
+      id,
+      organization_id,
+      user_id,
+      job_label,
+      starts_at,
+      ends_at,
+      source,
+      created_by,
+      idempotency_key,
+      request_fingerprint
+    ) values (
+      '80000000-0000-4000-8000-000000000001',
+      '20000000-0000-4000-8000-000000000001',
+      '10000000-0000-4000-8000-000000000005',
+      'substitute',
+      transaction_timestamp(),
+      transaction_timestamp() + interval '1 hour',
+      'manual',
+      '10000000-0000-4000-8000-000000000001',
+      '80000000-0000-4000-8000-000000000002',
+      md5('incomplete-staff-assignment')
+    );
+    execute 'set constraints staff_assignment_requires_sealed_profile immediate';
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment must have one scope and the exact capability profile'
+    or exists (
+      select 1
+      from public.staff_assignments
+      where id = '80000000-0000-4000-8000-000000000001'
+    )
+  then
+    raise exception 'Incomplete assignment commit was not atomic: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  for immutable_case in
+    select *
+    from (values
+      ('id', 'id = gen_random_uuid()'),
+      ('organization_id', 'organization_id = ''20000000-0000-4000-8000-000000000002''::uuid'),
+      ('user_id', 'user_id = ''10000000-0000-4000-8000-000000000005''::uuid'),
+      ('job_label', 'job_label = ''subject_teacher''::public.staff_job_label'),
+      ('profile_version', 'profile_version = profile_version || ''-tampered'''),
+      ('starts_at', 'starts_at = starts_at - interval ''1 minute'''),
+      ('ends_at', 'ends_at = ends_at + interval ''1 minute'''),
+      ('source', 'source = ''legacy_backfill''::public.staff_assignment_source'),
+      ('created_by', 'created_by = ''10000000-0000-4000-8000-000000000008''::uuid'),
+      ('idempotency_key', 'idempotency_key = gen_random_uuid()'),
+      ('request_fingerprint', 'request_fingerprint = request_fingerprint || ''-tampered'''),
+      ('version', 'version = version + 1'),
+      ('created_at', 'created_at = created_at - interval ''1 minute''')
+    ) as mutation(field_name, assignment_sql)
+  loop
+    denial_message := null;
+    begin
+      execute format(
+        'update public.staff_assignments set %s where id = $1',
+        immutable_case.assignment_sql
+      ) using future_assignment;
+    exception when others then
+      get stacked diagnostics denial_message = message_text;
+    end;
+    if denial_message <> 'Staff assignment identity, scope, profile and validity are immutable' then
+      raise exception 'Immutable assignment field % was not guarded: %',
+        immutable_case.field_name,
+        denial_message;
+    end if;
+  end loop;
+
+  denial_message := null;
+  denial_sqlstate := null;
+  begin
+    update public.staff_assignments
+    set profile_sealed_at = null
+    where id = future_assignment;
+  exception when others then
+    get stacked diagnostics
+      denial_message = message_text,
+      denial_sqlstate = returned_sqlstate;
+  end;
+  if denial_sqlstate <> '23514'
+    or denial_message <> 'Staff assignment profile seal is immutable'
+  then
+    raise exception 'Assignment profile seal mutation was not guarded: % %',
+      denial_sqlstate,
+      denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    update public.staff_assignment_class_scopes
+    set class_id = '30000000-0000-4000-8000-000000000001'
+    where assignment_id = future_assignment;
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Staff assignment scope and capabilities are immutable' then
+    raise exception 'Assignment scope update was not guarded: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    delete from public.staff_assignment_class_scopes
+    where assignment_id = future_assignment;
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Staff assignment scope and capabilities are immutable' then
+    raise exception 'Assignment scope delete was not guarded: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    update public.staff_assignment_capabilities
+    set capability = 'task.publish'
+    where assignment_id = future_assignment
+      and capability = 'class.workspace.read';
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Staff assignment scope and capabilities are immutable' then
+    raise exception 'Assignment capability update was not guarded: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    delete from public.staff_assignment_capabilities
+    where assignment_id = future_assignment;
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Staff assignment scope and capabilities are immutable' then
+    raise exception 'Assignment capability delete was not guarded: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    delete from public.staff_assignments where id = future_assignment;
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Staff assignment history cannot be deleted' then
+    raise exception 'Assignment hard delete was not guarded: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    delete from public.memberships
+    where organization_id = '20000000-0000-4000-8000-000000000001'
+      and user_id = '10000000-0000-4000-8000-000000000006';
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message <> 'Membership with staff assignment history cannot be deleted' then
+    raise exception 'Historical assignment membership delete was not guarded: %', denial_message;
+  end if;
+
+  if (select count(*) from public.staff_assignments where id = future_assignment)
+      <> assignment_rows_before
+    or (select count(*) from public.staff_assignment_class_scopes where assignment_id = future_assignment)
+      <> scope_rows_before
+    or (select count(*) from public.staff_assignment_capabilities where assignment_id = future_assignment)
+      <> capability_rows_before
+    or not exists (
+      select 1 from public.memberships
+      where organization_id = '20000000-0000-4000-8000-000000000001'
+        and user_id = '10000000-0000-4000-8000-000000000006'
+    )
+    or not exists (
+      select 1 from public.audit_events
+      where event_name = 'staff_assignment.revoked'
+        and entity_id = future_assignment
+    )
+  then
+    raise exception 'Rejected history mutations changed assignment state or audit';
+  end if;
 end;
 $$;
+
+-- Each read capability is independent. Fault-inject one missing capability at
+-- a time, exercise policies as an authenticated AAL2 staff user, and restore
+-- the profile before the next case.
+reset role;
+set local session_replication_role = replica;
+delete from public.staff_assignment_capabilities as capability
+using public.staff_assignments as assignment
+where capability.assignment_id = assignment.id
+  and assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual'
+  and capability.capability = 'help_queue.manage';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000005","aal":"aal2","role":"authenticated"}',
+  true
+);
+do $$
+begin
+  if (select count(*) from public.task_definitions) <> 1
+    or (select count(*) from public.student_experience_settings) <> 1
+    or (select count(*) from public.help_requests) <> 0
+  then
+    raise exception 'Missing help capability did not isolate direct queue read';
+  end if;
+end;
+$$;
+
+reset role;
+set local session_replication_role = replica;
+insert into public.staff_assignment_capabilities (assignment_id, capability)
+select assignment.id, 'help_queue.manage'
+from public.staff_assignments as assignment
+where assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual';
+set local session_replication_role = origin;
+
+set local session_replication_role = replica;
+delete from public.staff_assignment_capabilities as capability
+using public.staff_assignments as assignment
+where capability.assignment_id = assignment.id
+  and assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual'
+  and capability.capability = 'student_support.update';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000005","aal":"aal2","role":"authenticated"}',
+  true
+);
+do $$
+begin
+  if (select count(*) from public.task_definitions) <> 1
+    or (select count(*) from public.help_requests) <> 1
+    or (select count(*) from public.student_experience_settings) <> 0
+  then
+    raise exception 'Missing support capability did not isolate direct support read';
+  end if;
+end;
+$$;
+
+reset role;
+set local session_replication_role = replica;
+insert into public.staff_assignment_capabilities (assignment_id, capability)
+select assignment.id, 'student_support.update'
+from public.staff_assignments as assignment
+where assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual';
+set local session_replication_role = origin;
+
+set local session_replication_role = replica;
+delete from public.staff_assignment_capabilities as capability
+using public.staff_assignments as assignment
+where capability.assignment_id = assignment.id
+  and assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual'
+  and capability.capability = 'class.workspace.read';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-4000-8000-000000000005","aal":"aal2","role":"authenticated"}',
+  true
+);
+do $$
+begin
+  if (select count(*) from public.classes) <> 0
+    or (select count(*) from public.task_definitions) <> 0
+    or (select count(*) from public.class_memberships) <> 0
+    or exists (
+      select 1
+      from public.profiles
+      where id = '10000000-0000-4000-8000-000000000007'
+    )
+  then
+    raise exception 'Missing workspace capability exposed direct class rows';
+  end if;
+end;
+$$;
+
+reset role;
+set local session_replication_role = replica;
+insert into public.staff_assignment_capabilities (assignment_id, capability)
+select assignment.id, 'class.workspace.read'
+from public.staff_assignments as assignment
+where assignment.user_id = '10000000-0000-4000-8000-000000000005'
+  and assignment.source = 'manual';
+set local session_replication_role = origin;
 
 set local role authenticated;
 select set_config(
