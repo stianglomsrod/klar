@@ -20,15 +20,20 @@ const states = {
 };
 
 async function fillLogin(page: Page, identifier: string, password: string) {
-  await page.goto("/login");
+  // Login is a client component. Waiting past script loading prevents WebKit
+  // from submitting the server-rendered form before React has attached onSubmit.
+  await page.goto("/login", { waitUntil: "networkidle" });
   await page.getByLabel("Elevkode eller e-post").fill(identifier);
   const passwordInput = page.getByLabel("Passord");
   await passwordInput.fill(password);
   try {
     await page.getByRole("button", { name: "Logg inn" }).click();
+    const loginError = page
+      .getByRole("region", { name: "Logg inn" })
+      .getByRole("alert");
     await Promise.race([
-      page.waitForURL(/\/v3\//, { timeout: 10_000 }),
-      page.getByRole("alert").waitFor({ state: "visible", timeout: 10_000 }),
+      page.waitForURL(/\/v3\//, { timeout: 15_000 }),
+      loginError.waitFor({ state: "visible", timeout: 15_000 }),
     ]);
   } finally {
     await page

@@ -18,6 +18,7 @@ const IDS = {
   visualStudent: "10000000-0000-4000-8000-000000000007",
   visualOwner: "10000000-0000-4000-8000-000000000008",
   visualAssignee: "10000000-0000-4000-8000-000000000009",
+  otherStudent: "10000000-0000-4000-8000-000000000010",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -28,9 +29,12 @@ const IDS = {
   taskOne: "40000000-0000-4000-8000-000000000001",
   taskTwo: "40000000-0000-4000-8000-000000000002",
   visualTask: "40000000-0000-4000-8000-000000000003",
+  otherTask: "40000000-0000-4000-8000-000000000004",
   assignmentOne: "50000000-0000-4000-8000-000000000001",
   assignmentTwo: "50000000-0000-4000-8000-000000000002",
   visualAssignment: "50000000-0000-4000-8000-000000000003",
+  otherAssignment: "50000000-0000-4000-8000-000000000004",
+  otherHelp: "70000000-0000-4000-8000-000000000004",
 };
 
 const url = assertLocalSupabaseUrl(required("NEXT_PUBLIC_SUPABASE_URL"));
@@ -150,6 +154,12 @@ await Promise.all([
   createUser({ id: IDS.visualStaff, ...credentials.visualStaff, displayName: "Visuell faglærer" }),
   createUser({ id: IDS.otherStaff, ...credentials.otherStaff, displayName: "Ansatt annen skole" }),
   createUser({
+    id: IDS.otherStudent,
+    email: "other-student@e2e.klar.invalid",
+    password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+    displayName: "Elev ved annen skole",
+  }),
+  createUser({
     id: IDS.otherOwner,
     email: "other-owner@e2e.klar.invalid",
     password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
@@ -194,6 +204,7 @@ await insert("memberships", [
   { organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
   { organization_id: IDS.otherOrganization, user_id: IDS.otherOwner, role: "owner", created_by: IDS.otherOwner },
   { organization_id: IDS.otherOrganization, user_id: IDS.otherStaff, role: "teacher", created_by: IDS.otherOwner },
+  { organization_id: IDS.otherOrganization, user_id: IDS.otherStudent, role: "student", created_by: IDS.otherOwner },
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualOwner, role: "owner", created_by: IDS.visualOwner },
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualAssignee, role: "teacher", created_by: IDS.visualOwner },
 ]);
@@ -230,6 +241,7 @@ await insert("classes", [
 await insert("class_memberships", [
   { class_id: IDS.class, organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
   { class_id: IDS.visualClass, organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
+  { class_id: IDS.otherClass, organization_id: IDS.otherOrganization, user_id: IDS.otherStudent, role: "student", created_by: IDS.otherOwner },
 ]);
 
 const { data: visualOperationalClass, error: visualOperationalClassError } =
@@ -373,6 +385,20 @@ await insert("task_definitions", [
     published_at: "2020-01-01T08:00:00.000Z",
     created_by: IDS.visualStaff,
   },
+  {
+    id: IDS.otherTask,
+    organization_id: IDS.otherOrganization,
+    class_id: IDS.otherClass,
+    title: "Oppgave ved annen skole",
+    description: "Syntetisk oppgave for kapabilitetstesting.",
+    subject: "Norsk",
+    estimated_minutes: 10,
+    support_level: 2,
+    position: 0,
+    publication_status: "published",
+    published_at: "2020-01-01T08:00:00.000Z",
+    created_by: IDS.otherStaff,
+  },
 ]);
 await insert("task_assignments", [
   {
@@ -405,6 +431,16 @@ await insert("task_assignments", [
     visible_from: "2020-01-01T08:00:00.000Z",
     due_at: "2099-12-31T14:00:00.000Z",
   },
+  {
+    id: IDS.otherAssignment,
+    organization_id: IDS.otherOrganization,
+    class_id: IDS.otherClass,
+    task_definition_id: IDS.otherTask,
+    student_id: IDS.otherStudent,
+    assigned_by: IDS.otherStaff,
+    visible_from: "2020-01-01T08:00:00.000Z",
+    due_at: "2099-12-31T14:00:00.000Z",
+  },
 ]);
 await insert("student_task_state", [
   {
@@ -419,6 +455,12 @@ await insert("student_task_state", [
     assignment_id: IDS.visualAssignment,
     organization_id: IDS.organization,
     student_id: IDS.visualStudent,
+    status: "not_started",
+  },
+  {
+    assignment_id: IDS.otherAssignment,
+    organization_id: IDS.otherOrganization,
+    student_id: IDS.otherStudent,
     status: "not_started",
   },
 ]);
@@ -436,6 +478,24 @@ await insert("student_experience_settings", [
     support_level: 2,
     progress_enabled: false,
     updated_by: IDS.visualStaff,
+  },
+  {
+    organization_id: IDS.otherOrganization,
+    student_id: IDS.otherStudent,
+    support_level: 2,
+    progress_enabled: true,
+    updated_by: IDS.otherStaff,
+  },
+]);
+
+await insert("help_requests", [
+  {
+    id: IDS.otherHelp,
+    organization_id: IDS.otherOrganization,
+    class_id: IDS.otherClass,
+    student_id: IDS.otherStudent,
+    requested_at: "2026-01-01T08:00:00.000Z",
+    expires_at: "2099-01-01T08:00:00.000Z",
   },
 ]);
 

@@ -1,5 +1,6 @@
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 const LOCAL_SUPABASE_PORT = "54321";
+const LOCAL_DATABASE_PORT = "54322";
 
 export function assertLocalSupabaseUrl(value) {
   let url;
@@ -21,6 +22,31 @@ export function assertLocalSupabaseUrl(value) {
 
   return url.toString().replace(/\/$/, "");
 }
+
+export function assertLocalDatabaseUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Database-URL for E2E er ugyldig.");
+  }
+
+  if (
+    !new Set(["postgres:", "postgresql:"]).has(url.protocol) ||
+    !LOOPBACK_HOSTS.has(url.hostname) ||
+    url.port !== LOCAL_DATABASE_PORT ||
+    url.pathname !== "/postgres" ||
+    url.search !== "" ||
+    url.hash !== ""
+  ) {
+    throw new Error(
+      "Autentisert E2E nekter å bruke annet enn lokal Postgres på loopback:54322/postgres.",
+    );
+  }
+
+  return url.toString();
+}
+
 export function parseSupabaseEnv(output) {
   const values = {};
   for (const line of output.split(/\r?\n/)) {

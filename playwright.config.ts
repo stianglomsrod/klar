@@ -80,15 +80,52 @@ if (authenticated) {
   }
 
   if (mode === "staff" || mode === "full") {
-    projects.push({
-      name: "staff-lifecycle",
-      testMatch: /authenticated\/staff-lifecycle\.spec\.ts/,
-      dependencies: ["auth-setup"],
-      use: {
-        browserName: authBrowser,
-        viewport: { width: 1440, height: 900 },
+    projects.push(
+      {
+        name: "staff-lifecycle",
+        testMatch: /authenticated\/staff-lifecycle\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          viewport: { width: 1440, height: 900 },
+        },
       },
-    });
+      {
+        name: "staff-control-actions",
+        testMatch: /authenticated\/staff-control-actions\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          viewport: { width: 1440, height: 900 },
+          trace: "off",
+          screenshot: "off",
+          video: "off",
+        },
+      },
+      {
+        name: "staff-capabilities",
+        testMatch: /authenticated\/staff-capabilities\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(
+            authDirectory,
+            "other-org-staff-aal2.json",
+          ),
+          viewport: { width: 1440, height: 900 },
+        },
+      },
+      {
+        name: "staff-expiry",
+        testMatch: /authenticated\/staff-expiry\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(authDirectory, "substitute-aal2.json"),
+          viewport: { width: 1440, height: 900 },
+        },
+      },
+    );
   }
 
   if (mode === "visual" || mode === "full") {

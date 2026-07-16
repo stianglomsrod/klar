@@ -679,6 +679,7 @@ declare
   stale_plan_denied boolean := false;
   stale_support_denied boolean := false;
   wrong_scope_denied boolean := false;
+  wrong_plan_scope_denied boolean := false;
   plan_rollback_denied boolean := false;
   support_denials integer := 0;
   revoke_denials integer := 0;
@@ -795,6 +796,25 @@ begin
   end;
   if not wrong_scope_denied then
     raise exception 'Task publishing escaped the assignment class scope';
+  end if;
+
+  select count(*) into task_count_before from public.task_definitions;
+  select count(*) into audit_count_before from public.audit_events;
+  begin
+    perform public.publish_plan_to_class(
+      '30000000-0000-4000-8000-000000000002',
+      '10000000-0000-4000-8000-000000000005',
+      staff_assignment_id,
+      '[{"title":"Plan i feil klasse skal avvises"}]'::jsonb
+    );
+  exception when others then
+    wrong_plan_scope_denied := true;
+  end;
+  if not wrong_plan_scope_denied
+    or (select count(*) from public.task_definitions) <> task_count_before
+    or (select count(*) from public.audit_events) <> audit_count_before
+  then
+    raise exception 'Plan publishing escaped class scope or left partial rows';
   end if;
 
   plan_ids := public.publish_plan_to_class(

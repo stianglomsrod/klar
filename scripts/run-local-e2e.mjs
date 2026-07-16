@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
+  assertLocalDatabaseUrl,
   assertLocalSupabaseUrl,
   parseSupabaseEnv,
 } from "./e2e/local-safety.mjs";
@@ -110,6 +111,7 @@ const status = parseSupabaseEnv(
   }),
 );
 const apiUrl = assertLocalSupabaseUrl(status.API_URL ?? "");
+const databaseUrl = assertLocalDatabaseUrl(status.DB_URL ?? "");
 const anonKey = status.ANON_KEY ?? status.PUBLISHABLE_KEY;
 const serviceRoleKey = status.SERVICE_ROLE_KEY ?? status.SECRET_KEY;
 if (!anonKey || !serviceRoleKey) {
@@ -126,6 +128,7 @@ const testEnvironment = {
   KLAR_E2E_AUTH: "1",
   KLAR_E2E_MODE: mode,
   KLAR_E2E_BROWSER: browser,
+  KLAR_E2E_DB_URL: databaseUrl,
   KLAR_E2E_OWNER_EMAIL: "owner@e2e.klar.invalid",
   KLAR_E2E_OWNER_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   KLAR_E2E_SUBSTITUTE_EMAIL: "substitute@e2e.klar.invalid",

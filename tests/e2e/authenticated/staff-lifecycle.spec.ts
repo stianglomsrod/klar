@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Route } from "@playwright/test";
@@ -7,13 +8,16 @@ import {
   expectNoHorizontalOverflow,
   observeRuntimeErrors,
 } from "../support/quality";
+import {
+  createSyntheticWeeklyPlanDocx,
+  DOCX_MIME,
+} from "../support/synthetic-docx";
 
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const classId = "30000000-0000-4000-8000-000000000001";
 const organizationId = "20000000-0000-4000-8000-000000000001";
 const studentId = "10000000-0000-4000-8000-000000000002";
-const activeHelpId = "70000000-0000-4000-8000-000000000090";
-const staleHelpId = "70000000-0000-4000-8000-000000000099";
+const substituteId = "10000000-0000-4000-8000-000000000003";
 
 function state(name: string) {
   return path.join(authDirectory, name);
@@ -43,6 +47,7 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   browser,
   baseURL,
 }) => {
+  test.setTimeout(90_000);
   if (!baseURL) throw new Error("Playwright baseURL mangler.");
   const apiUrl = assertLocalSupabaseUrl(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
@@ -52,6 +57,10 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const admin = createClient(apiUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  const activeHelpId = randomUUID();
+  const staleHelpId = randomUUID();
+  const importToken = randomUUID().slice(0, 8);
+  const weeklyPlanDocx = await createSyntheticWeeklyPlanDocx();
 
   const ownerAal1 = await browser.newContext({
     baseURL,
@@ -149,6 +158,12 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await expect(
     deniedClassPage.getByText("Visuell arbeidsoppgave", { exact: true }),
   ).toHaveCount(0);
+  await expect(
+    deniedClassPage.getByRole("region", { name: "Smart Import" }),
+  ).toHaveCount(0);
+  await expect(
+    deniedClassPage.getByRole("button", { name: "Publiser til klassen" }),
+  ).toHaveCount(0);
   expect(await deniedClassPage.content()).not.toMatch(
     /Visuell elev|Visuell klasse 4B|Visuell arbeidsoppgave|staff_assignments|operational_owner|legacy_teacher/,
   );
@@ -182,6 +197,136 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await expect(
     substitutePage.getByRole("status").filter({ hasText: "Oppgaven er publisert" }),
   ).toBeVisible();
+
+  const importPanel = substitutePage.getByRole("region", {
+    name: "Smart Import",
+  });
+  const { count: importedBeforePreview, error: importedBeforePreviewError } =
+    await admin
+      .from("task_definitions")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", classId)
+      .like("title", "E2E import%");
+  if (importedBeforePreviewError) throw importedBeforePreviewError;
+  await importPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
+    name: "syntetisk-ukeplan.docx",
+    mimeType: DOCX_MIME,
+    buffer: weeklyPlanDocx,
+  });
+  await importPanel
+    .getByRole("button", { name: "Lag forhåndsvisning" })
+    .click();
+  await expect(
+    importPanel.getByRole("textbox", { name: "Oppgave 1", exact: true }),
+  ).toHaveValue(
+    "E2E import: les side 12",
+  );
+  await expect(
+    importPanel.getByRole("textbox", { name: "Oppgave 2", exact: true }),
+  ).toHaveValue(
+    "E2E import: regn oppgave 4.12",
+  );
+  await expect(importPanel.getByLabel("Fag").nth(0)).toHaveValue("Norsk");
+  await expect(importPanel.getByLabel("Fag").nth(1)).toHaveValue("Matematikk");
+  const { count: importedAfterPreview, error: importedAfterPreviewError } =
+    await admin
+      .from("task_definitions")
+      .select("id", { count: "exact", head: true })
+      .eq("class_id", classId)
+      .like("title", "E2E import%");
+  if (importedAfterPreviewError) throw importedAfterPreviewError;
+  expect(importedAfterPreview).toBe(importedBeforePreview);
+  await importPanel
+    .getByRole("textbox", { name: "Oppgave 1", exact: true })
+    .fill(`E2E import kontrollert ${importToken}: les side 12`);
+  await importPanel
+    .getByRole("textbox", { name: "Oppgave 2", exact: true })
+    .fill(`E2E import kontrollert ${importToken}: regn oppgave 4.12`);
+  await importPanel
+    .getByRole("button", { name: "Bekreft og publiser 2" })
+    .click();
+  await expect(importPanel.getByRole("status")).toHaveText(
+    "2 oppgaver er publisert.",
+  );
+
+  const importedTitles = [
+    `E2E import kontrollert ${importToken}: les side 12`,
+    `E2E import kontrollert ${importToken}: regn oppgave 4.12`,
+  ];
+  const { data: runtimeAssignments, error: runtimeAssignmentError } =
+    await admin
+      .from("staff_assignments")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("user_id", substituteId)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
+  if (runtimeAssignmentError || runtimeAssignments.length !== 1) {
+    throw runtimeAssignmentError ?? new Error("Vikaroppdraget mangler.");
+  }
+  const runtimeAssignmentId = runtimeAssignments[0].id;
+  const { data: importedTasks, error: importedTaskError } = await admin
+    .from("task_definitions")
+    .select("id, title")
+    .eq("organization_id", organizationId)
+    .eq("class_id", classId)
+    .in("title", importedTitles)
+    .order("title");
+  if (importedTaskError) throw importedTaskError;
+  expect(importedTasks.map((task) => task.title).sort()).toEqual(
+    [...importedTitles].sort(),
+  );
+  const importedTaskIds = importedTasks.map((task) => task.id);
+  const { data: importedAssignments, error: importedAssignmentError } =
+    await admin
+      .from("task_assignments")
+      .select("id, task_definition_id, student_id")
+      .eq("class_id", classId)
+      .eq("student_id", studentId)
+      .in("task_definition_id", importedTaskIds);
+  if (importedAssignmentError) throw importedAssignmentError;
+  expect(importedAssignments).toHaveLength(2);
+  const { data: importedStates, error: importedStateError } = await admin
+    .from("student_task_state")
+    .select("assignment_id, status")
+    .in(
+      "assignment_id",
+      importedAssignments.map((assignment) => assignment.id),
+    );
+  if (importedStateError) throw importedStateError;
+  expect(importedStates).toHaveLength(2);
+  expect(importedStates.every((state) => state.status === "not_started")).toBe(
+    true,
+  );
+  const { data: importedTaskAudits, error: importedTaskAuditError } =
+    await admin
+      .from("audit_events")
+      .select(
+        "entity_id, authorizing_staff_assignment_id, authorizing_capability",
+      )
+      .eq("event_name", "task.published")
+      .eq("authorizing_staff_assignment_id", runtimeAssignmentId)
+      .eq("authorizing_capability", "plan.publish")
+      .in("entity_id", importedTaskIds);
+  if (importedTaskAuditError) throw importedTaskAuditError;
+  expect(importedTaskAudits).toHaveLength(2);
+  const { data: planAudits, error: planAuditError } = await admin
+    .from("audit_events")
+    .select(
+      "metadata, authorizing_staff_assignment_id, authorizing_capability",
+    )
+    .eq("event_name", "plan.published")
+    .eq("entity_id", classId)
+    .eq("authorizing_staff_assignment_id", runtimeAssignmentId)
+    .eq("authorizing_capability", "plan.publish");
+  if (planAuditError) throw planAuditError;
+  expect(planAudits).toHaveLength(1);
+  const planTaskIds = (planAudits[0].metadata as { task_ids?: unknown })
+    .task_ids;
+  expect(Array.isArray(planTaskIds) ? [...planTaskIds].sort() : []).toEqual(
+    [...importedTaskIds].sort(),
+  );
   await expectNoHorizontalOverflow(substitutePage);
   await expectNoAxeViolations(substitutePage);
 
@@ -207,10 +352,41 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await stalePlanPage.goto(`/v3/teacher/classes/${classId}`);
   await stalePlanPage.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
     name: "syntetisk.docx",
-    mimeType:
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    buffer: Buffer.from("syntetisk lokal E2E"),
+    mimeType: DOCX_MIME,
+    buffer: weeklyPlanDocx,
   });
+
+  const stalePlanPublishPage = await substitute.newPage();
+  await stalePlanPublishPage.goto(`/v3/teacher/classes/${classId}`);
+  const stalePublishPanel = stalePlanPublishPage.getByRole("region", {
+    name: "Smart Import",
+  });
+  await stalePublishPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
+    name: "syntetisk-publish.docx",
+    mimeType: DOCX_MIME,
+    buffer: weeklyPlanDocx,
+  });
+  await stalePublishPanel
+    .getByRole("button", { name: "Lag forhåndsvisning" })
+    .click();
+  await expect(
+    stalePublishPanel.getByRole("textbox", {
+      name: "Oppgave 1",
+      exact: true,
+    }),
+  ).toHaveValue(
+    "E2E import: les side 12",
+  );
+  await stalePublishPanel
+    .getByRole("textbox", { name: "Oppgave 1", exact: true })
+    .fill("Avvist import etter tilbakekalling 1");
+  await stalePublishPanel
+    .getByRole("textbox", { name: "Oppgave 2", exact: true })
+    .fill("Avvist import etter tilbakekalling 2");
+  const stalePublishButton = stalePublishPanel.getByRole("button", {
+    name: "Bekreft og publiser 2",
+  });
+  await expect(stalePublishButton).toBeVisible();
 
   await ownerPage.reload();
   const assignmentRow = ownerPage
@@ -238,31 +414,41 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await expect(ownerPage.getByRole("status")).toBeFocused();
   await ownerPage.unroute("**/*", revokeDelay.handler);
 
-  const [taskAuditBaseline, supportAuditBaseline] = await Promise.all([
-    admin
-      .from("audit_events")
-      .select("id", { count: "exact", head: true })
-      .eq("event_name", "task.published")
-      .contains("metadata", { class_id: classId }),
-    admin
-      .from("audit_events")
-      .select("id", { count: "exact", head: true })
-      .eq("event_name", "student.experience.updated")
-      .eq("entity_id", studentId),
-  ]);
+  const [taskAuditBaseline, planAuditBaseline, supportAuditBaseline] =
+    await Promise.all([
+      admin
+        .from("audit_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "task.published")
+        .contains("metadata", { class_id: classId }),
+      admin
+        .from("audit_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "plan.published")
+        .eq("entity_id", classId),
+      admin
+        .from("audit_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "student.experience.updated")
+        .eq("entity_id", studentId),
+    ]);
   if (
     taskAuditBaseline.error ||
+    planAuditBaseline.error ||
     supportAuditBaseline.error ||
     taskAuditBaseline.count === null ||
+    planAuditBaseline.count === null ||
     supportAuditBaseline.count === null
   ) {
     throw (
       taskAuditBaseline.error ??
+      planAuditBaseline.error ??
       supportAuditBaseline.error ??
       new Error("Kunne ikke lese audit-baseline før stale handlinger.")
     );
   }
   const auditsBefore = taskAuditBaseline.count;
+  const planAuditsBefore = planAuditBaseline.count;
   const supportAuditsBefore = supportAuditBaseline.count;
 
   await substitutePage.getByLabel("Tittel").fill("Avvist etter tilbakekalling");
@@ -288,6 +474,17 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await expect(
     stalePlanPage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
   ).toBeVisible();
+  await stalePublishButton.click();
+  await expect(
+    stalePlanPublishPage.getByRole("heading", {
+      name: "Tilgangen er avsluttet",
+    }),
+  ).toBeVisible();
+  await expect(
+    stalePlanPublishPage.getByRole("heading", {
+      name: "Tilgangen er avsluttet",
+    }),
+  ).toBeFocused();
 
   await substitutePage.reload();
   await expect(
@@ -297,6 +494,8 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const [
     { count: deniedTasks, error: taskError },
     { count: auditsAfter, error: auditAfterError },
+    { count: deniedImportedTasks, error: deniedImportedTaskError },
+    { count: planAuditsAfter, error: planAuditAfterError },
     { data: staleHelp, error: staleHelpReadError },
     { count: staleHelpAudits, error: staleHelpAuditError },
     { data: supportSettings, error: supportReadError },
@@ -311,6 +510,16 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
         .select("id", { count: "exact", head: true })
         .eq("event_name", "task.published")
         .contains("metadata", { class_id: classId }),
+      admin
+        .from("task_definitions")
+        .select("id", { count: "exact", head: true })
+        .eq("class_id", classId)
+        .like("title", "Avvist import etter tilbakekalling%"),
+      admin
+        .from("audit_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_name", "plan.published")
+        .eq("entity_id", classId),
       admin
         .from("help_requests")
         .select("status, claimed_by")
@@ -336,6 +545,8 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   if (
     taskError ||
     auditAfterError ||
+    deniedImportedTaskError ||
+    planAuditAfterError ||
     staleHelpReadError ||
     staleHelpAuditError ||
     supportReadError ||
@@ -344,6 +555,8 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     throw (
       taskError ??
       auditAfterError ??
+      deniedImportedTaskError ??
+      planAuditAfterError ??
       staleHelpReadError ??
       staleHelpAuditError ??
       supportReadError ??
@@ -352,6 +565,8 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   }
   expect(deniedTasks).toBe(0);
   expect(auditsAfter).toBe(auditsBefore);
+  expect(deniedImportedTasks).toBe(0);
+  expect(planAuditsAfter).toBe(planAuditsBefore);
   expect(staleHelp).toEqual({ status: "waiting", claimed_by: null });
   expect(staleHelpAudits).toBe(0);
   expect(supportSettings).toEqual({ support_level: 1, progress_enabled: true });
