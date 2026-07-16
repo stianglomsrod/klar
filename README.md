@@ -140,12 +140,16 @@ fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
 Playwright-smoke og kjører den separate databasepakken i både tomt og
 representativt oppgraderingsscenario.
 
-A1s automatiske porter er grønne. Faktisk 200 prosent browserzoom og NVDA er
-bestått. VoiceOver-retesten på iPad kontrollerte navigasjonsfokus,
-tilgangsdialog og Smart Import over lokal HTTP samt utvalgte touch-, tastatur-
-og orienteringssteg uten nytt avvik. Eksakt Safari-versjon, gjenværende ansatt-
-og elevkontroller, mobiltelefon, notch/safe-area og resten av den fysiske
-matrisen gjenstår. A1 omtales derfor ikke som fullført.
+A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
+`c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er
+dokumentert i
+[`docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md`](./docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md).
+Faktisk 200 prosent browserzoom og NVDA er bestått. VoiceOver-retesten på iPad
+kontrollerte navigasjonsfokus, tilgangsdialog og Smart Import over lokal HTTP
+samt utvalgte touch-, tastatur- og orienteringssteg uten nytt avvik. Eksakt
+Safari-versjon, gjenværende ansatt- og elevkontroller, mobiltelefon,
+notch/safe-area og resten av den fysiske matrisen gjenstår. A1 omtales derfor
+ikke som fullført.
 
 Den lokale A1-suiten dekker også ugyldige oppdragsinput, forfalskede
 kontrollhandlinger, en redusert testprofil for kapabiliteter, positiv

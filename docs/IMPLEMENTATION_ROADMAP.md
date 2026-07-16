@@ -55,16 +55,18 @@ erstattes av emulatorbeviset.
 
 ### Kontrollpunkt A – felles fundament
 
-**Status:** Pågår – A1 er implementert og alle automatiske A1-porter er
-verifisert; fysiske og manuelle enhetsporter gjenstår.
+**Status:** Pågår – A1-kjernen er implementert og de konfigurerte automatiske
+kommandoportene er grønne. Kravrevisjonen har åpne evidensgap, og fysiske og
+manuelle enhetsporter gjenstår.
 
 Første vertikale slice er scope-låst i
 [`Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne`](./qa/CONTROL_POINT_A1.md).
 A1 har levert den klasseavgrensede autorisasjonskjernen, owner-kontrollflaten
-og første responsive ansattskall. De automatiske kontrollportene er grønne i
-lokal database, Chromium og WebKit. Kontrollpunkt A forblir åpent til faktisk
-200 prosent zoom, skjermleser, touch, safe-area/skjermtastatur og
-orienteringsbytte er dokumentert på reelt utstyr.
+og første responsive ansattskall. De konfigurerte kontrollportene er grønne i
+lokal database, Chromium og WebKit, men hele kravmatrisen er ennå ikke
+uttømmende bevist. Kontrollpunkt A forblir åpent til evidensgapene er lukket og
+skjermleser, touch, safe-area/skjermtastatur og orienteringsbytte er
+dokumentert på reelt utstyr.
 
 Start E05 og E06 som tverrgående fundament:
 

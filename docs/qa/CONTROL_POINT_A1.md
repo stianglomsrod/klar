@@ -1,9 +1,9 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Implementert – alle automatiske A1-porter samt manuell Port A og
-NVDA-port B1 er grønne; den fysiske iPad-retesten har ingen kjente åpne avvik,
-men VoiceOver-port B2 og de øvrige fysiske enhetsportene er ikke fullført på
-hele enhetsmatrisen
+**Status:** Implementert – de konfigurerte automatiske kommandoportene samt
+manuell Port A og NVDA-port B1 er grønne. Kravrevisjonen har åpne automatiske
+evidensgap, og VoiceOver-port B2 og de øvrige fysiske enhetsportene er ikke
+fullført på hele enhetsmatrisen
 
 **Forberedt:** 15. juli 2026
 
@@ -15,8 +15,8 @@ hele enhetsmatrisen
 [Kontrollpunkt A – felles fundament](../IMPLEMENTATION_ROADMAP.md#kontrollpunkt-a--felles-fundament)
 
 Dette dokumentet er implementeringskontrakten og bevisoversikten for første
-vertikale slice av E05 og E06. A1-kjernen og det avtalte automatiske beviset er
-implementert, men kontrollpunktet er ikke fullført før de resterende fem
+vertikale slice av E05 og E06. A1-kjernen er implementert, men kontrollpunktet
+er ikke fullført før de åpne automatiske evidensgapene og de resterende fem
 fysiske og manuelle portkategoriene er dokumentert.
 
 ## 1. Autoritative kilder og inngangskrav
@@ -503,9 +503,18 @@ runtime-feil og horisontal overflow.
 
 Den reduserte kapabilitetsprofilen opprettes bare som lokal test-fixture og er
 ikke en implementert kapabilitetseditor. DOCX-beviset verifiserer den
-eksisterende regelbaserte Smart Import-flyten og fullfører ikke E04. Det er
-ingen kjente åpne automatiske A1-bevisporter. Semantiske QA-bilder ligger
-lokalt under `test-results/chromium-full` og `test-results/webkit-full`.
+eksisterende regelbaserte Smart Import-flyten og fullfører ikke E04.
+
+Kommandoportene ble kjørt på nytt på den rene kodekandidaten `c562bb0` 16.
+juli 2026. Checkpoint, database, Chromium 27/27 og WebKit 27/27 var grønne;
+første WebKit-forsøk hadde én ikke-reprodusert Server Action-fangsttimeout.
+Gjennomføringer, retest og den semantiske bildegranskingen er bevart i
+[`CONTROL_POINT_A1_AUTOMATED_QA.md`](./CONTROL_POINT_A1_AUTOMATED_QA.md).
+
+En etterfølgende kravrevisjon fant likevel åpne evidensgap for positiv
+owner+AAL2-klasse-/prototypeelevopprettelse, enkelte capability-negativer,
+direkte RLS-matrise og dynamisk immutabilitets-/slettevern. Grønne
+kommandoporter betyr derfor ikke at hele A1-bevismatrisen er komplett.
 
 Automatiserte emuleringer og layoutproxyer erstatter ikke en fysisk
 enhetskontroll. Gjennomfør og loggfør portene med
