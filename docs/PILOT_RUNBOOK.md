@@ -127,7 +127,7 @@ reelt utstyr. Bruk den detaljerte
 [`manuelle A1-protokollen`](./qa/CONTROL_POINT_A1_MANUAL_QA.md) og før inn
 faktisk enhet, nettleser og resultat:
 
-- [ ] faktisk 200 prosent browserzoom/reflow;
+- [x] faktisk 200 prosent browserzoom/reflow;
 - [ ] NVDA og VoiceOver;
 - [ ] ekte touch og trykkmål;
 - [ ] notch/safe-area;

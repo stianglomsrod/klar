@@ -47,11 +47,29 @@ if (authenticated) {
     testMatch: /auth\.setup\.ts/,
     use: {
       browserName: authBrowser,
+      headless: true,
       screenshot: "off",
       trace: "off",
       video: "off",
     },
   });
+
+  if (mode === "manual") {
+    projects.push({
+      name: "manual-a1-desktop",
+      testMatch: /manual\/a1-desktop\.manual\.spec\.ts/,
+      dependencies: ["auth-setup"],
+      use: {
+        browserName: "chromium",
+        headless: false,
+        viewport: null,
+        launchOptions: { args: ["--start-maximized"] },
+        trace: "off",
+        screenshot: "off",
+        video: "off",
+      },
+    });
+  }
 
   if (mode === "smoke" || mode === "full") {
     projects.push(
@@ -185,7 +203,7 @@ export default defineConfig({
   respectGitIgnore: false,
   outputDir: path.join("./test-results", outputNamespace),
   fullyParallel: !authenticated,
-  workers: authenticated ? 4 : undefined,
+  workers: authenticated ? (mode === "manual" ? 1 : 4) : undefined,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",

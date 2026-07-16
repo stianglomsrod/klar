@@ -1,6 +1,6 @@
 # Kontrollpunkt A1 – manuell QA på reelt utstyr
 
-**Status:** Klar til gjennomføring – ingen fysisk port er godkjent ennå
+**Status:** Port A bestått 16. juli 2026 – B1–F gjenstår
 
 **Gjelder:** [`CONTROL_POINT_A1.md`](./CONTROL_POINT_A1.md)
 
@@ -20,6 +20,26 @@ resultatet er ført i bevisloggen nederst.
 - Noter nøyaktig commit, enhet, OS-versjon, nettleser og nettleserversjon.
 - Ved ett avvik: stopp den berørte porten, la den stå åpen og registrer et
   konkret reproduksjonssteg. Ikke godkjenn resten av porten ved skjønn.
+
+### Repeterbar desktopstarter
+
+`npm run qa:a1:desktop` nullstiller **bare lokal** Supabase, bygger samme
+kandidat og oppretter ferske, isolerte sesjoner før tre synlige
+Chromium-vinduer åpnes i denne rekkefølgen: eierens tilgangskontroll, ansattens
+klasseflate og elevens dagsflate. Voksenrollene er AAL2. De tre rollene tilhører
+samme syntetiske organisasjon, men bruker separate browser-contexts. Innlogging
+og MFA-oppsett skjer headless; passord, elevkoder og TOTP-hemmeligheter skrives
+ikke til terminalen.
+
+- Start Docker og stopp først enhver Klar-server som bruker port 3100.
+- Kjør kommandoen i en interaktiv terminal, ikke i CI eller via en agent.
+- Bruk eier-vinduet for Port A og NVDA, og de andre vinduene for rolle- og
+  flytsammenligning.
+- Lukk alle tre vinduene for en ryddig avslutning som `skipped`. `Ctrl+C` er
+  bare nødavslutning og rapporteres som avbrutt.
+- Kommandoen er bare en sikker testinngang. Den godkjenner ingen manuell port;
+  Playwright markerer startertesten som `skipped`, og resultatet må fortsatt
+  føres i bevisloggen.
 
 ## 2. Felles beståttkriterier
 
@@ -138,7 +158,7 @@ portens beståttkriterium er kontrollert.
 
 | Port | Resultat | Commit | Dato/tester | Enhet, OS og nettleser | Bevis/notat |
 | --- | --- | --- | --- | --- | --- |
-| A – faktisk 200 % zoom | Ikke kjørt |  |  |  |  |
+| A – faktisk 200 % zoom | Bestått | `019ac23333bcbe20f5b45d3ded0440bbd7c05605` | 2026-07-16 / Stian | Windows 11 Home 10.0.26200; Codex In-app Browser, app 26.707.9981.0 / Chromium-prosess 150.0.7871.115 | Hele Port A-protokollen bekreftet bestått av tester. OS- og browsermetadata er lest lokalt etter testen. |
 | B1 – NVDA | Ikke kjørt |  |  |  |  |
 | B2 – VoiceOver | Ikke kjørt |  |  |  |  |
 | C – ekte touch | Ikke kjørt |  |  |  |  |

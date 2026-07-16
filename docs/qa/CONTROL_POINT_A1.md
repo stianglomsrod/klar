@@ -1,7 +1,7 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Implementert – alle automatiske A1-porter er grønne; fysiske og
-manuelle enhetsporter gjenstår
+**Status:** Implementert – alle automatiske A1-porter og manuell Port A er
+grønne; de øvrige fysiske enhetsportene gjenstår
 
 **Forberedt:** 15. juli 2026
 
@@ -14,8 +14,8 @@ manuelle enhetsporter gjenstår
 
 Dette dokumentet er implementeringskontrakten og bevisoversikten for første
 vertikale slice av E05 og E06. A1-kjernen og det avtalte automatiske beviset er
-implementert, men kontrollpunktet er ikke fullført før de seks fysiske og
-manuelle enhetsportene er dokumentert.
+implementert, men kontrollpunktet er ikke fullført før de resterende fem
+fysiske og manuelle portkategoriene er dokumentert.
 
 ## 1. Autoritative kilder og inngangskrav
 
@@ -461,7 +461,7 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
 - [ ] Handlingene og de sentrale trykkmålene er verifisert med ekte berøring.
 - [x] Ingen kjernehandling eller synlig fokus skjules ved noen automatisert
   målviewport eller reflowproxy.
-- [ ] Faktisk 200 prosent browserzoom/reflow er verifisert manuelt.
+- [x] Faktisk 200 prosent browserzoom/reflow er verifisert manuelt.
 - [x] Reduced motion fjerner bevegelse uten å endre innhold eller bekreftelse.
 - [x] Mobilmenyen og tilgangsdialogen har korrekt inert/fokus/Escape/fokusretur,
   og tilgangstap annonseres før fokus lander i en trygg tomtilstand.
@@ -507,7 +507,7 @@ enhetskontroll. Gjennomfør og loggfør portene med
 
 | Port | Status | Automatisert bevis som finnes |
 | --- | --- | --- |
-| Faktisk 200 % browserzoom | Uverifisert | 720 × 450 reflowproxy med tekstoverstyring |
+| Faktisk 200 % browserzoom | Verifisert 2026-07-16 | 720 × 450 reflowproxy med tekstoverstyring og faktisk Port A-bevis i den manuelle QA-loggen |
 | NVDA/VoiceOver | Uverifisert | Axe og semantiske tastaturtester |
 | Ekte touch | Uverifisert | Touch-emulering og 44 × 44-geometri |
 | Safe-area/notch | Uverifisert | Responsiv CSS og statiske viewports |

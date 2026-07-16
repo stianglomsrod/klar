@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { createConnection } from "node:net";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -35,11 +36,41 @@ const browserArgument = process.argv.find((argument) =>
 );
 const mode = modeArgument?.split("=")[1] ?? "smoke";
 const browser = browserArgument?.split("=")[1] ?? "chromium";
-if (!["smoke", "staff", "visual", "full"].includes(mode)) {
-  throw new Error("E2E-modus må være smoke, staff, visual eller full.");
+if (!["smoke", "staff", "visual", "full", "manual"].includes(mode)) {
+  throw new Error("E2E-modus må være smoke, staff, visual, full eller manual.");
 }
 if (!["chromium", "webkit"].includes(browser)) {
   throw new Error("E2E-browser må være chromium eller webkit.");
+}
+
+function isPortOpen(host, port) {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port });
+    const finish = (open) => {
+      socket.destroy();
+      resolve(open);
+    };
+    socket.setTimeout(1_000);
+    socket.once("connect", () => finish(true));
+    socket.once("error", () => finish(false));
+    socket.once("timeout", () => finish(false));
+  });
+}
+
+if (mode === "manual") {
+  if (browser !== "chromium") {
+    throw new Error("Manuell A1-desktop-QA støtter bare Chromium.");
+  }
+  if (process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error(
+      "Manuell A1-desktop-QA må startes av en person i en interaktiv terminal.",
+    );
+  }
+  if (await isPortOpen("127.0.0.1", 3100)) {
+    throw new Error(
+      "Port 3100 er i bruk. Stopp den eksisterende Klar-serveren før manuell A1-desktop-QA; den blir ikke gjenbrukt fordi miljøet ikke kan verifiseres sikkert.",
+    );
+  }
 }
 
 function run(command, args, options = {}) {
@@ -128,6 +159,7 @@ const testEnvironment = {
   KLAR_E2E_AUTH: "1",
   KLAR_E2E_MODE: mode,
   KLAR_E2E_BROWSER: browser,
+  ...(mode === "manual" ? { KLAR_MANUAL_QA: "1" } : {}),
   KLAR_E2E_DB_URL: databaseUrl,
   KLAR_E2E_OWNER_EMAIL: "owner@e2e.klar.invalid",
   KLAR_E2E_OWNER_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
@@ -154,5 +186,11 @@ run(process.execPath, ["scripts/e2e/seed-local.mjs"], { env: testEnvironment });
 run(process.execPath, [npm, "run", "build"], { env: testEnvironment });
 run(process.execPath, [playwright, "test"], { env: testEnvironment });
 
-console.log("Autentisert E2E er grønn. Lokal Supabase kjører videre for iterasjon.");
+if (mode === "manual") {
+  console.log(
+    "Manuell A1-desktopøkt er avsluttet. Før faktiske resultater i QA-protokollen; økten er ikke automatisk beståttbevis.",
+  );
+} else {
+  console.log("Autentisert E2E er grønn. Lokal Supabase kjører videre for iterasjon.");
+}
 console.log("Stopp den senere med: npx supabase stop");

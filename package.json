@@ -21,6 +21,7 @@
     "test:e2e:visual": "node scripts/run-local-e2e.mjs --mode=visual",
     "test:e2e:full": "node scripts/run-local-e2e.mjs --mode=full",
     "test:e2e:full:webkit": "node scripts/run-local-e2e.mjs --mode=full --browser=webkit",
+    "qa:a1:desktop": "node scripts/run-local-e2e.mjs --mode=manual",
     "verify:checkpoint": "node scripts/verify-checkpoint.mjs",
     "pilot:check-env": "node scripts/verify-pilot-env.mjs",
     "pilot:bootstrap-owner": "node scripts/bootstrap-pilot-owner.mjs",
