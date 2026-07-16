@@ -9,7 +9,15 @@ export type Json =
 export type OrganizationRole = "owner" | "teacher" | "student";
 export type ClassRole = "teacher" | "student";
 export type TaskPublicationStatus = "draft" | "published" | "archived";
-export type StudentTaskStatus = "not_started" | "in_progress" | "completed";
+export type StudentTaskStatus = "assigned" | "completed" | "reopened";
+export type TaskProgressCommand = "complete" | "undo" | "reopen" | "legacy_backfill";
+export type TaskReopenReason =
+  | "continue_working"
+  | "completed_by_mistake"
+  | "needs_review"
+  | "other";
+export type XpLedgerKind = "credit" | "reversal";
+export type RewardEntitlementStatus = "pending" | "available" | "selected";
 export type HelpRequestStatus =
   | "waiting"
   | "claimed"
@@ -33,7 +41,10 @@ export type StaffCapability =
   | "plan.preview"
   | "plan.publish"
   | "help_queue.manage"
-  | "student_support.update";
+  | "student_support.update"
+  | "student_progress.read"
+  | "task.return";
+export type StaffCapabilityProfile = "class_pedagogy_v1" | "class_pedagogy_v2";
 
 type TableDefinition<Row, Insert> = {
   Row: Row;
@@ -100,6 +111,7 @@ type TaskDefinitionRow = {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  points_value: number;
 };
 
 type TaskAssignmentRow = {
@@ -112,6 +124,7 @@ type TaskAssignmentRow = {
   visible_from: string;
   due_at: string | null;
   created_at: string;
+  points_value_snapshot: number;
 };
 
 type StudentTaskStateRow = {
@@ -119,8 +132,12 @@ type StudentTaskStateRow = {
   organization_id: string;
   student_id: string;
   status: StudentTaskStatus;
-  started_at: string | null;
   completed_at: string | null;
+  state_version: number;
+  completion_sequence: number;
+  reopened_at: string | null;
+  active_completion_attempt_id: string | null;
+  last_transition_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -158,7 +175,7 @@ type StaffAssignmentRow = {
   organization_id: string;
   user_id: string;
   job_label: StaffJobLabel;
-  profile_version: "class_pedagogy_v1";
+  profile_version: StaffCapabilityProfile;
   starts_at: string;
   ends_at: string | null;
   revoked_at: string | null;
@@ -183,7 +200,7 @@ type StaffAssignmentClassScopeRow = {
 type StaffAssignmentCapabilityRow = {
   assignment_id: string;
   capability: StaffCapability;
-  profile_version: "class_pedagogy_v1";
+  profile_version: StaffCapabilityProfile;
   created_at: string;
 };
 
@@ -205,6 +222,98 @@ type StudentExperienceSettingsRow = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type TaskCompletionAttemptRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  assignment_id: string;
+  student_id: string;
+  sequence: number;
+  points_value_snapshot: number;
+  request_id: string;
+  completed_by: string;
+  completed_at: string;
+};
+
+type TaskStateTransitionRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  assignment_id: string;
+  student_id: string;
+  from_status: StudentTaskStatus;
+  to_status: StudentTaskStatus;
+  command: TaskProgressCommand;
+  completion_attempt_id: string;
+  request_id: string;
+  actor_id: string;
+  staff_assignment_id: string | null;
+  reason_code: TaskReopenReason | null;
+  student_message: string | null;
+  occurred_at: string;
+};
+
+type StudentXpLedgerRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  student_id: string;
+  assignment_id: string;
+  completion_attempt_id: string;
+  entry_kind: XpLedgerKind;
+  points_delta: number;
+  reverses_entry_id: string | null;
+  request_id: string;
+  actor_id: string;
+  occurred_at: string;
+};
+
+type StudentProgressRow = {
+  organization_id: string;
+  student_id: string;
+  xp_balance: number;
+  current_level: number;
+  highest_level: number;
+  scheme_version: "linear_1000_v1";
+  updated_at: string;
+};
+
+type LevelMilestoneRow = {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  level: number;
+  first_completion_attempt_id: string;
+  first_reached_at: string;
+};
+
+type LevelRewardEntitlementRow = {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  level: number;
+  milestone_id: string;
+  status: RewardEntitlementStatus;
+  available_at: string | null;
+  selected_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ProgressCommandReceiptRow = {
+  organization_id: string;
+  class_id: string;
+  assignment_id: string;
+  student_id: string;
+  actor_id: string;
+  request_id: string;
+  command: TaskProgressCommand;
+  request_fingerprint: string;
+  result: Json;
+  created_at: string;
+  completed_at: string;
 };
 
 export type Database = {
@@ -275,6 +384,7 @@ export type Database = {
           estimated_minutes?: number | null;
           support_level?: number;
           position?: number;
+          points_value?: number;
           publication_status?: TaskPublicationStatus;
           created_by: string;
           published_at?: string | null;
@@ -291,6 +401,7 @@ export type Database = {
           task_definition_id: string;
           student_id: string;
           assigned_by: string;
+          points_value_snapshot?: number;
           visible_from?: string;
           due_at?: string | null;
           created_at?: string;
@@ -303,8 +414,12 @@ export type Database = {
           organization_id: string;
           student_id: string;
           status?: StudentTaskStatus;
-          started_at?: string | null;
           completed_at?: string | null;
+          state_version?: number;
+          completion_sequence?: number;
+          reopened_at?: string | null;
+          active_completion_attempt_id?: string | null;
+          last_transition_id?: string | null;
           created_at?: string;
           updated_at?: string;
         }
@@ -348,7 +463,7 @@ export type Database = {
           organization_id: string;
           user_id: string;
           job_label: StaffJobLabel;
-          profile_version?: "class_pedagogy_v1";
+          profile_version?: StaffCapabilityProfile;
           starts_at: string;
           ends_at?: string | null;
           revoked_at?: string | null;
@@ -377,7 +492,7 @@ export type Database = {
         {
           assignment_id: string;
           capability: StaffCapability;
-          profile_version?: "class_pedagogy_v1";
+          profile_version?: StaffCapabilityProfile;
           created_at?: string;
         }
       >;
@@ -403,6 +518,112 @@ export type Database = {
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
+        }
+      >;
+      task_completion_attempts: TableDefinition<
+        TaskCompletionAttemptRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          assignment_id: string;
+          student_id: string;
+          sequence: number;
+          points_value_snapshot: number;
+          request_id: string;
+          completed_by: string;
+          completed_at?: string;
+        }
+      >;
+      task_state_transitions: TableDefinition<
+        TaskStateTransitionRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          assignment_id: string;
+          student_id: string;
+          from_status: StudentTaskStatus;
+          to_status: StudentTaskStatus;
+          command: TaskProgressCommand;
+          completion_attempt_id: string;
+          request_id: string;
+          actor_id: string;
+          staff_assignment_id?: string | null;
+          reason_code?: TaskReopenReason | null;
+          student_message?: string | null;
+          occurred_at?: string;
+        }
+      >;
+      student_xp_ledger: TableDefinition<
+        StudentXpLedgerRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          student_id: string;
+          assignment_id: string;
+          completion_attempt_id: string;
+          entry_kind: XpLedgerKind;
+          points_delta: number;
+          reverses_entry_id?: string | null;
+          request_id: string;
+          actor_id: string;
+          occurred_at?: string;
+        }
+      >;
+      student_progress: TableDefinition<
+        StudentProgressRow,
+        {
+          organization_id: string;
+          student_id: string;
+          xp_balance?: number;
+          current_level?: number;
+          highest_level?: number;
+          scheme_version?: "linear_1000_v1";
+          updated_at?: string;
+        }
+      >;
+      level_milestones: TableDefinition<
+        LevelMilestoneRow,
+        {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          level: number;
+          first_completion_attempt_id: string;
+          first_reached_at?: string;
+        }
+      >;
+      level_reward_entitlements: TableDefinition<
+        LevelRewardEntitlementRow,
+        {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          level: number;
+          milestone_id: string;
+          status: RewardEntitlementStatus;
+          available_at?: string | null;
+          selected_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
+      progress_command_receipts: TableDefinition<
+        ProgressCommandReceiptRow,
+        {
+          organization_id: string;
+          class_id: string;
+          assignment_id: string;
+          student_id: string;
+          actor_id: string;
+          request_id: string;
+          command: TaskProgressCommand;
+          request_fingerprint: string;
+          result: Json;
+          created_at?: string;
+          completed_at?: string;
         }
       >;
     };
@@ -460,13 +681,44 @@ export type Database = {
         };
         Returns: string;
       };
-      update_student_task_status: {
+      complete_student_task: {
         Args: {
           p_assignment_id: string;
           p_student_id: string;
-          p_status: StudentTaskStatus;
+          p_request_id: string;
         };
-        Returns: StudentTaskStateRow;
+        Returns: Json;
+      };
+      undo_student_task_completion: {
+        Args: {
+          p_assignment_id: string;
+          p_student_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      reopen_student_task_for_staff: {
+        Args: {
+          p_assignment_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+          p_reason_code: TaskReopenReason;
+          p_student_message?: string | null;
+        };
+        Returns: Json;
+      };
+      can_read_task_progress_resource: {
+        Args: {
+          p_organization_id: string;
+          p_class_id: string;
+          p_student_id: string;
+        };
+        Returns: boolean;
+      };
+      can_read_student_progress_identity: {
+        Args: { p_organization_id: string; p_student_id: string };
+        Returns: boolean;
       };
       expire_help_requests: {
         Args: Record<string, never>;
@@ -574,6 +826,10 @@ export type Database = {
       staff_job_label: StaffJobLabel;
       staff_assignment_source: StaffAssignmentSource;
       staff_capability: StaffCapability;
+      task_progress_command: TaskProgressCommand;
+      task_reopen_reason: TaskReopenReason;
+      xp_ledger_kind: XpLedgerKind;
+      reward_entitlement_status: RewardEntitlementStatus;
     };
     CompositeTypes: Record<string, never>;
   };

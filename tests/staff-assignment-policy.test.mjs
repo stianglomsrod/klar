@@ -3,6 +3,8 @@ import { describe, test } from "node:test";
 
 import {
   ASSIGNABLE_STAFF_JOB_LABELS,
+  CLASS_PEDAGOGY_V1_CAPABILITIES,
+  CLASS_PEDAGOGY_V2_CAPABILITIES,
   CLASS_PEDAGOGY_PROFILE,
   STAFF_CAPABILITIES,
   isActiveStaffAssignment,
@@ -48,6 +50,8 @@ describe("staff assignment policy", () => {
     assert.equal(isStaffJobLabel("legacy_teacher"), true);
     assert.equal(isAssignableStaffJobLabel("legacy_teacher"), false);
     assert.equal(isStaffCapability("student_support.update"), true);
+    assert.equal(isStaffCapability("student_progress.read"), true);
+    assert.equal(isStaffCapability("task.return"), true);
     assert.equal(isStaffCapability("notes.read"), false);
     assert.deepEqual(CLASS_PEDAGOGY_PROFILE.capabilities, [
       "class.workspace.read",
@@ -56,7 +60,12 @@ describe("staff assignment policy", () => {
       "plan.publish",
       "help_queue.manage",
       "student_support.update",
+      "student_progress.read",
+      "task.return",
     ]);
+    assert.equal(CLASS_PEDAGOGY_PROFILE.version, "class_pedagogy_v2");
+    assert.equal(CLASS_PEDAGOGY_V1_CAPABILITIES.length, 6);
+    assert.equal(CLASS_PEDAGOGY_V2_CAPABILITIES.length, 8);
     assert.notEqual(CLASS_PEDAGOGY_PROFILE.capabilities, STAFF_CAPABILITIES);
   });
 

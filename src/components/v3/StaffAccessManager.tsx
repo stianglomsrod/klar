@@ -36,6 +36,8 @@ const CAPABILITY_LABELS: Record<StaffCapability, string> = {
   "plan.publish": "Publisere kontrollert ukeplan",
   "help_queue.manage": "Følge opp hjelpekø",
   "student_support.update": "Endre elevens støttevisning",
+  "student_progress.read": "Se elevens oppgavefremdrift",
+  "task.return": "Åpne fullførte oppgaver igjen",
 };
 
 const STATUS_LABELS: Record<StaffAssignmentStatus, string> = {

@@ -16,13 +16,37 @@ test("lagrer assignment-avgrenset ansattflate som QA-artefakt", async ({ page },
   await expect(page.getByRole("link", { name: "Tilganger" })).toHaveCount(0);
   await page.getByRole("link", { name: /Visuell klasse 4B/ }).click();
   await expect(page.getByRole("heading", { name: "Visuell klasse 4B" })).toBeVisible();
-  await expect(page.getByText("Visuell elev", { exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Elever" })
+      .getByText("Visuell elev", { exact: true }),
+  ).toBeVisible();
   const viewport = page.viewportSize();
   if (viewport && viewport.width < 1024) {
     await expectMinimumTargetSize(page.getByRole("button", { name: "Åpne meny" }));
   }
   await expectMinimumTargetSize(
     page.getByRole("button", { name: "Publiser til klassen" }),
+  );
+  const taskSection = page.locator("section").filter({
+    has: page.getByRole("heading", { name: "Publiserte oppgaver" }),
+  });
+  const returnTask = taskSection
+    .locator(":scope > ul > li")
+    .filter({ hasText: "Visuell oppgave for retur" });
+  await returnTask.getByText("Ferdige elever (1)", { exact: true }).click();
+  const reopenSummary = returnTask.getByText(
+    "Åpne igjen for Visuell elev",
+    { exact: true },
+  );
+  await expectMinimumTargetSize(reopenSummary);
+  await reopenSummary.click();
+  await expect(returnTask.getByLabel("Hva skal eleven gjøre?")).toBeVisible();
+  await expectMinimumTargetSize(
+    returnTask.getByRole("button", { name: "Avbryt" }),
+  );
+  await expectMinimumTargetSize(
+    returnTask.getByRole("button", { name: "Åpne igjen", exact: true }),
   );
   const skipLink = page.getByRole("link", { name: "Hopp til hovedinnhold" });
   await expectNoHorizontalOverflow(page);

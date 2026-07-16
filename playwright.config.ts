@@ -161,6 +161,17 @@ if (authenticated) {
           },
         },
         {
+          name: `visual-student-progress-${target.name}`,
+          testMatch: /visual\/student-progress\.visual\.spec\.ts/,
+          dependencies: ["auth-setup"],
+          use: {
+            browserName: authBrowser,
+            storageState: path.join(authDirectory, "student.json"),
+            viewport: { width: target.width, height: target.height },
+            hasTouch: target.hasTouch,
+          },
+        },
+        {
           name: `visual-teacher-${target.name}`,
           testMatch: /visual\/teacher\.visual\.spec\.ts/,
           dependencies: ["auth-setup"],

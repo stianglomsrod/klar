@@ -19,6 +19,7 @@ const IDS = {
   visualOwner: "10000000-0000-4000-8000-000000000008",
   visualAssignee: "10000000-0000-4000-8000-000000000009",
   otherStudent: "10000000-0000-4000-8000-000000000010",
+  returnStudent: "10000000-0000-4000-8000-000000000011",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -26,14 +27,6 @@ const IDS = {
   visualClass: "30000000-0000-4000-8000-000000000002",
   otherClass: "30000000-0000-4000-8000-000000000003",
   visualControlClass: "30000000-0000-4000-8000-000000000004",
-  taskOne: "40000000-0000-4000-8000-000000000001",
-  taskTwo: "40000000-0000-4000-8000-000000000002",
-  visualTask: "40000000-0000-4000-8000-000000000003",
-  otherTask: "40000000-0000-4000-8000-000000000004",
-  assignmentOne: "50000000-0000-4000-8000-000000000001",
-  assignmentTwo: "50000000-0000-4000-8000-000000000002",
-  visualAssignment: "50000000-0000-4000-8000-000000000003",
-  otherAssignment: "50000000-0000-4000-8000-000000000004",
   otherHelp: "70000000-0000-4000-8000-000000000004",
 };
 
@@ -76,6 +69,10 @@ const credentials = {
   visualStudent: {
     email: "visual-student@e2e.klar.invalid",
     password: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
+  },
+  returnStudent: {
+    email: "return-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_RETURN_STUDENT_PASSWORD"),
   },
 };
 
@@ -147,6 +144,46 @@ async function revokeAssignment({ organizationId, ownerId, assignmentId }) {
   if (error) throw error;
 }
 
+async function publishTask({
+  classId,
+  actorId,
+  staffAssignmentId,
+  studentId,
+  title,
+  description,
+  subject,
+  estimatedMinutes,
+  visibleFrom = "2020-01-01T08:00:00.000Z",
+  dueAt = "2099-12-31T14:00:00.000Z",
+}) {
+  const { data: taskId, error } = await admin.rpc("publish_task_to_class", {
+    p_class_id: classId,
+    p_actor_id: actorId,
+    p_staff_assignment_id: staffAssignmentId,
+    p_title: title,
+    p_description: description,
+    p_subject: subject,
+    p_estimated_minutes: estimatedMinutes,
+    p_support_level: 2,
+    p_visible_from: visibleFrom,
+    p_due_at: dueAt,
+  });
+  if (error || !taskId) {
+    throw error ?? new Error("E2E-oppgaven ble ikke publisert.");
+  }
+
+  const { data: assignment, error: assignmentError } = await admin
+    .from("task_assignments")
+    .select("id")
+    .eq("task_definition_id", taskId)
+    .eq("student_id", studentId)
+    .single();
+  if (assignmentError || !assignment) {
+    throw assignmentError ?? new Error("E2E-oppgaveiterasjonen mangler.");
+  }
+  return { taskId, assignmentId: assignment.id };
+}
+
 await Promise.all([
   createUser({ id: IDS.owner, ...credentials.owner, displayName: "Testeier" }),
   createUser({ id: IDS.student, ...credentials.student, displayName: "Testelev" }),
@@ -181,6 +218,11 @@ await Promise.all([
     password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
     displayName: "Visuell ansatt",
   }),
+  createUser({
+    id: IDS.returnStudent,
+    ...credentials.returnStudent,
+    displayName: "Returelev",
+  }),
 ]);
 
 await insert("organizations", [
@@ -207,6 +249,7 @@ await insert("memberships", [
   { organization_id: IDS.otherOrganization, user_id: IDS.otherStudent, role: "student", created_by: IDS.otherOwner },
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualOwner, role: "owner", created_by: IDS.visualOwner },
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualAssignee, role: "teacher", created_by: IDS.visualOwner },
+  { organization_id: IDS.organization, user_id: IDS.returnStudent, role: "student", created_by: IDS.owner },
 ]);
 await insert("classes", [
   {
@@ -255,7 +298,7 @@ if (visualOperationalClassError || !visualOperationalClass) {
   throw visualOperationalClassError ?? new Error("Systemklassen for visuell QA mangler.");
 }
 
-await createAssignment({
+const ownerStaffAssignment = await createAssignment({
   organizationId: IDS.organization,
   ownerId: IDS.owner,
   userId: IDS.owner,
@@ -263,7 +306,7 @@ await createAssignment({
   jobLabel: "contact_teacher",
   key: "60000000-0000-4000-8000-000000000001",
 });
-await createAssignment({
+const visualStaffAssignment = await createAssignment({
   organizationId: IDS.organization,
   ownerId: IDS.owner,
   userId: IDS.visualStaff,
@@ -271,7 +314,7 @@ await createAssignment({
   jobLabel: "subject_teacher",
   key: "60000000-0000-4000-8000-000000000002",
 });
-await createAssignment({
+const otherStaffAssignment = await createAssignment({
   organizationId: IDS.otherOrganization,
   ownerId: IDS.otherOwner,
   userId: IDS.otherStaff,
@@ -342,128 +385,132 @@ await insert("student_login_codes", [
   },
 ]);
 
-await insert("task_definitions", [
+await publishTask({
+  classId: IDS.class,
+  actorId: IDS.owner,
+  staffAssignmentId: ownerStaffAssignment,
+  studentId: IDS.student,
+  title: "Les fem linjer",
+  description: "Les de fem første linjene i leseboka.",
+  subject: "Norsk",
+  estimatedMinutes: 10,
+});
+const taskTwo = await publishTask({
+  classId: IDS.class,
+  actorId: IDS.owner,
+  staffAssignmentId: ownerStaffAssignment,
+  studentId: IDS.student,
+  title: "Regn tre stykker",
+  description: "Gjør oppgave 1, 2 og 3 i arbeidsboka.",
+  subject: "Matematikk",
+  estimatedMinutes: 15,
+});
+await publishTask({
+  classId: IDS.visualClass,
+  actorId: IDS.visualStaff,
+  staffAssignmentId: visualStaffAssignment,
+  studentId: IDS.visualStudent,
+  title: "Visuell arbeidsoppgave",
+  description: "Syntetisk og stabil visuell fixture.",
+  subject: "Samfunnsfag",
+  estimatedMinutes: 12,
+});
+const visualReturnTask = await publishTask({
+  classId: IDS.visualClass,
+  actorId: IDS.visualStaff,
+  staffAssignmentId: visualStaffAssignment,
+  studentId: IDS.visualStudent,
+  title: "Visuell oppgave for retur",
+  description: "Syntetisk fullført fixture for responsiv returkontroll.",
+  subject: "Norsk",
+  estimatedMinutes: 6,
+});
+await publishTask({
+  classId: IDS.otherClass,
+  actorId: IDS.otherStaff,
+  staffAssignmentId: otherStaffAssignment,
+  studentId: IDS.otherStudent,
+  title: "Oppgave ved annen skole",
+  description: "Syntetisk oppgave for kapabilitetstesting.",
+  subject: "Norsk",
+  estimatedMinutes: 10,
+});
+
+const { error: positionError } = await admin
+  .from("task_definitions")
+  .update({ position: 1 })
+  .eq("id", taskTwo.taskId);
+if (positionError) throw positionError;
+
+const { data: visualCompletion, error: visualCompletionError } = await admin.rpc(
+  "complete_student_task",
   {
-    id: IDS.taskOne,
-    organization_id: IDS.organization,
+    p_assignment_id: visualReturnTask.assignmentId,
+    p_student_id: IDS.visualStudent,
+    p_request_id: "80000000-0000-4000-8000-000000000003",
+  },
+);
+if (
+  visualCompletionError ||
+  !visualCompletion ||
+  visualCompletion.status !== "completed" ||
+  visualCompletion.xp_balance !== 10
+) {
+  throw visualCompletionError ?? new Error("Visuell retur-fixture er inkonsistent.");
+}
+
+const { data: completedSeed, error: completedSeedError } = await admin.rpc(
+  "complete_student_task",
+  {
+    p_assignment_id: taskTwo.assignmentId,
+    p_student_id: IDS.student,
+    p_request_id: "80000000-0000-4000-8000-000000000001",
+  },
+);
+if (
+  completedSeedError ||
+  !completedSeed ||
+  completedSeed.status !== "completed" ||
+  completedSeed.xp_balance !== 10
+) {
+  throw completedSeedError ?? new Error("Fullført B1-fixture er inkonsistent.");
+}
+
+await insert("class_memberships", [
+  {
     class_id: IDS.class,
-    title: "Les fem linjer",
-    description: "Les de fem første linjene i leseboka.",
-    subject: "Norsk",
-    estimated_minutes: 10,
-    support_level: 2,
-    position: 0,
-    publication_status: "published",
-    published_at: "2020-01-01T08:00:00.000Z",
+    organization_id: IDS.organization,
+    user_id: IDS.returnStudent,
+    role: "student",
     created_by: IDS.owner,
   },
-  {
-    id: IDS.taskTwo,
-    organization_id: IDS.organization,
-    class_id: IDS.class,
-    title: "Regn tre stykker",
-    description: "Gjør oppgave 1, 2 og 3 i arbeidsboka.",
-    subject: "Matematikk",
-    estimated_minutes: 15,
-    support_level: 2,
-    position: 1,
-    publication_status: "published",
-    published_at: "2020-01-01T08:00:00.000Z",
-    created_by: IDS.owner,
-  },
-  {
-    id: IDS.visualTask,
-    organization_id: IDS.organization,
-    class_id: IDS.visualClass,
-    title: "Visuell arbeidsoppgave",
-    description: "Syntetisk og stabil visuell fixture.",
-    subject: "Samfunnsfag",
-    estimated_minutes: 12,
-    support_level: 2,
-    position: 0,
-    publication_status: "published",
-    published_at: "2020-01-01T08:00:00.000Z",
-    created_by: IDS.visualStaff,
-  },
-  {
-    id: IDS.otherTask,
-    organization_id: IDS.otherOrganization,
-    class_id: IDS.otherClass,
-    title: "Oppgave ved annen skole",
-    description: "Syntetisk oppgave for kapabilitetstesting.",
-    subject: "Norsk",
-    estimated_minutes: 10,
-    support_level: 2,
-    position: 0,
-    publication_status: "published",
-    published_at: "2020-01-01T08:00:00.000Z",
-    created_by: IDS.otherStaff,
-  },
 ]);
-await insert("task_assignments", [
+const returnTask = await publishTask({
+  classId: IDS.class,
+  actorId: IDS.owner,
+  staffAssignmentId: ownerStaffAssignment,
+  studentId: IDS.returnStudent,
+  title: "Oppgave klar for retur",
+  description: "Syntetisk oppgave for trygg returflyt.",
+  subject: "Norsk",
+  estimatedMinutes: 8,
+});
+const { data: returnCompletion, error: returnCompletionError } = await admin.rpc(
+  "complete_student_task",
   {
-    id: IDS.assignmentOne,
-    organization_id: IDS.organization,
-    class_id: IDS.class,
-    task_definition_id: IDS.taskOne,
-    student_id: IDS.student,
-    assigned_by: IDS.owner,
-    visible_from: "2020-01-01T08:00:00.000Z",
-    due_at: "2099-12-31T14:00:00.000Z",
+    p_assignment_id: returnTask.assignmentId,
+    p_student_id: IDS.returnStudent,
+    p_request_id: "80000000-0000-4000-8000-000000000002",
   },
-  {
-    id: IDS.assignmentTwo,
-    organization_id: IDS.organization,
-    class_id: IDS.class,
-    task_definition_id: IDS.taskTwo,
-    student_id: IDS.student,
-    assigned_by: IDS.owner,
-    visible_from: "2020-01-01T08:00:00.000Z",
-    due_at: "2099-12-31T14:00:00.000Z",
-  },
-  {
-    id: IDS.visualAssignment,
-    organization_id: IDS.organization,
-    class_id: IDS.visualClass,
-    task_definition_id: IDS.visualTask,
-    student_id: IDS.visualStudent,
-    assigned_by: IDS.visualStaff,
-    visible_from: "2020-01-01T08:00:00.000Z",
-    due_at: "2099-12-31T14:00:00.000Z",
-  },
-  {
-    id: IDS.otherAssignment,
-    organization_id: IDS.otherOrganization,
-    class_id: IDS.otherClass,
-    task_definition_id: IDS.otherTask,
-    student_id: IDS.otherStudent,
-    assigned_by: IDS.otherStaff,
-    visible_from: "2020-01-01T08:00:00.000Z",
-    due_at: "2099-12-31T14:00:00.000Z",
-  },
-]);
-await insert("student_task_state", [
-  {
-    assignment_id: IDS.assignmentTwo,
-    organization_id: IDS.organization,
-    student_id: IDS.student,
-    status: "completed",
-    started_at: "2020-01-01T08:15:00.000Z",
-    completed_at: "2020-01-01T08:25:00.000Z",
-  },
-  {
-    assignment_id: IDS.visualAssignment,
-    organization_id: IDS.organization,
-    student_id: IDS.visualStudent,
-    status: "not_started",
-  },
-  {
-    assignment_id: IDS.otherAssignment,
-    organization_id: IDS.otherOrganization,
-    student_id: IDS.otherStudent,
-    status: "not_started",
-  },
-]);
+);
+if (
+  returnCompletionError ||
+  !returnCompletion ||
+  returnCompletion.status !== "completed" ||
+  returnCompletion.xp_balance !== 10
+) {
+  throw returnCompletionError ?? new Error("Retur-fixturen er inkonsistent.");
+}
 await insert("student_experience_settings", [
   {
     organization_id: IDS.organization,
@@ -486,6 +533,13 @@ await insert("student_experience_settings", [
     progress_enabled: true,
     updated_by: IDS.otherStaff,
   },
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.returnStudent,
+    support_level: 2,
+    progress_enabled: true,
+    updated_by: IDS.owner,
+  },
 ]);
 
 await insert("help_requests", [
@@ -498,5 +552,77 @@ await insert("help_requests", [
     expires_at: "2099-01-01T08:00:00.000Z",
   },
 ]);
+
+const [
+  statesResult,
+  attemptsResult,
+  transitionsResult,
+  ledgerResult,
+  progressResult,
+  receiptsResult,
+] = await Promise.all([
+  admin.from("student_task_state").select("assignment_id, status"),
+  admin
+    .from("task_completion_attempts")
+    .select("id")
+    .eq("assignment_id", taskTwo.assignmentId),
+  admin
+    .from("task_state_transitions")
+    .select("id, command")
+    .eq("assignment_id", taskTwo.assignmentId),
+  admin
+    .from("student_xp_ledger")
+    .select("entry_kind, points_delta")
+    .eq("assignment_id", taskTwo.assignmentId),
+  admin
+    .from("student_progress")
+    .select("xp_balance, current_level, highest_level")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.student)
+    .single(),
+  admin
+    .from("progress_command_receipts")
+    .select("command")
+    .eq("actor_id", IDS.student)
+    .eq("request_id", "80000000-0000-4000-8000-000000000001"),
+]);
+const seedReadError = [
+  statesResult.error,
+  attemptsResult.error,
+  transitionsResult.error,
+  ledgerResult.error,
+  progressResult.error,
+  receiptsResult.error,
+].find(Boolean);
+if (seedReadError) throw seedReadError;
+
+const assignedStates = statesResult.data.filter(
+  (state) => state.status === "assigned",
+).length;
+const completedStates = statesResult.data.filter(
+  (state) => state.status === "completed",
+).length;
+const ledgerBalance = ledgerResult.data.reduce(
+  (sum, entry) => sum + entry.points_delta,
+  0,
+);
+if (
+  statesResult.data.length !== 7 ||
+  assignedStates !== 4 ||
+  completedStates !== 3 ||
+  attemptsResult.data.length !== 1 ||
+  transitionsResult.data.length !== 1 ||
+  transitionsResult.data[0]?.command !== "complete" ||
+  ledgerResult.data.length !== 1 ||
+  ledgerResult.data[0]?.entry_kind !== "credit" ||
+  ledgerBalance !== 10 ||
+  progressResult.data.xp_balance !== ledgerBalance ||
+  progressResult.data.current_level !== 1 ||
+  progressResult.data.highest_level !== 1 ||
+  receiptsResult.data.length !== 1 ||
+  receiptsResult.data[0]?.command !== "complete"
+) {
+  throw new Error("B1-fixturen besto ikke konsistenskontrollen.");
+}
 
 console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual- og other-org-data.");

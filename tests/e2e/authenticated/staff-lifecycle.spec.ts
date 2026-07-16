@@ -169,7 +169,11 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   );
   await deniedClassPage.close();
   await substitutePage.getByRole("link", { name: /Testklasse 3A/ }).click();
-  await expect(substitutePage.getByText("Testelev", { exact: true })).toBeVisible();
+  await expect(
+    substitutePage
+      .getByRole("region", { name: "Elever" })
+      .getByText("Testelev", { exact: true }),
+  ).toBeVisible();
 
   const { error: activeHelpError } = await admin.from("help_requests").insert({
     id: activeHelpId,
@@ -187,9 +191,13 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await resolveHelpButton.click();
   await expect(substitutePage.getByText("Ingen venter på hjelp.")).toBeVisible();
 
-  await substitutePage.getByText("Tilpass visning", { exact: true }).click();
-  await substitutePage.getByLabel("Støtte for Testelev").selectOption("1");
-  await substitutePage.getByRole("button", { name: "Lagre", exact: true }).click();
+  const testStudentRow = substitutePage
+    .getByRole("region", { name: "Elever" })
+    .getByRole("listitem")
+    .filter({ hasText: "Testelev" });
+  await testStudentRow.getByText("Tilpass visning", { exact: true }).click();
+  await testStudentRow.getByLabel("Støtte for Testelev").selectOption("1");
+  await testStudentRow.getByRole("button", { name: "Lagre", exact: true }).click();
   await expect(substitutePage.getByText("Lagret.", { exact: true })).toBeVisible();
 
   await substitutePage.getByLabel("Tittel").fill("Oppgave publisert av vikar");
@@ -296,7 +304,7 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     );
   if (importedStateError) throw importedStateError;
   expect(importedStates).toHaveLength(2);
-  expect(importedStates.every((state) => state.status === "not_started")).toBe(
+  expect(importedStates.every((state) => state.status === "assigned")).toBe(
     true,
   );
   const { data: importedTaskAudits, error: importedTaskAuditError } =
@@ -345,8 +353,14 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
 
   const staleSupportPage = await substitute.newPage();
   await staleSupportPage.goto(`/v3/teacher/classes/${classId}`);
-  await staleSupportPage.getByText("Tilpass visning", { exact: true }).click();
-  await staleSupportPage.getByLabel("Støtte for Testelev").selectOption("3");
+  const staleTestStudentRow = staleSupportPage
+    .getByRole("region", { name: "Elever" })
+    .getByRole("listitem")
+    .filter({ hasText: "Testelev" });
+  await staleTestStudentRow
+    .getByText("Tilpass visning", { exact: true })
+    .click();
+  await staleTestStudentRow.getByLabel("Støtte for Testelev").selectOption("3");
 
   const stalePlanPage = await substitute.newPage();
   await stalePlanPage.goto(`/v3/teacher/classes/${classId}`);

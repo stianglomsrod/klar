@@ -49,6 +49,7 @@ describe("staff authorization boundary", () => {
       ["src/server/import/import-service.ts", "plan.publish", 2],
       ["src/server/help/help-service.ts", "help_queue.manage", 4],
       ["src/server/students/experience-service.ts", "student_support.update", 2],
+      ["src/server/tasks/task-service.ts", "task.return", 2],
     ];
     for (const [relativePath, capability, minimum] of capabilityContracts) {
       const source = read(relativePath);
@@ -76,6 +77,10 @@ describe("staff authorization boundary", () => {
         /requireStaffCapability\([\s\S]{0,80}?["']class\.workspace\.read["']/g,
       ),
       2,
+    );
+    assert.match(
+      workspaceService,
+      /retainStudentProgressAccess\(classId\)[\s\S]*?from\(["']student_task_state["']\)[\s\S]*?retainStudentProgressAccess\(classId\)/,
     );
     const supportReadBoundary = read(
       "src/server/classes/support-read-boundary.ts",
@@ -152,9 +157,14 @@ describe("staff authorization boundary", () => {
     );
   });
 
-  test("keeps the v1 capability profile explicit and versioned", () => {
+  test("keeps the historical v1 profile and current v2 profile explicit", () => {
     const policy = read("src/server/auth/policy.ts");
     assert.match(policy, /CLASS_PEDAGOGY_V1_CAPABILITIES\s*=\s*\[/);
+    assert.match(policy, /CLASS_PEDAGOGY_V2_CAPABILITIES\s*=\s*\[/);
+    assert.match(
+      policy,
+      /CLASS_PEDAGOGY_PROFILE\s*=\s*\{[\s\S]{0,160}version:\s*["']class_pedagogy_v2["']/,
+    );
     assert.doesNotMatch(
       policy,
       /CLASS_PEDAGOGY_PROFILE\s*=\s*\{[\s\S]{0,160}capabilities:\s*STAFF_CAPABILITIES/,

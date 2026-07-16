@@ -21,6 +21,8 @@ export const STAFF_CAPABILITIES = [
   "plan.publish",
   "help_queue.manage",
   "student_support.update",
+  "student_progress.read",
+  "task.return",
 ] as const;
 
 export type StaffCapability = (typeof STAFF_CAPABILITIES)[number];
@@ -34,9 +36,15 @@ export const CLASS_PEDAGOGY_V1_CAPABILITIES = [
   "student_support.update",
 ] as const satisfies readonly StaffCapability[];
 
+export const CLASS_PEDAGOGY_V2_CAPABILITIES = [
+  ...CLASS_PEDAGOGY_V1_CAPABILITIES,
+  "student_progress.read",
+  "task.return",
+] as const satisfies readonly StaffCapability[];
+
 export const CLASS_PEDAGOGY_PROFILE = {
-  version: "class_pedagogy_v1",
-  capabilities: CLASS_PEDAGOGY_V1_CAPABILITIES,
+  version: "class_pedagogy_v2",
+  capabilities: CLASS_PEDAGOGY_V2_CAPABILITIES,
 } as const;
 
 export type OrganizationRole = (typeof ORGANIZATION_ROLES)[number];

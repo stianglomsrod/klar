@@ -1,6 +1,6 @@
 # E02 – Progresjon og belønninger
 
-**Status:** Planlagt
+**Status:** Pågår – B1-kjernen er verifisert
 
 **Kontrakt:** [§ 7 Oppgavestatus, XP, nivå og belønning](../product/DOMAIN_CONTRACT.md#7-oppgavestatus-xp-nivå-og-belønning)
 
@@ -13,9 +13,12 @@ tilbake nøyaktig samme XP, mens en belønning eleven allerede har valgt aldri
 forsvinner. Samtidighet, retry og gjentatt fullføring kan ikke brukes til
 farming.
 
-Nåværende 3.0 har oppgavestatus, men ingen XP-ledger, nivåmodell,
-belønningstildeling eller lærerretur. 2.x viser ønsket produktintensjon, men
-bruker flere klientskriv og skal ikke porteres direkte.
+Kontrollpunkt [B1](../qa/CONTROL_POINT_B1.md) har levert oppgavestatus,
+snapshotsatt XP, append-only ledger, nivåmodell, unik milepæl/entitlement,
+elevangre og ansattretur. Det som gjenstår i epicen er særlig autoritativt
+belønningsvalg/claim, separat ansattstyrt motivasjonsramme og elevpreferanse,
+samt de endelige rolige belønningsflatene. 2.x viser ønsket produktintensjon,
+men bruker flere klientskriv og skal ikke porteres direkte.
 
 ## Omfang og invariants
 
@@ -32,6 +35,9 @@ bruker flere klientskriv og skal ikke porteres direkte.
 - Uvalgt belønning kan settes på vent og reaktiveres, men aldri dupliseres.
 - Ny, eksplisitt oppgaveiterasjon kan gi ny XP. Gjentakelse av samme iterasjon
   gir bare netto én aktiv kreditering.
+- Assignment og uforanderlig progresjonshistorikk består når et
+  klassemedlemskap avsluttes. Aktivt medlemskap kreves likevel for ny
+  tildeling, elevlesing og både elev- og ansattstyrte progresjonskommandoer.
 
 ## Foreslått domenemodell
 
@@ -83,23 +89,25 @@ Klienten skal aldri sende eller skrive en autoritativ XP-saldo eller rolle.
 
 ## Akseptansekriterier
 
-- [ ] Fullføring og XP-kreditering lykkes eller feiler samlet.
-- [ ] Dobbeltklikk, to faner og nettverksretry gir én kreditering.
-- [ ] Elevangre reverserer nøyaktig aktiv kredit og kan ikke bli negativt
+- [x] Fullføring og XP-kreditering lykkes eller feiler samlet.
+- [x] Dobbeltklikk, to faner og nettverksretry gir én kreditering.
+- [x] Elevangre reverserer nøyaktig aktiv kredit og kan ikke bli negativt
   duplisert.
-- [ ] Lærer og vikar kan returnere i aktivt omfang; andre avvises.
-- [ ] Ny fullføring etter angre/retur gjenoppretter korrekt netto XP.
-- [ ] En oppgave som krysser flere nivåer oppretter én entitlement per nytt
+- [x] Lærer og vikar kan returnere i aktivt omfang; andre avvises.
+- [x] Ny fullføring etter angre/retur gjenoppretter korrekt netto XP.
+- [x] En oppgave som krysser flere nivåer oppretter én entitlement per nytt
   nivå.
 - [ ] Valgt belønning består og kan brukes etter nivåfall.
-- [ ] Uvalgt belønning dupliseres ikke når nivået gjenvinnes.
+- [x] Uvalgt belønning dupliseres ikke når nivået gjenvinnes.
 - [ ] To samtidige, forskjellige belønningsvalg kan ikke begge lykkes.
-- [ ] Senere endring i oppgavens XP-verdi omskriver ikke historikken.
+- [x] Senere endring i oppgavens XP-verdi omskriver ikke historikken.
+- [x] Avsluttet klassemedlemskap bevarer historikken, men stanser nye
+  tildelinger, direkte browserlesing, elevkommandoer og ansattretur.
 - [ ] Autoriserte ansatte kan angi tilgjengelige motivasjonselementer i eget
   omfang; andre ansatte og eleven kan ikke utvide denne rammen.
 - [ ] Eleven kan redusere eller skjule tilgjengelige elementer selv.
-- [ ] Deaktivering/skjuling sletter ikke ledger, milepæler eller belønninger.
-- [ ] Audit viser aktør, årsak, overgang og tekniske ID-er uten unødvendig
+- [x] Deaktivering/skjuling sletter ikke ledger, milepæler eller belønninger.
+- [x] Audit viser aktør, årsak, overgang og tekniske ID-er uten unødvendig
   elevfritekst.
 
 ## Testmatrise

@@ -65,7 +65,7 @@ begin
   end if;
 
   if (select count(*) from public.staff_assignment_class_scopes) <> 2
-    or (select count(*) from public.staff_assignment_capabilities) <> 12
+    or (select count(*) from public.staff_assignment_capabilities) <> 16
   then
     raise exception 'Backfill scope/profile cardinality failed';
   end if;

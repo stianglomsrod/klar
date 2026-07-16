@@ -8,6 +8,8 @@ export const STAFF_CAPABILITIES = [
   "plan.publish",
   "help_queue.manage",
   "student_support.update",
+  "student_progress.read",
+  "task.return",
 ] as const;
 
 export async function openLocalDatabase(): Promise<Client> {
@@ -38,14 +40,16 @@ export async function restoreCapabilityProfile(
         select
           $1::uuid,
           capability,
-          'class_pedagogy_v1'
+          'class_pedagogy_v2'
         from unnest(array[
           'class.workspace.read',
           'task.publish',
           'plan.preview',
           'plan.publish',
           'help_queue.manage',
-          'student_support.update'
+          'student_support.update',
+          'student_progress.read',
+          'task.return'
         ]::public.staff_capability[]) as capability
         on conflict (assignment_id, capability) do nothing
       `,

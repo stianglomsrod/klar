@@ -6,6 +6,7 @@ import { PublishTaskForm } from "@/components/v3/PublishTaskForm";
 import { SmartImportPanel } from "@/components/v3/SmartImportPanel";
 import { TeacherHelpQueue } from "@/components/v3/TeacherHelpQueue";
 import { TeacherStudentExperienceEditor } from "@/components/v3/TeacherStudentExperienceEditor";
+import { TeacherTaskReopenControl } from "@/components/v3/TeacherTaskReopenControl";
 import { isAuthorizationError } from "@/server/auth/errors";
 import { getTeacherClassWorkspace } from "@/server/classes/class-service";
 import { getTeacherHelpQueue } from "@/server/help/help-service";
@@ -54,6 +55,11 @@ export default async function TeacherClassPage({
   const canUpdateSupport = workspace.capabilities.includes(
     "student_support.update",
   );
+  const canReadProgress =
+    workspace.progressAvailable &&
+    workspace.capabilities.includes("student_progress.read");
+  const canReturnTask =
+    canReadProgress && workspace.capabilities.includes("task.return");
 
   return (
     <main id="main-content" tabIndex={-1} className="focus:outline-none">
@@ -105,9 +111,11 @@ export default async function TeacherClassPage({
                   <li key={student.id} className="py-3">
                     <div className="flex items-center justify-between gap-4">
                       <span className="font-semibold">{student.displayName}</span>
-                      <span className="text-sm text-slate-600">
-                        {student.completedTasks}/{student.assignedTasks} ferdige
-                      </span>
+                      {canReadProgress && student.completedTasks !== null && (
+                        <span className="text-sm text-slate-600">
+                          {student.completedTasks}/{student.assignedTasks} ferdige
+                        </span>
+                      )}
                     </div>
                     {canUpdateSupport && (
                       <TeacherStudentExperienceEditor
@@ -146,10 +154,39 @@ export default async function TeacherClassPage({
                           </p>
                         )}
                       </div>
-                      <span className="text-sm text-slate-600">
-                        {task.completedStudents}/{task.assignedStudents}
-                      </span>
+                      {canReadProgress && task.completedStudents !== null && (
+                        <span className="text-sm text-slate-600">
+                          {task.completedStudents}/{task.assignedStudents}
+                        </span>
+                      )}
                     </div>
+                    {canReturnTask && task.completedAssignments.length > 0 && (
+                      <details className="mt-3 rounded-xl bg-slate-50 p-3">
+                        <summary className="min-h-11 cursor-pointer rounded-lg py-2 font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
+                          Ferdige elever ({task.completedAssignments.length})
+                        </summary>
+                        <ul className="mt-2 divide-y divide-slate-200">
+                          {task.completedAssignments.map((assignment) => (
+                            <li key={assignment.assignmentId} className="py-3">
+                              <p className="font-semibold">{assignment.studentName}</p>
+                              <p className="mt-1 text-sm text-slate-600">
+                                Ferdig {new Intl.DateTimeFormat("nb-NO", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                  timeZone: "Europe/Oslo",
+                                }).format(new Date(assignment.completedAt))}
+                              </p>
+                              <TeacherTaskReopenControl
+                                classId={workspace.id}
+                                assignmentId={assignment.assignmentId}
+                                taskTitle={task.title}
+                                studentName={assignment.studentName}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </li>
                 ))}
               </ul>

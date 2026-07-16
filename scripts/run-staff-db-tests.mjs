@@ -29,6 +29,10 @@ const a1Migration = "20260715000000_staff_assignments.sql";
 const a1FollowupMigrations = [
   "20260715000001_staff_support_read_hardening.sql",
 ];
+const postA1Migrations = [
+  "20260716000000_staff_capability_v2.sql",
+  "20260716000001_progress_core.sql",
+];
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -90,7 +94,18 @@ function startContainer(label) {
 
   let ready = false;
   for (let attempt = 0; attempt < 40; attempt += 1) {
-    const probe = spawnSync("docker", ["exec", name, "pg_isready", "-U", "postgres"], {
+    const probe = spawnSync("docker", [
+      "exec",
+      name,
+      "psql",
+      "-X",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-Atqc",
+      "select 1",
+    ], {
       cwd: root,
       stdio: "ignore",
       shell: false,
@@ -167,6 +182,12 @@ function runSql(containerName, relativePath, { expectFailure = false } = {}) {
 function applyPreA1(containerName) {
   runSql(containerName, "supabase/verification/bootstrap_supabase_stub.sql");
   for (const migration of preA1Migrations) {
+    runSql(containerName, `supabase/migrations/${migration}`);
+  }
+}
+
+function applyPostA1(containerName) {
+  for (const migration of postA1Migrations) {
     runSql(containerName, `supabase/migrations/${migration}`);
   }
 }
@@ -281,7 +302,7 @@ async function runConcurrency(config) {
          (select count(*)::integer from public.audit_events where event_name = 'staff_assignment.created' and entity_id = $1) as audits`,
       [sameIds[0]],
     );
-    assert.deepEqual(result.rows[0], { assignments: 1, scopes: 1, capabilities: 6, audits: 1 });
+    assert.deepEqual(result.rows[0], { assignments: 1, scopes: 1, capabilities: 8, audits: 1 });
   });
 
   const conflictKey = "e0000000-0000-4000-8000-000000000002";
@@ -479,16 +500,264 @@ async function runConcurrency(config) {
   });
 }
 
+async function runProgressConcurrency(config) {
+  const studentId = "a0000000-0000-4000-8000-000000000006";
+  const staffId = "a0000000-0000-4000-8000-000000000002";
+  const classId = "c0000000-0000-4000-8000-000000000001";
+  const completeSql =
+    "select public.complete_student_task($1,$2,$3) as result";
+
+  const distinctRequestResults = await synchronizedPair(
+    config,
+    "progress-distinct-requests",
+    (client) =>
+      client.query(completeSql, [
+        "f2000000-0000-4000-8000-000000000001",
+        studentId,
+        "f3000000-0000-4000-8000-000000000001",
+      ]),
+    (client) =>
+      client.query(completeSql, [
+        "f2000000-0000-4000-8000-000000000001",
+        studentId,
+        "f3000000-0000-4000-8000-000000000002",
+      ]),
+  );
+  assert(distinctRequestResults.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    distinctRequestResults
+      .map((result) => result.value.rows[0].result.changed)
+      .sort(),
+    [false, true],
+  );
+
+  const sameRequestPayload = [
+    "f2000000-0000-4000-8000-000000000005",
+    studentId,
+    "f3000000-0000-4000-8000-000000000003",
+  ];
+  const sameRequestResults = await synchronizedPair(
+    config,
+    "progress-same-request",
+    (client) => client.query(completeSql, sameRequestPayload),
+    (client) => client.query(completeSql, sameRequestPayload),
+  );
+  assert(sameRequestResults.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    sameRequestResults[0].value.rows[0].result,
+    sameRequestResults[1].value.rows[0].result,
+  );
+
+  const parallelAssignments = await synchronizedPair(
+    config,
+    "progress-parallel-assignments",
+    (client) =>
+      client.query(completeSql, [
+        "f2000000-0000-4000-8000-000000000002",
+        studentId,
+        "f3000000-0000-4000-8000-000000000004",
+      ]),
+    (client) =>
+      client.query(completeSql, [
+        "f2000000-0000-4000-8000-000000000003",
+        studentId,
+        "f3000000-0000-4000-8000-000000000005",
+      ]),
+  );
+  assert(parallelAssignments.every((result) => result.status === "fulfilled"));
+  assert(parallelAssignments.every((result) => result.value.rows[0].result.changed === true));
+
+  const staffAssignmentId = await withClient(
+    config,
+    "klar-b1-find-active-staff",
+    async (client) => {
+      const result = await client.query(
+        `select assignment.id
+         from public.staff_assignments as assignment
+         join public.staff_assignment_class_scopes as scope
+           on scope.assignment_id = assignment.id
+         join public.staff_assignment_capabilities as capability
+           on capability.assignment_id = assignment.id
+          and capability.profile_version = assignment.profile_version
+         where assignment.user_id = $1
+           and scope.class_id = $2
+           and capability.capability = 'task.return'
+           and assignment.revoked_at is null
+           and assignment.starts_at <= transaction_timestamp()
+           and transaction_timestamp() < assignment.ends_at
+         order by assignment.starts_at desc, assignment.id
+         limit 1`,
+        [staffId, classId],
+      );
+      return result.rows[0].id;
+    },
+  );
+
+  await withClient(config, "klar-b1-prime-reversal-race", async (client) => {
+    const result = await client.query(completeSql, [
+      "f2000000-0000-4000-8000-000000000004",
+      studentId,
+      "f3000000-0000-4000-8000-000000000006",
+    ]);
+    assert.equal(result.rows[0].result.changed, true);
+  });
+
+  const reversalRace = await synchronizedPair(
+    config,
+    "progress-undo-reopen",
+    (client) =>
+      client.query(
+        "select public.undo_student_task_completion($1,$2,$3) as result",
+        [
+          "f2000000-0000-4000-8000-000000000004",
+          studentId,
+          "f3000000-0000-4000-8000-000000000007",
+        ],
+      ),
+    (client) =>
+      client.query(
+        `select public.reopen_student_task_for_staff(
+          $1,$2,$3,$4,$5::public.task_reopen_reason,$6
+        ) as result`,
+        [
+          "f2000000-0000-4000-8000-000000000004",
+          staffId,
+          staffAssignmentId,
+          "f3000000-0000-4000-8000-000000000008",
+          "continue_working",
+          null,
+        ],
+      ),
+  );
+  assert(reversalRace.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    reversalRace.map((result) => result.value.rows[0].result.changed).sort(),
+    [false, true],
+  );
+
+  await withClient(config, "klar-b1-assert-progress-races", async (client) => {
+    const result = await client.query(
+      `select
+        progress.xp_balance::integer as xp_balance,
+        progress.current_level::integer as current_level,
+        progress.highest_level::integer as highest_level,
+        state.status::text as raced_status,
+        (select count(*)::integer
+         from public.task_completion_attempts
+         where assignment_id = 'f2000000-0000-4000-8000-000000000001') as distinct_attempts,
+        (select count(*)::integer
+         from public.progress_command_receipts
+         where assignment_id = 'f2000000-0000-4000-8000-000000000001') as distinct_receipts,
+        (select count(*)::integer
+         from public.task_completion_attempts
+         where assignment_id = 'f2000000-0000-4000-8000-000000000005') as same_attempts,
+        (select count(*)::integer
+         from public.progress_command_receipts
+         where assignment_id = 'f2000000-0000-4000-8000-000000000005') as same_receipts,
+        (select count(*)::integer
+         from public.student_xp_ledger
+         where assignment_id = 'f2000000-0000-4000-8000-000000000004'
+           and entry_kind = 'reversal') as raced_reversals,
+        (select coalesce(sum(points_delta), 0)::integer
+         from public.student_xp_ledger
+         where organization_id = progress.organization_id
+           and student_id = progress.student_id) as ledger_balance,
+        progress.updated_at >= (
+          select max(occurred_at)
+          from public.student_xp_ledger
+          where organization_id = progress.organization_id
+            and student_id = progress.student_id
+        ) as monotonic_updated_at
+       from public.student_progress as progress
+       join public.student_task_state as state
+         on state.assignment_id = 'f2000000-0000-4000-8000-000000000004'
+       where progress.organization_id = 'b0000000-0000-4000-8000-000000000001'
+         and progress.student_id = $1`,
+      [studentId],
+    );
+    assert.deepEqual(result.rows[0], {
+      xp_balance: 40,
+      current_level: 1,
+      highest_level: 1,
+      raced_status: ["assigned", "reopened"].includes(result.rows[0].raced_status)
+        ? result.rows[0].raced_status
+        : "unexpected",
+      distinct_attempts: 1,
+      distinct_receipts: 2,
+      same_attempts: 1,
+      same_receipts: 1,
+      raced_reversals: 1,
+      ledger_balance: 40,
+      monotonic_updated_at: true,
+    });
+    assert(["assigned", "reopened"].includes(result.rows[0].raced_status));
+  });
+
+  await withClient(config, "klar-b1-rollback-and-retry", async (client) => {
+    await client.query(`create function public.b1_force_progress_audit_failure()
+      returns trigger
+      language plpgsql
+      set search_path = ''
+      as $$
+      begin
+        if new.event_name = 'task.completed'
+          and new.entity_id = 'f2000000-0000-4000-8000-000000000006'
+        then
+          raise exception 'forced B1 audit failure';
+        end if;
+        return new;
+      end;
+      $$`);
+    await client.query(`create trigger b1_force_progress_audit_failure
+      before insert on public.audit_events
+      for each row execute function public.b1_force_progress_audit_failure()`);
+
+    const retryPayload = [
+      "f2000000-0000-4000-8000-000000000006",
+      studentId,
+      "f3000000-0000-4000-8000-000000000009",
+    ];
+    await assert.rejects(client.query(completeSql, retryPayload), /forced B1 audit failure/);
+
+    const beforeRetry = await client.query(
+      `select
+        (select count(*)::integer from public.task_completion_attempts where assignment_id = $1) as attempts,
+        (select count(*)::integer from public.task_state_transitions where assignment_id = $1) as transitions,
+        (select count(*)::integer from public.student_xp_ledger where assignment_id = $1) as ledger,
+        (select count(*)::integer from public.progress_command_receipts where assignment_id = $1) as receipts,
+        (select status::text from public.student_task_state where assignment_id = $1) as status`,
+      [retryPayload[0]],
+    );
+    assert.deepEqual(beforeRetry.rows[0], {
+      attempts: 0,
+      transitions: 0,
+      ledger: 0,
+      receipts: 0,
+      status: "assigned",
+    });
+
+    await client.query("drop trigger b1_force_progress_audit_failure on public.audit_events");
+    await client.query("drop function public.b1_force_progress_audit_failure()");
+    const retry = await client.query(completeSql, retryPayload);
+    assert.equal(retry.rows[0].result.changed, true);
+    assert.equal(retry.rows[0].result.xp_balance, 50);
+  });
+}
+
 async function runEmptyScenario() {
   const container = startContainer("empty");
   try {
     applyPreA1(container.name);
     runSql(container.name, `supabase/migrations/${a1Migration}`);
     applyA1Followups(container.name);
+    applyPostA1(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
+    runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/staff_concurrency_fixture.sql");
+    runSql(container.name, "supabase/verification/progress_concurrency_fixture.sql");
     await runConcurrency(container.config);
+    await runProgressConcurrency(container.config);
     console.log("A1 database empty + RLS/RPC + concurrency: PASS");
   } finally {
     cleanupContainer(container.name);
@@ -502,7 +771,9 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/staff_upgrade_fixture.sql");
     runSql(positive.name, `supabase/migrations/${a1Migration}`);
     applyA1Followups(positive.name);
+    applyPostA1(positive.name);
     runSql(positive.name, "supabase/verification/staff_upgrade_smoke.sql");
+    runSql(positive.name, "supabase/verification/progress_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }

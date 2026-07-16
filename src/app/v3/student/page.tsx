@@ -12,15 +12,19 @@ export default async function PrototypeStudentPage() {
   ]);
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-sky-50 px-5 py-8 text-slate-950 focus:outline-none">
-      <div className="mx-auto max-w-3xl">
+    <main id="main-content" tabIndex={-1} className="min-h-screen bg-sky-50 px-4 pb-36 pt-8 text-slate-950 focus:outline-none sm:px-6">
+      <div className="mx-auto max-w-5xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
           Klar 3.0
         </p>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight">Hei, {today.displayName}</h1>
+        <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Hei, {today.displayName}</h1>
         <p className="mt-3 text-lg text-slate-600">Her er det du skal gjøre nå.</p>
         <div className="mt-8">
-          <StudentTodayPanel tasks={today.tasks} initialExperience={experience} />
+          <StudentTodayPanel
+            tasks={today.tasks}
+            initialProgress={today.progress}
+            initialExperience={experience}
+          />
         </div>
         <StudentHelpControl state={helpState} />
       </div>

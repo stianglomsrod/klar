@@ -102,9 +102,9 @@ export function StudentExperienceControls({
             className="mt-1 h-4 w-4 accent-sky-700"
           />
           <span>
-            <span className="block font-semibold">Vis rolig fremdrift</span>
+            <span className="block font-semibold">Vis poeng og fremdrift</span>
             <span className="mt-1 block text-sm text-slate-600">
-              Viser hvor mange av dagens oppgaver du har gjort. Ingen poeng eller
+              Viser dine egne poeng, nivå og ferdige oppgaver. Det er ingen
               sammenligning med andre.
             </span>
           </span>

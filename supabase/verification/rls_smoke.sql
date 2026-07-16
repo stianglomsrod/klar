@@ -348,7 +348,7 @@ declare
   published_task_id uuid;
   published_plan_ids uuid[];
   published_assignment_id uuid;
-  resulting_status public.student_task_status;
+  progress_result jsonb;
   initial_help_id uuid;
   queue_request public.help_requests;
   experience_settings public.student_experience_settings;
@@ -401,7 +401,7 @@ begin
       select count(*)
       from public.staff_assignment_capabilities
       where assignment_id = owner_assignment_id
-    ) <> 6
+    ) <> 8
     or not exists (
       select 1
       from public.audit_events
@@ -464,16 +464,18 @@ begin
     raise exception 'Plan import RPC did not assign every imported task';
   end if;
 
-  select status
-  into resulting_status
-  from public.update_student_task_status(
+  progress_result := public.complete_student_task(
     published_assignment_id,
     '33333333-3333-3333-3333-333333333333',
-    'completed'
+    '77777777-7777-4777-8777-777777777701'
   );
 
-  if resulting_status <> 'completed' then
-    raise exception 'Student status RPC did not persist completion';
+  if progress_result ->> 'status' <> 'completed'
+    or progress_result ->> 'changed' <> 'true'
+    or (progress_result ->> 'xp_delta')::integer <> 10
+    or (progress_result ->> 'xp_balance')::bigint <> 10
+  then
+    raise exception 'Student completion RPC did not atomically persist XP: %', progress_result;
   end if;
 
   experience_settings := public.update_student_experience_for_staff(

@@ -266,8 +266,8 @@ begin
   from public.staff_assignment_capabilities as capability
   join public.staff_assignments as assignment on assignment.id = capability.assignment_id
   where assignment.source = 'manual';
-  if capability_count <> 24 then
-    raise exception 'Four public labels must expand to exactly 24 capability rows: %', capability_count;
+  if capability_count <> 32 then
+    raise exception 'Four public labels must expand to exactly 32 capability rows: %', capability_count;
   end if;
   select count(distinct assignment.job_label) into public_label_count
   from public.staff_assignments as assignment
@@ -288,11 +288,13 @@ begin
         'help_queue.manage',
         'plan.preview',
         'plan.publish',
+        'student_progress.read',
         'student_support.update',
-        'task.publish'
+        'task.publish',
+        'task.return'
       ]::text[]
   ) then
-    raise exception 'A public job label does not expand to the exact six-capability profile';
+    raise exception 'A public job label does not expand to the exact eight-capability profile';
   end if;
 
   select count(*) into assignments_before from public.staff_assignments;

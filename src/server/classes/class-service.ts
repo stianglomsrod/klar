@@ -36,18 +36,25 @@ export type TeacherDashboard = {
 export type ClassStudentSummary = {
   id: string;
   displayName: string;
-  completedTasks: number;
+  completedTasks: number | null;
   assignedTasks: number;
   supportLevel: SupportLevel;
   progressEnabled: boolean;
+};
+
+export type CompletedTaskAssignmentSummary = {
+  assignmentId: string;
+  studentName: string;
+  completedAt: string;
 };
 
 export type PublishedTaskSummary = {
   id: string;
   title: string;
   subject: string | null;
-  completedStudents: number;
+  completedStudents: number | null;
   assignedStudents: number;
+  completedAssignments: CompletedTaskAssignmentSummary[];
 };
 
 export type TeacherClassWorkspace = {
@@ -60,7 +67,21 @@ export type TeacherClassWorkspace = {
   staffAssignmentId: string;
   capabilities: StaffCapability[];
   isOwner: boolean;
+  progressAvailable: boolean;
 };
+
+async function retainStudentProgressAccess(classId: string): Promise<boolean> {
+  try {
+    await requireStaffCapability(classId, "student_progress.read");
+    return true;
+  } catch (error) {
+    if (!isAuthorizationError(error) || error.code !== "STAFF_ACCESS_ENDED") {
+      throw error;
+    }
+    await requireStaffCapability(classId, "class.workspace.read");
+    return false;
+  }
+}
 
 async function retainStudentSupportAccess(classId: string): Promise<boolean> {
   try {
@@ -249,16 +270,35 @@ export async function getTeacherClassWorkspace(
   if (assignmentsError) throw new PrototypeDataError();
 
   const assignmentIds = assignments.map((assignment) => assignment.id);
-  const states = assignmentIds.length
-    ? await admin
-        .from("student_task_state")
-        .select("assignment_id, status")
-        .in("assignment_id", assignmentIds)
-    : { data: [], error: null };
-  if (states.error) throw new PrototypeDataError();
+  let progressAvailable =
+    actor.capabilities.includes("student_progress.read") &&
+    (await retainStudentProgressAccess(classId));
+  let stateRows: Array<{
+    assignment_id: string;
+    status: "assigned" | "completed" | "reopened";
+    completed_at: string | null;
+  }> = [];
+  if (progressAvailable && assignmentIds.length > 0) {
+    const states = await admin
+      .from("student_task_state")
+      .select("assignment_id, status, completed_at")
+      .eq("organization_id", actor.organizationId)
+      .in("assignment_id", assignmentIds);
+    if (states.error) throw new PrototypeDataError();
+    stateRows = states.data;
+
+    progressAvailable = await retainStudentProgressAccess(classId);
+    if (!progressAvailable) stateRows = [];
+  }
 
   const statusByAssignment = new Map(
-    states.data.map((state) => [state.assignment_id, state.status]),
+    stateRows.map((state) => [state.assignment_id, state.status]),
+  );
+  const stateByAssignment = new Map(
+    stateRows.map((state) => [state.assignment_id, state]),
+  );
+  const studentNameById = new Map(
+    profiles.data.map((profile) => [profile.id, profile.display_name]),
   );
 
   const confirmedActor = await requireStaffCapability(
@@ -288,9 +328,12 @@ export async function getTeacherClassWorkspace(
           id: profile.id,
           displayName: profile.display_name,
           assignedTasks: studentAssignments.length,
-          completedTasks: studentAssignments.filter(
-            (assignment) => statusByAssignment.get(assignment.id) === "completed",
-          ).length,
+          completedTasks: progressAvailable
+            ? studentAssignments.filter(
+                (assignment) =>
+                  statusByAssignment.get(assignment.id) === "completed",
+              ).length
+            : null,
           supportLevel: experience.supportLevel as SupportLevel,
           progressEnabled: experience.progressEnabled,
         };
@@ -307,13 +350,37 @@ export async function getTeacherClassWorkspace(
         title: task.title,
         subject: task.subject,
         assignedStudents: taskAssignments.length,
-        completedStudents: taskAssignments.filter(
-          (assignment) => statusByAssignment.get(assignment.id) === "completed",
-        ).length,
+        completedStudents: progressAvailable
+          ? taskAssignments.filter(
+              (assignment) =>
+                statusByAssignment.get(assignment.id) === "completed",
+            ).length
+          : null,
+        completedAssignments: progressAvailable
+          ? taskAssignments.flatMap((assignment) => {
+              const state = stateByAssignment.get(assignment.id);
+              const studentName = studentNameById.get(assignment.student_id);
+              if (
+                state?.status !== "completed" ||
+                !state.completed_at ||
+                !studentName
+              ) {
+                return [];
+              }
+              return [
+                {
+                  assignmentId: assignment.id,
+                  studentName,
+                  completedAt: state.completed_at,
+                },
+              ];
+            })
+          : [],
       };
     }),
     staffAssignmentId: confirmedActor.staffAssignmentId,
     capabilities: confirmedActor.capabilities,
     isOwner: organizationMembership.role === "owner",
+    progressAvailable,
   };
 }
