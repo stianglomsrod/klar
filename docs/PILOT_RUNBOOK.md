@@ -123,7 +123,9 @@ Testene bruker bare syntetiske data og lokal Supabase.
 ## Manuelle enhetsporter før Kontrollpunkt A kan lukkes
 
 De automatiske proxyene er nyttige, men erstatter ikke følgende kontroller på
-reelt utstyr:
+reelt utstyr. Bruk den detaljerte
+[`manuelle A1-protokollen`](./qa/CONTROL_POINT_A1_MANUAL_QA.md) og før inn
+faktisk enhet, nettleser og resultat:
 
 - [ ] faktisk 200 prosent browserzoom/reflow;
 - [ ] NVDA og VoiceOver;

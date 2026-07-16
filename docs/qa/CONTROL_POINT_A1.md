@@ -502,7 +502,8 @@ ingen kjente åpne automatiske A1-bevisporter. Semantiske QA-bilder ligger
 lokalt under `test-results/chromium-full` og `test-results/webkit-full`.
 
 Automatiserte emuleringer og layoutproxyer erstatter ikke en fysisk
-enhetskontroll:
+enhetskontroll. Gjennomfør og loggfør portene med
+[`CONTROL_POINT_A1_MANUAL_QA.md`](./CONTROL_POINT_A1_MANUAL_QA.md):
 
 | Port | Status | Automatisert bevis som finnes |
 | --- | --- | --- |
