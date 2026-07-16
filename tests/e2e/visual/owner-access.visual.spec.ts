@@ -50,7 +50,10 @@ test("lagrer ownerens tilgangsliste og responsive opprett-flyt", async ({
     .filter({ hasText: "Visuell ansatt" })
     .filter({ has: page.locator(".staff-assignment-status--active") });
   await expect(activeAssignment).toHaveCount(1);
-  const revokeTrigger = activeAssignment.getByRole("button", { name: "Trekk tilbake" });
+  const revokeTrigger = activeAssignment.getByRole("button", {
+    name: "Trekk tilbake oppdrag for Visuell ansatt i Visuell kontrollklasse 6D",
+    exact: true,
+  });
   await expectMinimumTargetSize(revokeTrigger);
   await revokeTrigger.click();
   const revokeDialog = page.getByRole("dialog", { name: "Trekk tilbake oppdrag?" });

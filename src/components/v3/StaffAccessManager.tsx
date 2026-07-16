@@ -311,6 +311,7 @@ export function StaffAccessManager({
                   <button
                     type="button"
                     onClick={(event) => openRevoke(assignment, event.currentTarget)}
+                    aria-label={`Trekk tilbake oppdrag for ${assignment.personName} i ${assignment.className}`}
                     className="min-h-11 rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-800 focus:outline-none focus:ring-2 focus:ring-red-600 focus:ring-offset-2"
                   >
                     Trekk tilbake
