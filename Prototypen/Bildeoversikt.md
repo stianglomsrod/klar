@@ -12,13 +12,19 @@ en fasit for domenet. Ved motstrid gjelder kildene i denne rekkefølgen:
 1. `docs/product/DOMAIN_CONTRACT.md`;
 2. relevant epic i `docs/epics/`;
 3. `docs/product/UI_UX_REFERENCE.md`;
-4. denne bildeoversikten og selve skjermbildene;
-5. historisk kode under `archive/2x-ui/`.
+4. denne bildeoversikten, [videoomvisningen](./Videoomvisning/README.md) og de
+   kuraterte skjermbildene;
+5. historisk kode under `archive/2x-ui/` og på `origin/master`.
 
 Skjermbildene skal brukes til å forstå informasjonsarkitektur, visuelt
 hierarki, flyt og tone. De skal ikke brukes som automatiske
 screenshot-baselines. Første godkjente Klar 3.0-flate blir baseline for senere
 pixelregresjon.
+
+Videoomvisningen tilfører tidsrekkefølge og produkteierens muntlige forklaring
+av hensikten bak flytene. Tidskodede nøkkelbilder og beslutninger er lagret i
+[`Videoomvisning/`](./Videoomvisning/README.md). Talesporet er et historisk
+designbevis, ikke dokumentasjon på implementert 3.0-funksjon.
 
 ### Produktklassifisering
 

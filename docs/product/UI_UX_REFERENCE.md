@@ -7,8 +7,10 @@
 ## Grunnlag
 
 Retningen er samlet etter gjennomgang av masteroppgaven og dens figurer,
-prototypebildene, den tidligere Klar-implementasjonen i `archive/2x-ui` og de
-offentlige produktbildene i
+prototypebildene, den tidligere Klar-implementasjonen i `archive/2x-ui` og på
+`origin/master`, samt produkteierens tidskodede
+[videoomvisning](../../Prototypen/Videoomvisning/README.md). De offentlige
+produktbildene finnes i
 [Klar-casen](https://stianglomsrod.no/prosjekter/#klar). Fire ekstra reelle
 Klar-flater finnes i
 [porteføljens legacy-galleri](https://github.com/stianglomsrod/portfolio-site/tree/legacy-nextjs/public/images/cases/klar).
@@ -17,6 +19,13 @@ Skjermbildene er bevis på designintensjon og tidligere interaksjon, ikke
 pixelspesifikasjoner. Senere produktavklaringer overstyrer detaljer i bildene.
 Særlig gjelder dette oppgaveflyten, køstatus og fraværet av en automatisk
 etter-skoletid-modus.
+
+Videoens talespor er relevant fordi det forklarer hvorfor en kontroll finnes,
+ikke bare hvordan den så ut. Det bekrefter særlig at oppgaver kan knyttes til
+økter og iterasjoner, at eleven kan levere i flere modaliteter, at angre
+reverserer poeng, og at lærerens interne køprioritering ikke trenger å
+eksponeres for eleven. Skjermens synlige kønummer er derfor klassifisert som et
+antimønster selv om køflyten ellers er en produktintensjon.
 
 ## Rollebasert visuell modell
 
