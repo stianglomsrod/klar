@@ -128,13 +128,17 @@ reelt utstyr. Bruk den detaljerte
 faktisk enhet, nettleser og resultat:
 
 - [x] faktisk 200 prosent browserzoom/reflow;
-- [ ] NVDA bestått 2026-07-16; VoiceOver på iPad har bestått
-  navigasjonsfokus ved orienteringsbytte, men dialogaktivering på lokal HTTP
-  krever retting og fysisk retest;
-- [ ] ekte touch og trykkmål;
+- [ ] NVDA bestått 2026-07-16; VoiceOver-retesten på iPad kontrollerte
+  navigasjonsfokus, tilgangsdialog og Smart Import over lokal HTTP uten nytt
+  avvik, men eksakt Safari-versjon og resten av matrisen gjenstår;
+- [ ] ekte touch og trykkmål; mobilmeny, tilgangsfelt, Avbryt og fjerning av et
+  Smart Import-forslag er kontrollert på iPad uten avvik. Klassekort,
+  tilbakekallingsdialog, hovedhandling, elevflyt og mobiltelefon gjenstår;
 - [ ] notch/safe-area;
-- [ ] ekte virtuelt tastatur;
-- [ ] live bytte mellom portrett og landskap; navigasjonsfokus består fysisk
-  på iPad, mens dialog/input, virtuelt tastatur og mobiltelefon gjenstår.
+- [ ] ekte virtuelt tastatur; Smart Import-feltet er kontrollert på iPad uten
+  avvik, mens nettlesermetadata og resten av enhetsmatrisen gjenstår;
+- [ ] live bytte mellom portrett og landskap; navigasjon, tilgangsdialog og
+  Smart Import med åpent tastatur er kontrollert på iPad uten avvik, mens
+  nettlesermetadata og mobiltelefon gjenstår.
 
 Kontrollpunkt A1 skal ikke omtales som fullført før disse er dokumentert.

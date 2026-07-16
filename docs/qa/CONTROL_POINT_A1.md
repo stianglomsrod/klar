@@ -1,9 +1,9 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
 **Status:** Implementert – alle automatiske A1-porter samt manuell Port A og
-NVDA-port B1 er grønne; VoiceOver-port B2 pågår med ett åpent fysisk
-dialogaktiveringsavvik på lokal HTTP, og de øvrige fysiske enhetsportene
-gjenstår
+NVDA-port B1 er grønne; den fysiske iPad-retesten har ingen kjente åpne avvik,
+men VoiceOver-port B2 og de øvrige fysiske enhetsportene er ikke fullført på
+hele enhetsmatrisen
 
 **Forberedt:** 15. juli 2026
 
@@ -475,8 +475,10 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
 - [ ] NVDA/VoiceOver kontrolleres manuelt før Kontrollpunkt A kan omtales som
   ferdig. NVDA er verifisert 2026-07-16. VoiceOver er delvis gjennomført på
   iPad; meny/drawer og fokusoverføring ved live orienteringsbytte er fysisk
-  retestet. Dialogaktivering på lokal HTTP krever retting og fysisk retest.
-  Inntil begge skjermlesere er bestått, kalles A1 ikke fullført.
+  retestet. Tilgangsdialog og Smart Import over lokal HTTP er også kontrollert
+  uten nytt avvik. Eksakt Safari-versjon, mobiltelefon og resten av protokollen
+  gjenstår. Inntil begge skjermlesere er bestått på avtalt matrise, kalles A1
+  ikke fullført.
 
 ### Verifikasjonsstatus
 
@@ -512,11 +514,11 @@ enhetskontroll. Gjennomfør og loggfør portene med
 | Port | Status | Automatisert bevis som finnes |
 | --- | --- | --- |
 | Faktisk 200 % browserzoom | Verifisert 2026-07-16 | 720 × 450 reflowproxy med tekstoverstyring og faktisk Port A-bevis i den manuelle QA-loggen |
-| NVDA/VoiceOver | NVDA verifisert 2026-07-16; VoiceOver delvis gjennomført med åpent dialogaktiveringsavvik på lokal HTTP | Axe og semantiske tastaturtester; faktisk NVDA-bevis og kronologisk iPad-/avvikslogg i den manuelle QA-loggen |
-| Ekte touch | Uverifisert | Touch-emulering og 44 × 44-geometri |
+| NVDA/VoiceOver | NVDA verifisert 2026-07-16; VoiceOver-stegene på iPad har ingen kjente åpne funksjonsavvik, men eksakt Safari-versjon og hele enhetsmatrisen gjenstår | Axe og semantiske tastaturtester; faktisk NVDA-bevis og kronologisk iPad-/avvikslogg i den manuelle QA-loggen |
+| Ekte touch | Delvis kontrollert på iPad uten avvik – mobilmeny, tilgangsfelt, Avbryt og fjerning av et Smart Import-forslag; klassekort, tilbakekallingsdialog, hovedhandling, elevflyt og mobiltelefon gjenstår | Touch-emulering og 44 × 44-geometri |
 | Safe-area/notch | Uverifisert | Responsiv CSS og statiske viewports |
-| Ekte virtuelt tastatur | Uverifisert | Redusert viewporthøyde |
-| Orienteringsbytte på enhet | Pågår – navigasjonsfokus består fysisk på iPad; dialog/input og mobil gjenstår | Separate portrett-/landskapsprosjekter samt grønn automatisert `768×1024 → 1024×768 → 768×1024` fokus-round-trip i Chromium og WebKit |
+| Ekte virtuelt tastatur | Delvis kontrollert uten avvik – Smart Import på iPad; eksakt nettlesermetadata og resten av enhetsmatrisen gjenstår | Redusert viewporthøyde |
+| Orienteringsbytte på enhet | Pågår – navigasjon, tilgangsdialog og Smart Import er kontrollert fysisk på iPad uten avvik; eksakt nettlesermetadata og mobiltelefon gjenstår | Separate portrett-/landskapsprosjekter samt grønn automatisert `768×1024 → 1024×768 → 768×1024` fokus-round-trip i Chromium og WebKit |
 
 A1 omtales derfor ikke som fullført.
 
