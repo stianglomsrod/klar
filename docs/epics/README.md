@@ -22,8 +22,8 @@ oppdateres eksplisitt i samme commit som kontrollpunktet.
 | E02 | [Progresjon og belønninger](./E02_PROGRESS_AND_REWARDS.md) | Planlagt | E05, E06 |
 | E03 | [Kontekstuell hjelpekø](./E03_CONTEXTUAL_HELP_QUEUE.md) | Planlagt | E01, E05, E06 |
 | E04 | [Smart Import og ukeplaner](./E04_SMART_IMPORT_AND_WEEKLY_PLANS.md) | Planlagt | E05, E06 |
-| E05 | [Ansattilgang og vikar](./E05_STAFF_ACCESS_AND_SUBSTITUTES.md) | Planlagt | E06 |
-| E06 | [Responsive og tilgjengelige skall](./E06_RESPONSIVE_ACCESSIBLE_SHELLS.md) | Planlagt | Tverrgående |
+| E05 | [Ansattilgang og vikar](./E05_STAFF_ACCESS_AND_SUBSTITUTES.md) | Pågår | E06 |
+| E06 | [Responsive og tilgjengelige skall](./E06_RESPONSIVE_ACCESSIBLE_SHELLS.md) | Pågår | Tverrgående |
 
 Se [implementeringsplanen](../IMPLEMENTATION_ROADMAP.md) for rekkefølge og
 kontrollpunkter.

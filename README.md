@@ -126,12 +126,14 @@ npm run test:e2e:full
 npm run test:e2e:full:webkit
 ```
 
-Runneren starter Supabase på `127.0.0.1:54321`, avviser alle andre verter,
-oppretter bare syntetiske fixtures, gjennomfører lærerens TOTP-oppsett gjennom
-UI og lagrer separate, ignorerte browsertilstander for elev og lærer. Den
-bruker aldri det linkede pilotprosjektet som reserve. Visuelle kjøringer lagrer
-QA-artefakter i `test-results/<browser>-<modus>`; historiske prototypebilder
-er ikke pixel-baselines.
+Runneren starter Supabase på `127.0.0.1:54321`, avviser alt annet enn loopback og
+godtar direkte testkontroll mot Postgres bare på loopback-port 54322, database
+`postgres`, uten query eller fragment. Den oppretter bare syntetiske fixtures,
+gjennomfører lærerens TOTP-oppsett gjennom UI og lagrer separate, ignorerte
+browsertilstander for elev og lærer. Den bruker aldri det linkede
+pilotprosjektet som reserve. Visuelle kjøringer lagrer QA-artefakter i
+`test-results/<browser>-<modus>`; historiske prototypebilder er ikke
+pixel-baselines.
 
 Den autentiserte suiten er verifisert lokalt i Chromium og WebKit. Den er
 fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
@@ -141,6 +143,10 @@ representativt oppgraderingsscenario.
 A1s automatiske porter er grønne, men faktiske kontroller med 200 prosent
 browserzoom, NVDA/VoiceOver, ekte touch, notch/safe-area, virtuelt tastatur og
 live orienteringsbytte gjenstår. A1 omtales derfor ikke som fullført.
+
+Den lokale A1-suiten dekker også ugyldige oppdragsinput, forfalskede
+kontrollhandlinger, en redusert testprofil for kapabiliteter, positiv
+regelbasert DOCX-preview/publisering og utløpsreconcile før autorisasjonsnekt.
 
 CI gjør i tillegg følgende:
 

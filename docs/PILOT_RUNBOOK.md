@@ -57,7 +57,9 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
 
 8. Database- og E2E-runnerne bruker bare syntetiske data og nullstiller bare
    lokale Docker/Supabase-ressurser. E2E-runneren avviser andre verter enn
-   loopback og skal aldri peke mot piloten.
+   loopback. Direkte testkontroll godtar bare Postgres på loopback-port 54322,
+   database `postgres`, uten query eller fragment. Runnerne skal aldri peke mot
+   piloten.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: elev → oppgave → status → hjelpekø.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
@@ -113,8 +115,10 @@ tilstand. Ansattpakken kontrollerer eksakt backfill, atomisk fail-closed
 preflight, owner-only kontrollplan, RLS/RPC/grants, ingen anonym skrivetilgang,
 idempotens og samtidighet. Lokal autentisert E2E i Chromium og WebKit
 kontrollerer owner → vikar → tilbakekalling, AAL1/AAL2, avgrenset klasseflate,
-stale handlinger og responsive/tilgjengelige QA-proxyer. Testene bruker bare
-syntetiske data og lokal Supabase.
+ugyldige oppdragsinput, forfalskede kontrollhandlinger, redusert
+kapabilitetsprofil, positiv regelbasert DOCX-preview/publisering,
+utløpsreconcile, stale handlinger og responsive/tilgjengelige QA-proxyer.
+Testene bruker bare syntetiske data og lokal Supabase.
 
 ## Manuelle enhetsporter før Kontrollpunkt A kan lukkes
 

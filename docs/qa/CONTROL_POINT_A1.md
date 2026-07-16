@@ -1,7 +1,7 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Implementert – automatiske kontrollporter grønne; manuelle og
-utvidede bevisporter gjenstår
+**Status:** Implementert – alle automatiske A1-porter er grønne; fysiske og
+manuelle enhetsporter gjenstår
 
 **Forberedt:** 15. juli 2026
 
@@ -13,8 +13,9 @@ utvidede bevisporter gjenstår
 [Kontrollpunkt A – felles fundament](../IMPLEMENTATION_ROADMAP.md#kontrollpunkt-a--felles-fundament)
 
 Dette dokumentet er implementeringskontrakten og bevisoversikten for første
-vertikale slice av E05 og E06. A1-kjernen er implementert, men kontrollpunktet
-er ikke fullført før de åpne utvidede og manuelle portene er dokumentert.
+vertikale slice av E05 og E06. A1-kjernen og det avtalte automatiske beviset er
+implementert, men kontrollpunktet er ikke fullført før de seks fysiske og
+manuelle enhetsportene er dokumentert.
 
 ## 1. Autoritative kilder og inngangskrav
 
@@ -397,7 +398,7 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
 - [x] A1 bruker bare personlig voksenidentitet og AAL2 for pedagogisk tilgang.
 - [x] Eier AAL1 kan ikke opprette eller tilbakekalle assignment.
 - [x] Vanlig ansatt kan ikke gi seg selv eller andre tilgang.
-- [ ] Normal opprettelse avviser student, målbruker/klasse i annen
+- [x] Normal opprettelse avviser student, målbruker/klasse i annen
   organisasjon, ugyldig intervall, manglende slutt og forsøk på å velge en
   intern jobbetikett – både i serveroperasjon og RPC.
 - [x] Alle fire pedagogiske jobbetiketter får samme `class_pedagogy_v1` innen
@@ -450,24 +451,27 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
 - [x] Owner AAL1 kan heller ikke lese andre brukeres konto-, assignment- eller
   scopemetadata direkte gjennom authenticated RLS/RPC; egen MFA-identitet er
   eneste dokumenterte unntak.
-- [ ] Hver kapabilitet styrer den dokumenterte synlige kontrollen, mens direkte
+- [x] Hver kapabilitet styrer den dokumenterte synlige kontrollen, mens direkte
   action/RPC fortsatt avviser når kontrollen er skjult.
 - [x] Interne assignments vises med menneskelig navn og kilde, aldri rå kode,
   og tilbakekalling forklarer konsekvensen før bekreftelse.
 - [x] De fire assignment-statusene er forståelige uten farge.
 - [x] Dialog/sheet har navn, beskrivelse, fokusfelle, Escape/lukk og fokusretur.
-- [ ] Alle handlinger kan utføres med tastatur og berøring uten hover eller
-  drag.
-- [ ] Ingen kjernehandling eller synlig fokus skjules ved noen målviewport
-  eller 200 prosent reflow.
+- [x] Alle handlinger kan utføres med tastatur uten hover eller drag.
+- [ ] Handlingene og de sentrale trykkmålene er verifisert med ekte berøring.
+- [x] Ingen kjernehandling eller synlig fokus skjules ved noen automatisert
+  målviewport eller reflowproxy.
+- [ ] Faktisk 200 prosent browserzoom/reflow er verifisert manuelt.
 - [x] Reduced motion fjerner bevegelse uten å endre innhold eller bekreftelse.
 - [x] Mobilmenyen og tilgangsdialogen har korrekt inert/fokus/Escape/fokusretur,
   og tilgangstap annonseres før fokus lander i en trygg tomtilstand.
-- [ ] Safe-area, virtuelt tastatur og overstyrt systemfont/linjeavstand gir ikke
-  skjulte felt, handlinger eller fokus.
+- [x] Overstyrt systemfont/linjeavstand gir ikke skjulte felt, handlinger eller
+  fokus i den automatiserte reflowproxyen.
+- [ ] Safe-area/notch og ekte virtuelt tastatur gir ikke skjulte felt,
+  handlinger eller fokus.
 - [x] Axe A/AA, runtime- og overflow-kontroller har ingen ukjente avvik.
-- [ ] NVDA/VoiceOver og ekte touch kontrolleres manuelt før Kontrollpunkt A kan
-  omtales som ferdig; dersom dette ikke er tilgjengelig, markeres A1-porten
+- [ ] NVDA/VoiceOver kontrolleres manuelt før Kontrollpunkt A kan omtales som
+  ferdig; dersom dette ikke er tilgjengelig, markeres A1-porten
   eksplisitt uverifisert og A1 kalles ikke fullført.
 
 ### Verifikasjonsstatus
@@ -477,27 +481,25 @@ Docker/Supabase:
 
 - `npm run verify:checkpoint`;
 - `npm run test:db:staff`;
-- `npm run test:e2e:full` – 24/24 i Chromium;
-- `npm run test:e2e:full:webkit` – 24/24 i WebKit.
+- `npm run test:e2e:full` – 27/27 i Chromium;
+- `npm run test:e2e:full:webkit` – 27/27 i WebKit.
 
 Databasetesten dekker tom database, representativ oppgradering, atomisk
 fail-closed preflight, RLS/RPC/grants, backfill, audit, idempotens og
 samtidighet. De autentiserte browserløypene dekker owner → vikar →
-tilbakekalling, stale handlinger, fem målviewports, tastaturflyt, fokus,
-reduced motion, axe A/AA, runtime-feil og horisontal overflow. Semantiske
-QA-bilder ligger lokalt under `test-results/chromium-full` og
-`test-results/webkit-full`.
+tilbakekalling, stale handlinger, den avtalte negative matrisen for
+ugyldige assignment-input,
+forfalskede kontrollhandlinger for fire aktørtyper, redusert
+kapabilitetsprofil, positiv regelbasert DOCX-forhåndsvisning/publisering og
+utløpsreconcile som committes før etterfølgende autorisasjonsnekt. De dekker
+også fem målviewports, tastaturflyt, fokus, reduced motion, axe A/AA,
+runtime-feil og horisontal overflow.
 
-Følgende utvidede automatiske bevis er fortsatt åpne og overpåstås ikke:
-
-- full negativ server-action-matrise for alle ugyldige assignment-input;
-- komplett direkte matrise for forfalskede kontrollhandlinger mot owner AAL1,
-  vanlig ansatt, elev og eier i annen organisasjon;
-- en bevisst redusert kapabilitetsfixture som tester hvert synlig UI-innsteg;
-- positiv produksjonsinngang for planforhåndsvisning/publisering i hele
-  service/action-matrisen;
-- et servernivåbevis på at expiry-reconcile committes før en etterfølgende
-  autorisasjonsnekt.
+Den reduserte kapabilitetsprofilen opprettes bare som lokal test-fixture og er
+ikke en implementert kapabilitetseditor. DOCX-beviset verifiserer den
+eksisterende regelbaserte Smart Import-flyten og fullfører ikke E04. Det er
+ingen kjente åpne automatiske A1-bevisporter. Semantiske QA-bilder ligger
+lokalt under `test-results/chromium-full` og `test-results/webkit-full`.
 
 Automatiserte emuleringer og layoutproxyer erstatter ikke en fysisk
 enhetskontroll:
@@ -674,7 +676,26 @@ other-org-contexts:
 8. Ny vikarhandling avvises og oppretter ingen rad.
 9. Reload/direkte navigasjon viser ikke klasse- eller elevdata.
 10. Direkte databasekontroll bekrefter at det avviste kallet ikke opprettet en
-   rad eller audit som påstår suksess.
+    rad eller audit som påstår suksess.
+
+Separate, autentiserte matriser beviser i tillegg:
+
+- 17 ugyldige assignment-input og direkte forfalskning av opprett/tilbakekall,
+  klasseoppretting og prototypeelev som owner AAL1, vanlig ansatt, elev og
+  other-org-owner;
+- en lokalt injisert minimumsprofil der `class.workspace.read` og
+  `plan.preview` virker, øvrige kontroller er skjult og stale actions samt
+  direkte RPC-er avvises uten sidedata;
+- deterministisk syntetisk DOCX gjennom eksisterende regelbasert preview,
+  redigering og publisering, med riktig oppgave-, assignment-, status- og
+  auditdata, samt avvisning ved feil klasse og etter tilbakekalling;
+- faktisk tidsutløp etter at en side er åpnet, der neste serverhandling avvises
+  uten oppgave- eller suksessaudit, mens nøyaktig én
+  `staff_assignment.expired` committes med korrekt `effective_at` og
+  `recorded_at`.
+
+Direkte databasekontroll i disse browsertestene godtar bare en lokal Postgres-
+URL på loopback-port 54322, database `postgres`, uten query eller fragment.
 
 Visuell E2E dekker ownerens tilgangsflate og den tildelte ansattflaten ved alle
 fem viewports i Chromium og WebKit med axe, overflow, runtime-feil og reduced
