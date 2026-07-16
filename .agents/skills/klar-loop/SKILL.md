@@ -68,7 +68,28 @@ syntetiske fixtures.
   ønskede konklusjonen.
 - Hovedagenten vurderer funnene og gjør eventuelle kodeendringer.
 
-## 6. Kjør full kontrollpunktport
+## 6. Kjør og loggfør fysisk QA når slicen krever det
+
+- Bruk bare en eksplisitt godkjent fysisk enhet, syntetiske data og et navngitt
+  lokalt mål. Ikke eksponer eller muter et linket prosjekt.
+- Lås starteren til eksakt commit og rent arbeidstre. Kontroller faktisk
+  bindeadresse og alle berørte porter, ikke bare loopback.
+- Ved LAN-test: bruk minste mulige brannmurregel for eksakt enhet og port,
+  verifiser lokal Supabase før eksponering, og dokumenter sikker teardown med
+  stoppede tjenester og gjenopprettet brannmur. Logg aldri passord, elevkode,
+  TOTP-hemmelighet, cookie eller nøkkel.
+- Før én gjennomføringsrad per faktisk kjøring med kandidat, enhet, OS,
+  browser/hjelpemiddel, scenario og resultat. Behold mislykkede og delvise
+  kjøringer når en senere retest består.
+- Stopp den berørte porten ved første avvik. Registrer reproduksjon, retting og
+  eier; legg til automatisk regresjon; kjør så samme scenario fysisk på samme
+  enhetstype og ny eksakt commit. Automatisk grønt bevis lukker ikke alene et
+  fysisk avvik.
+- Ved responsivt DOM-bytte: test live orientering/reflow mens fokus står i
+  navigasjon, dialog og input. Separate statiske viewports beviser ikke
+  fokusoverføring eller bevart tilstand.
+
+## 7. Kjør full kontrollpunktport
 
 Kjør minst:
 
@@ -86,7 +107,7 @@ Kjør minst:
 Ikke bruk et eksternt eller linket Supabase-prosjekt for å gjøre porten grønn.
 Ikke oppdater pixel-baselines automatisk.
 
-## 7. Avslutt checkpointet
+## 8. Avslutt checkpointet
 
 - Oppdater relevant epic med faktisk status og konkrete test-/QA-bevis.
 - Gjennomgå hele diffen, staged filer og hemmelighetsrisiko.

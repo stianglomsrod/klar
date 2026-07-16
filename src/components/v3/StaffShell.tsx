@@ -81,8 +81,11 @@ export function StaffShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const desktopSidebar = useRef<HTMLElement>(null);
   const drawer = useRef<HTMLDialogElement>(null);
+  const mobileHeader = useRef<HTMLElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
+  const navigationFocusRegion = useRef<"desktop" | "mobile" | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   function closeDrawer() {
@@ -97,19 +100,63 @@ export function StaffShell({
 
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1024px)");
-    const closeOnDesktop = () => {
+    const trackNavigationFocus = (event: FocusEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (target === document.body || target === document.documentElement) return;
+
+      if (desktopSidebar.current?.contains(target)) {
+        navigationFocusRegion.current = "desktop";
+      } else if (
+        mobileHeader.current?.contains(target) ||
+        drawer.current?.contains(target)
+      ) {
+        navigationFocusRegion.current = "mobile";
+      } else {
+        navigationFocusRegion.current = null;
+      }
+    };
+    const focusAfterLayout = (resolveDestination: () => HTMLElement | null) => {
+      requestAnimationFrame(() => {
+        const destination = resolveDestination();
+        if (destination?.isConnected && destination.getClientRects().length > 0) {
+          destination.focus({ preventScroll: true });
+        }
+      });
+    };
+    const preserveNavigationFocus = () => {
+      const previousRegion = navigationFocusRegion.current;
       if (media.matches) {
         drawer.current?.close();
         setDrawerOpen(false);
+        if (previousRegion === "mobile") {
+          focusAfterLayout(
+            () =>
+              desktopSidebar.current?.querySelector<HTMLElement>(
+                'a[aria-current="page"]',
+              ) ??
+              desktopSidebar.current?.querySelector<HTMLElement>("a[href]") ??
+              null,
+          );
+        }
+      } else if (previousRegion === "desktop") {
+        focusAfterLayout(() => menuButton.current);
       }
     };
-    media.addEventListener("change", closeOnDesktop);
-    return () => media.removeEventListener("change", closeOnDesktop);
+    document.addEventListener("focusin", trackNavigationFocus);
+    media.addEventListener("change", preserveNavigationFocus);
+    return () => {
+      document.removeEventListener("focusin", trackNavigationFocus);
+      media.removeEventListener("change", preserveNavigationFocus);
+    };
   }, []);
 
   return (
     <div className="min-h-dvh bg-slate-100 text-slate-950 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-slate-200 bg-white p-5 lg:flex">
+      <aside
+        ref={desktopSidebar}
+        className="sticky top-0 hidden h-dvh flex-col border-r border-slate-200 bg-white p-5 lg:flex"
+      >
         <Link
           href="/v3/teacher"
           className="flex min-h-11 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600"
@@ -131,7 +178,10 @@ export function StaffShell({
       </aside>
 
       <div className="min-w-0">
-        <header className="staff-mobile-header sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 lg:hidden">
+        <header
+          ref={mobileHeader}
+          className="staff-mobile-header sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 lg:hidden"
+        >
           <button
             ref={menuButton}
             type="button"
@@ -161,7 +211,9 @@ export function StaffShell({
         aria-label="Meny"
         onClose={() => {
           setDrawerOpen(false);
-          restoreDialogFocus(menuButton.current);
+          if (!window.matchMedia("(min-width: 1024px)").matches) {
+            restoreDialogFocus(menuButton.current);
+          }
         }}
         onKeyDown={trapDialogFocus}
       >

@@ -1,6 +1,7 @@
 # Kontrollpunkt A1 – manuell QA på reelt utstyr
 
-**Status:** Port A og B1 bestått 16. juli 2026 – B2–F gjenstår
+**Status:** Port A og B1 bestått 16. juli 2026 – B2 og F pågår med ett åpent
+rotasjonsavvik; C–E gjenstår
 
 **Gjelder:** [`CONTROL_POINT_A1.md`](./CONTROL_POINT_A1.md)
 
@@ -20,6 +21,10 @@ resultatet er ført i bevisloggen nederst.
 - Noter nøyaktig commit, enhet, OS-versjon, nettleser og nettleserversjon.
 - Ved ett avvik: stopp den berørte porten, la den stå åpen og registrer et
   konkret reproduksjonssteg. Ikke godkjenn resten av porten ved skjønn.
+- Loggfør hver fysisk gjennomføring, hvert avvik, rettingen, automatisk
+  regresjonsbevis og fysisk retest som separate hendelser. En retting lukker
+  ikke avviket før den er kontrollert på samme enhetstype og eksakte
+  kandidatcommit.
 
 ### Repeterbar desktopstarter
 
@@ -92,6 +97,11 @@ klasseflaten, og ingen hovedhandling krever horisontal scroll.
 2. Gjenta landmark-, overskrift-, navigasjons-, dialog- og statuskontrollene.
 3. Kontroller at visuell rekkefølge og opplesingsrekkefølge er den samme etter
    orienteringsbytte.
+4. Lukk mobilmenyen med fokus returnert til menyknappen. Roter til landskap og
+   bekreft at fokus flyttes til tilsvarende aktiv, synlig sidepanellenke. Roter
+   tilbake og bekreft fokus på menyknappen uten at draweren åpnes.
+5. Flytt fokus til hovedinnholdet eller skip-lenken og gjenta begge retninger.
+   Fokus skal ikke kapres av navigasjonen.
 
 **Bestått når:** begge skjermlesere gir entydige navn, roller, tilstander og
 feilmeldinger, uten fokusfelle uten utvei eller uvarslet kontekstbytte.
@@ -143,30 +153,61 @@ kan nås uten fastlåst scroll, og tastaturet skjuler ikke innhold permanent.
 **Utstyr:** iPad og mobiltelefon med rotasjon aktivert.
 
 1. Start i portrett, åpne mobilmeny og lukk den igjen.
-2. Åpne en tilgangsdialog/sheet og velg syntetiske, ikke-sensitive verdier uten
+2. Med fokus på menyknappen: roter til landskap og bekreft fokus på aktiv,
+   synlig sidepanellenke. Roter tilbake og bekreft fokus på menyknappen. Gjenta
+   med fokus i hovedinnholdet og kontroller at det ikke kapres.
+3. Åpne en tilgangsdialog/sheet og velg syntetiske, ikke-sensitive verdier uten
    å bekrefte.
-3. Roter til landskap og tilbake til portrett mens dialogen er åpen.
-4. Gjenta på klasseflaten med et felt fokusert og med virtuelt tastatur åpent.
+4. Roter til landskap og tilbake til portrett mens dialogen er åpen.
+5. Gjenta på klasseflaten med et felt fokusert og med virtuelt tastatur åpent.
 
 **Bestått når:** innhold og feltverdi bevares, fokus forblir logisk, layouten
 reflower uten overflow, og ingen handling sendes eller dupliseres ved rotasjon.
 
-## 9. Bevislogg
+## 9. Gjennomførings-, avviks- og retestlogg
 
-Fyll én rad per faktisk gjennomføring. `Bestått` kan bare brukes når hele
-portens beståttkriterium er kontrollert.
+Denne kronologien er råbeviset bak den aggregerte porttabellen. Den skal også
+bevare mislykkede forsøk og delvise gjennomføringer; de må ikke overskrives av
+en senere bestått retest.
+
+### 9.1 Fysiske gjennomføringer
+
+| ID | Port/deltest | Kandidat | Enhet og programvare | Resultat | Kontrollert omfang |
+| --- | --- | --- | --- | --- | --- |
+| `A1-IPAD-20260716-01` | B2 – VoiceOver, første iPad-runde | `2d70ab4a94094df9dffdd036f3d6cd01e02c58c9` | iPad 9. generasjon; iPadOS 26.5.2; Safari; VoiceOver | Delvis gjennomført – avvik funnet | Syntetisk innlogging, MFA-oppsett, inngang til eierflaten, rotor for overskrifter og mobilnavigasjon fungerte. Menyknappen lå på motsatt side av den venstreforankrede draweren; `A1-IPAD-001` ble åpnet og porten stoppet. |
+| `A1-IPAD-20260716-01T` | Sikker teardown etter første iPad-runde | `2d70ab4a94094df9dffdd036f3d6cd01e02c58c9` | Windows 11; lokal Klar/Supabase; midlertidig enhetsavgrenset brannmur | Bestått | Klar-starter og lokal Supabase ble stoppet, testportene ble kontrollert lukket, midlertidige regler ble fjernet og opprinnelig brannmurtilstand gjenopprettet. |
+| `A1-IPAD-20260716-02` | B2/F – fysisk retest av mobilnavigasjon og orientering | `d9ec64740a1e798e994ff3796fad6010bc114f5c` | iPad 9. generasjon; iPadOS 26.5.2; Safari; VoiceOver | Delvis gjennomført – nytt avvik funnet | Menyknapp og drawer var begge venstreforankret, og lukking returnerte fokus til menyknappen; `A1-IPAD-001` bestod fysisk retest. Ved portrett → landskap forsvant den fokuserte mobilknappen ved breakpointet, og VoiceOver flyttet til Safaris «Show sidebar»/«Home button to the right»; `A1-IPAD-002` ble åpnet og porten stoppet. |
+| `A1-IPAD-20260716-02T` | Sikker teardown etter andre iPad-runde | `d9ec64740a1e798e994ff3796fad6010bc114f5c` | Windows 11; lokal Klar/Supabase; midlertidig enhetsavgrenset brannmur | Bestått | Klar-starter og lokal Supabase ble stoppet, testportene ble kontrollert lukket, midlertidige regler ble fjernet og opprinnelig brannmurtilstand gjenopprettet. |
+
+Safari-versjonen ble ikke registrert i disse rundene og skal fanges ved neste
+fysiske retest. Ingen passord, elevkoder, TOTP-hemmeligheter, nøkler eller
+engangs-IP-adresser er lagret i loggen.
+
+### 9.2 Avvik og retester
+
+| ID | Port | Funnet på | Reproduksjon og observasjon | Tiltak | Automatisk regresjon | Fysisk retest |
+| --- | --- | --- | --- | --- | --- | --- |
+| `A1-NVDA-001` | B1 | `81d19569a275ec15fe34c8b6e5b905bd49efd479`; Windows/NVDA | Tab til en «Trekk tilbake»-knapp i oppdragslisten. Flere kontroller hadde samme tilgjengelige navn, slik at region-/listekontekst ble lest før knappen og målet ble tvetydig. | Unikt tilgjengelig navn med ansatt og klasse per tilbakekallingskontroll. | Målrettet tilgangs-/navnetest og full kontrollpunktport grønne. | Bestått med NVDA på `5cc860c681bea2e781a17f93f56778039dff419b`; de tidlige kontrollene ble kjørt på nytt på samme commit. |
+| `A1-IPAD-001` | B2/C | `2d70ab4a94094df9dffdd036f3d6cd01e02c58c9`; iPad portrett/Safari/VoiceOver | Åpne mobilmenyen. Triggeren lå til høyre, mens draweren åpnet fra venstre, slik at kontroll og resultat manglet romlig sammenheng. | Behold venstreforankret drawer og flytt triggeren til venstre foran Klar-merket. Testen krever trigger før merke, samme kant, 44 × 44-mål, `aria-expanded`, Escape og fokusretur. | `npm run test:e2e:visual -- --browser=chromium` 17/17, WebKit 17/17 og `npm run verify:checkpoint` grønne før `d9ec647`. | Bestått på samme iPad og `d9ec64740a1e798e994ff3796fad6010bc114f5c`: trigger og drawer åpnet fra samme side; lukking returnerte fokus. |
+| `A1-IPAD-002` | B2/F | `d9ec64740a1e798e994ff3796fad6010bc114f5c`; iPad/Safari/VoiceOver | Lukk draweren slik at fokus står på menyknappen, og roter fra 768-portrett til 1024-landskap. Mobilheaderen skjules, fast sidepanel vises, men fokus forlater Klar og lander i Safari-grensesnittet. | Spor siste navigasjonsregion. Ved breakpointbytte flyttes fokus etter layout til aktiv synlig sidepanellenke, og symmetrisk tilbake til menyknappen ved landskap → portrett. Hovedinnholdsfokus skal ikke kapres. | Ny dynamisk, automatisert viewport-round-trip `768×1024 → 1024×768 → 768×1024` består i Chromium 17/17 og WebKit 17/17 på arbeidstreet for rettingscommiten; negativ skip-lenke-test inngår før commit. | **Åpen.** Må retestes fysisk med VoiceOver på rettingscommiten før B2/F kan godkjennes. |
+
+## 10. Bevislogg
+
+Fyll én aggregert rad per port. De underliggende gjennomføringene og avvikene
+skal finnes i kronologien over. `Bestått` kan bare brukes når hele portens
+beståttkriterium er kontrollert.
 
 | Port | Resultat | Commit | Dato/tester | Enhet, OS og nettleser | Bevis/notat |
 | --- | --- | --- | --- | --- | --- |
 | A – faktisk 200 % zoom | Bestått | `019ac23333bcbe20f5b45d3ded0440bbd7c05605` | 2026-07-16 / Stian | Windows 11 Home 10.0.26200; Codex In-app Browser, app 26.707.9981.0 / Chromium-prosess 150.0.7871.115 | Hele Port A-protokollen bekreftet bestått av tester. OS- og browsermetadata er lest lokalt etter testen. |
 | B1 – NVDA | Bestått | `5cc860c681bea2e781a17f93f56778039dff419b` | 2026-07-16 / Stian | Windows 11 Home 10.0.26200; NVDA 2026.1.1; Playwright Chromium 149.0.7827.55 | Hele NVDA-protokollen bekreftet med bare tastatur og syntetiske lokale data: skip-lenke, landmarks, overskrifter og oppdragsregion; felt, grupper, fokusfelle, Escape og fokusretur i opprettings- og tilbakekallingsdialog; klasseoverskrifter, trygg tilgangsavslutning samt opprettings-, tilbakekallings- og feilstatus. Et tvetydig navn på tilbakekallingsknappene ble funnet, rettet i denne commiten og kontrollert på nytt. Den avsluttende retesten av de tidlige kontrollene ble kjørt på samme commit. |
-| B2 – VoiceOver | Ikke kjørt |  |  |  |  |
+| B2 – VoiceOver | Pågår – avvik åpent | `d9ec64740a1e798e994ff3796fad6010bc114f5c` | 2026-07-16 / Stian | iPad 9. generasjon; iPadOS 26.5.2; Safari; VoiceOver | Innlogging, MFA, overskriftsrotor, mobilmeny og fokusretur er fysisk kontrollert. Meny/drawer-avviket bestod retest; fokusavviket ved portrett → landskap må retestes på rettingscommiten. Se `A1-IPAD-20260716-01/02` og `A1-IPAD-001/002`. |
 | C – ekte touch | Ikke kjørt |  |  |  |  |
 | D – notch/safe-area | Ikke kjørt |  |  |  |  |
 | E – virtuelt tastatur | Ikke kjørt |  |  |  |  |
-| F – orienteringsbytte | Ikke kjørt |  |  |  |  |
+| F – orienteringsbytte | Pågår – avvik åpent | `d9ec64740a1e798e994ff3796fad6010bc114f5c` | 2026-07-16 / Stian | iPad 9. generasjon; iPadOS 26.5.2; Safari; VoiceOver | Første live bytte avdekket `A1-IPAD-002`. Automatisk round-trip er grønn; fysisk rettingsretest, dialog/input med bevart verdi og mobiltelefon gjenstår. |
 
-## 10. Lukking av A1
+## 11. Lukking av A1
 
 Når alle rader er bestått, skal beviset og de automatiske portene gjelde samme
 kandidatcommit. Etter en kodeendring må berørte manuelle porter kjøres på nytt.

@@ -119,6 +119,28 @@ test("lagrer ownerens tilgangsliste og responsive opprett-flyt", async ({
     await expect(menu).toBeHidden();
     await expect(menuButton).toBeFocused();
     await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+    if (viewport.width === 768 && viewport.height === 1024) {
+      await page.setViewportSize({ width: 1024, height: 768 });
+      const currentDesktopLink = page
+        .locator("aside")
+        .getByRole("link", { name: "Tilganger", exact: true });
+      await expect(currentDesktopLink).toBeVisible();
+      await expect(currentDesktopLink).toBeFocused();
+      await expectNoHorizontalOverflow(page);
+
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await expect(menuButton).toBeVisible();
+      await expect(menuButton).toBeFocused();
+      await expectNoHorizontalOverflow(page);
+
+      const skipLink = page.getByRole("link", { name: "Hopp til hovedinnhold" });
+      await skipLink.focus();
+      await expect(skipLink).toBeFocused();
+      await page.setViewportSize({ width: 1024, height: 768 });
+      await expect(skipLink).toBeFocused();
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await expect(skipLink).toBeFocused();
+    }
   } else {
     await expect(page.locator(".staff-mobile-header")).toBeHidden();
     const sidebar = page.locator("aside");

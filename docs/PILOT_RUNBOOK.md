@@ -128,10 +128,12 @@ reelt utstyr. Bruk den detaljerte
 faktisk enhet, nettleser og resultat:
 
 - [x] faktisk 200 prosent browserzoom/reflow;
-- [ ] NVDA bestått 2026-07-16; VoiceOver gjenstår;
+- [ ] NVDA bestått 2026-07-16; VoiceOver på iPad er delvis gjennomført med
+  én fysisk fokusretest etter orienteringsavvik fortsatt åpen;
 - [ ] ekte touch og trykkmål;
 - [ ] notch/safe-area;
 - [ ] ekte virtuelt tastatur;
-- [ ] live bytte mellom portrett og landskap.
+- [ ] live bytte mellom portrett og landskap; første iPad-runde fant et
+  fokusavvik, automatisk round-trip er grønn og fysisk rettingsretest gjenstår.
 
 Kontrollpunkt A1 skal ikke omtales som fullført før disse er dokumentert.

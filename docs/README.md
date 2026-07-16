@@ -39,8 +39,9 @@ tilgjengelighetsfeil.
   verifikasjonsstatus og gjenværende porter.
 - [Visuell QA for kontrollpunkt 0](./qa/CONTROL_POINT_0_VISUAL_QA.md) – utfylt
   matrise, semantisk vurdering og kjente produktgap.
-- [Kontrollpunkt A1](./qa/CONTROL_POINT_A1.md) – scope-låst, men ennå ikke
-  implementert autorisasjonskjerne for aktive ansattoppdrag.
+- [Kontrollpunkt A1](./qa/CONTROL_POINT_A1.md) – implementert
+  autorisasjonskjerne med grønne automatiske porter; manuelle enhetsporter
+  pågår og loggføres separat.
 
 ## Dokumenttyper
 

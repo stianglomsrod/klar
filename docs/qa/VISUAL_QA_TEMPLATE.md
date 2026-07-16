@@ -6,11 +6,14 @@ screenshots med persondata eller midlertidige TOTP-/innloggingsopplysninger.
 ## Omfang
 
 - Slice/epic:
-- Commit:
+- Kandidatcommit:
+- Eventuell rettings-/retestcommit:
 - Dato:
 - Tester:
 - Roller:
 - Browser(e):
+- Fysisk enhet, OS og hjelpemiddel:
+- Testmiljø/origin (uten hemmeligheter):
 - Referansebilder fra `Prototypen/`:
 - Kjente antimønstre kontrollert:
 
@@ -49,15 +52,30 @@ for nye skall og kjerneflyter.
 - [ ] Bare tastatur og synlig fokus
 - [ ] VoiceOver/NVDA på berørt kjerneflyt
 - [ ] Ekte touch på mobil/iPad
+- [ ] Live orienteringsbytte mens fokus står i navigasjon, dialog og input
 - [ ] Kamera-/mikrofontillatelse når relevant
 - [ ] Feiring/timing med og uten reduced motion
 - [ ] Forståelighet for målgruppen vurdert av menneske
 
-## Avvik og beslutning
+## Gjennomføringslogg
 
-| Alvorlighet | Avvik | Eier/tiltak | Status |
-| --- | --- | --- | --- |
-|  |  |  |  |
+Før én rad per faktisk kjøring. En delvis eller mislykket kjøring beholdes når
+en senere retest består.
+
+| ID | Port/scenario | Kandidat | Enhet/browser/hjelpemiddel | Resultat | Bevis/notat |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |
+
+## Avvik, retting og retest
+
+| ID/alvorlighet | Funnet på commit/enhet | Reproduksjon | Tiltak | Automatisk regresjon | Fysisk retest og commit | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+|  |  |  |  |  |  |  |
+
+Stopp den berørte manuelle porten ved første avvik. Rett årsaken, legg til en
+automatisk regresjon der det er mulig, og kjør deretter samme scenario på den
+samme enhetstypen og den nye eksakte commiten. Et automatisk grønt resultat
+alene lukker ikke et fysisk avvik.
 
 **Beslutning:** Godkjent / godkjent med kjent avvik / ikke godkjent
 

@@ -44,6 +44,11 @@ orienteringsportene gjenstår.
 - iPad landskap: sidepanel eller delt visning; portrett: sheet/fullskjerm.
 - Mobil: navigasjonsdrawer og sekvensielle kort/sheets; alle kjernehandlinger
   beholdes selv om store tabeller omformes.
+- Mobilmenyens trigger skal ligge på samme ledende kant som draweren åpner fra,
+  og visuell rekkefølge skal samsvare med DOM- og fokusrekkefølge.
+- Når et breakpoint erstatter mobil- og desktopnavigasjon med ulike synlige
+  DOM-trær, skal fokus flyttes eksplisitt til tilsvarende synlig kontroll eller
+  aktiv lenke etter layoutbyttet. Fokus i hovedinnholdet skal ikke kapres.
 - Massehandlinger skal vise valgt omfang og konsekvens før bekreftelse.
 
 ## Felles primitives
@@ -111,6 +116,9 @@ redusert bevegelse. Nettverksavbrudd/reconnect skal inngå der realtime brukes.
 Opprett gjenbrukbare Playwright-hjelpere for viewport, keyboard-only, axe,
 reduced motion og overflow. Visuell QA skal lagre representative skjermbilder
 for alle fem målklasser og dokumentere manuell skjermleser-/touchkontroll.
+Separate portrett-/landskapsbilder er ikke tilstrekkelig når navigasjonen
+bytter DOM ved breakpointet: automatisert viewport-round-trip med fokusbevis
+skal pares med fysisk VoiceOver-/TalkBack-retest på rettingscommiten.
 
 E06 er ikke «ferdig én gang». Hver epic må lenke til sine E06-bevis. Status kan
 settes til «Pågår» når skall/primitives og matrise finnes, men kan først settes

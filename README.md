@@ -140,9 +140,11 @@ fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
 Playwright-smoke og kjører den separate databasepakken i både tomt og
 representativt oppgraderingsscenario.
 
-A1s automatiske porter er grønne, men faktiske kontroller med 200 prosent
-browserzoom, NVDA/VoiceOver, ekte touch, notch/safe-area, virtuelt tastatur og
-live orienteringsbytte gjenstår. A1 omtales derfor ikke som fullført.
+A1s automatiske porter er grønne. Faktisk 200 prosent browserzoom og NVDA er
+bestått; VoiceOver-testen på iPad pågår med ett åpent fokusavvik ved live
+orienteringsbytte. Ekte touch på hele enhetsmatrisen, notch/safe-area, virtuelt
+tastatur og full live orienteringsport gjenstår. A1 omtales derfor ikke som
+fullført.
 
 Den lokale A1-suiten dekker også ugyldige oppdragsinput, forfalskede
 kontrollhandlinger, en redusert testprofil for kapabiliteter, positiv
