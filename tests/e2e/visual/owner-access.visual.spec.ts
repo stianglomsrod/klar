@@ -92,15 +92,40 @@ test("lagrer ownerens tilgangsliste og responsive opprett-flyt", async ({
 
   if (viewport.width < 1024) {
     const menuButton = page.getByRole("button", { name: "Åpne meny" });
+    const mobileBrand = page
+      .locator(".staff-mobile-header")
+      .getByRole("link", { name: "Klar", exact: true });
     await expectMinimumTargetSize(menuButton);
+    const menuButtonBox = await menuButton.boundingBox();
+    const mobileBrandBox = await mobileBrand.boundingBox();
+    if (!menuButtonBox || !mobileBrandBox) {
+      throw new Error("Mobilheaderen mangler forventet layoutboks.");
+    }
+    expect(menuButtonBox.x).toBeLessThan(mobileBrandBox.x);
+    await expect(menuButton).toHaveAttribute("aria-expanded", "false");
     await menuButton.click();
     const menu = page.getByRole("dialog", { name: "Meny" });
     await expect(menu).toBeVisible();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "true");
+    const menuBox = await menu.boundingBox();
+    if (!menuBox) throw new Error("Mobilmenyen mangler layoutboks.");
+    expect(Math.abs(menuBox.x)).toBeLessThanOrEqual(2);
+    const menuButtonCenter = menuButtonBox.x + menuButtonBox.width / 2;
+    expect(menuButtonCenter).toBeGreaterThanOrEqual(menuBox.x);
+    expect(menuButtonCenter).toBeLessThanOrEqual(menuBox.x + menuBox.width);
     await expectNoHorizontalOverflow(page);
     await expectNoAxeViolations(page);
     await page.keyboard.press("Escape");
     await expect(menu).toBeHidden();
     await expect(menuButton).toBeFocused();
+    await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+  } else {
+    await expect(page.locator(".staff-mobile-header")).toBeHidden();
+    const sidebar = page.locator("aside");
+    await expect(sidebar).toBeVisible();
+    const sidebarBox = await sidebar.boundingBox();
+    if (!sidebarBox) throw new Error("Desktopnavigasjonen mangler layoutboks.");
+    expect(Math.abs(sidebarBox.x)).toBeLessThanOrEqual(2);
   }
 
   const openButton = page.getByRole("button", { name: "Gi tilgang" });

@@ -131,11 +131,7 @@ export function StaffShell({
       </aside>
 
       <div className="min-w-0">
-        <header className="staff-mobile-header sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-200 bg-white px-4 py-2 lg:hidden">
-          <Link href="/v3/teacher" className="flex items-center gap-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-indigo-700 font-bold text-white" aria-hidden="true">K</span>
-            <span className="font-bold">Klar</span>
-          </Link>
+        <header className="staff-mobile-header sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 lg:hidden">
           <button
             ref={menuButton}
             type="button"
@@ -147,6 +143,10 @@ export function StaffShell({
           >
             <Menu aria-hidden="true" />
           </button>
+          <Link href="/v3/teacher" className="flex min-h-11 items-center gap-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-600">
+            <span className="grid h-9 w-9 place-items-center rounded-lg bg-indigo-700 font-bold text-white" aria-hidden="true">K</span>
+            <span className="font-bold">Klar</span>
+          </Link>
         </header>
 
         <div className="staff-shell-content mx-auto max-w-[90rem] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">
