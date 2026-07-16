@@ -1,7 +1,7 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Implementert – alle automatiske A1-porter og manuell Port A er
-grønne; de øvrige fysiske enhetsportene gjenstår
+**Status:** Implementert – alle automatiske A1-porter samt manuell Port A og
+NVDA-port B1 er grønne; VoiceOver og de øvrige fysiske enhetsportene gjenstår
 
 **Forberedt:** 15. juli 2026
 
@@ -471,8 +471,8 @@ Bildene er semantiske referanser, ikke screenshot-baselines.
   handlinger eller fokus.
 - [x] Axe A/AA, runtime- og overflow-kontroller har ingen ukjente avvik.
 - [ ] NVDA/VoiceOver kontrolleres manuelt før Kontrollpunkt A kan omtales som
-  ferdig; dersom dette ikke er tilgjengelig, markeres A1-porten
-  eksplisitt uverifisert og A1 kalles ikke fullført.
+  ferdig. NVDA er verifisert 2026-07-16; VoiceOver gjenstår. Inntil begge er
+  bestått, kalles A1 ikke fullført.
 
 ### Verifikasjonsstatus
 
@@ -508,7 +508,7 @@ enhetskontroll. Gjennomfør og loggfør portene med
 | Port | Status | Automatisert bevis som finnes |
 | --- | --- | --- |
 | Faktisk 200 % browserzoom | Verifisert 2026-07-16 | 720 × 450 reflowproxy med tekstoverstyring og faktisk Port A-bevis i den manuelle QA-loggen |
-| NVDA/VoiceOver | Uverifisert | Axe og semantiske tastaturtester |
+| NVDA/VoiceOver | NVDA verifisert 2026-07-16; VoiceOver uverifisert | Axe og semantiske tastaturtester; faktisk NVDA-bevis i den manuelle QA-loggen |
 | Ekte touch | Uverifisert | Touch-emulering og 44 × 44-geometri |
 | Safe-area/notch | Uverifisert | Responsiv CSS og statiske viewports |
 | Ekte virtuelt tastatur | Uverifisert | Redusert viewporthøyde |

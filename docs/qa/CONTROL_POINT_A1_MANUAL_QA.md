@@ -1,6 +1,6 @@
 # Kontrollpunkt A1 – manuell QA på reelt utstyr
 
-**Status:** Port A bestått 16. juli 2026 – B1–F gjenstår
+**Status:** Port A og B1 bestått 16. juli 2026 – B2–F gjenstår
 
 **Gjelder:** [`CONTROL_POINT_A1.md`](./CONTROL_POINT_A1.md)
 
@@ -159,7 +159,7 @@ portens beståttkriterium er kontrollert.
 | Port | Resultat | Commit | Dato/tester | Enhet, OS og nettleser | Bevis/notat |
 | --- | --- | --- | --- | --- | --- |
 | A – faktisk 200 % zoom | Bestått | `019ac23333bcbe20f5b45d3ded0440bbd7c05605` | 2026-07-16 / Stian | Windows 11 Home 10.0.26200; Codex In-app Browser, app 26.707.9981.0 / Chromium-prosess 150.0.7871.115 | Hele Port A-protokollen bekreftet bestått av tester. OS- og browsermetadata er lest lokalt etter testen. |
-| B1 – NVDA | Ikke kjørt |  |  |  |  |
+| B1 – NVDA | Bestått | `5cc860c681bea2e781a17f93f56778039dff419b` | 2026-07-16 / Stian | Windows 11 Home 10.0.26200; NVDA 2026.1.1; Playwright Chromium 149.0.7827.55 | Hele NVDA-protokollen bekreftet med bare tastatur og syntetiske lokale data: skip-lenke, landmarks, overskrifter og oppdragsregion; felt, grupper, fokusfelle, Escape og fokusretur i opprettings- og tilbakekallingsdialog; klasseoverskrifter, trygg tilgangsavslutning samt opprettings-, tilbakekallings- og feilstatus. Et tvetydig navn på tilbakekallingsknappene ble funnet, rettet i denne commiten og kontrollert på nytt. Den avsluttende retesten av de tidlige kontrollene ble kjørt på samme commit. |
 | B2 – VoiceOver | Ikke kjørt |  |  |  |  |
 | C – ekte touch | Ikke kjørt |  |  |  |  |
 | D – notch/safe-area | Ikke kjørt |  |  |  |  |

@@ -128,7 +128,7 @@ reelt utstyr. Bruk den detaljerte
 faktisk enhet, nettleser og resultat:
 
 - [x] faktisk 200 prosent browserzoom/reflow;
-- [ ] NVDA og VoiceOver;
+- [ ] NVDA bestått 2026-07-16; VoiceOver gjenstår;
 - [ ] ekte touch og trykkmål;
 - [ ] notch/safe-area;
 - [ ] ekte virtuelt tastatur;
