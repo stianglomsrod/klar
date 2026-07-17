@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  applyTextSpacingOverride,
   expectMinimumTargetSize,
   expectNoAxeViolations,
   expectNoHorizontalOverflow,
@@ -14,19 +15,7 @@ test("ownerflyten reflower ved 200 prosent og tåler tekst- og høydeoverstyring
   await page.goto("/v3/teacher/access");
   await expect(page.getByRole("heading", { name: "Tilganger" })).toBeVisible();
 
-  const textOverride = await page.addStyleTag({
-    content: `
-      :where(html, body, button, input, select, textarea) {
-        font-family: Arial, sans-serif !important;
-      }
-      :where(p, li, label, button, input, select, textarea) {
-        line-height: 1.5 !important;
-        letter-spacing: 0.12em !important;
-        word-spacing: 0.16em !important;
-      }
-      p { margin-bottom: 2em !important; }
-    `,
-  });
+  const textOverride = await applyTextSpacingOverride(page);
 
   const openButton = page.getByRole("button", { name: "Gi tilgang" });
   await openButton.focus();

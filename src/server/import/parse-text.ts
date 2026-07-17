@@ -74,13 +74,20 @@ function createTask(
   };
 }
 
-function addUniqueTask(
+function addTask(
   tasks: ImportedTask[],
   seen: Set<string>,
+  duplicateWarnings: Set<string>,
+  warnings: string[],
   task: ImportedTask,
 ): void {
   const key = `${task.subject ?? ""}:${task.title}`.toLocaleLowerCase("nb");
-  if (seen.has(key)) return;
+  if (seen.has(key) && !duplicateWarnings.has(key)) {
+    warnings.push(
+      `«${task.title}» forekommer flere ganger. Begge forslagene er beholdt; kontroller om det er tilsiktet.`,
+    );
+    duplicateWarnings.add(key);
+  }
   seen.add(key);
   tasks.push(task);
 }
@@ -90,6 +97,7 @@ export function parseWeeklyPlanText(text: string): ImportedPlanPreview {
   const tasks: ImportedTask[] = [];
   const fallbackLines: string[] = [];
   const seen = new Set<string>();
+  const duplicateWarnings = new Set<string>();
   let currentSubject: string | null = null;
 
   for (const rawLine of text.split(/\r?\n/)) {
@@ -105,7 +113,7 @@ export function parseWeeklyPlanText(text: string): ImportedPlanPreview {
         const inlineTask = line.slice(colonIndex + 1).trim();
         if (!inlineTask) continue;
         const task = createTask(inlineTask, currentSubject, warnings);
-        if (task) addUniqueTask(tasks, seen, task);
+        if (task) addTask(tasks, seen, duplicateWarnings, warnings, task);
         if (tasks.length >= MAX_TASKS) break;
         continue;
       }
@@ -124,7 +132,7 @@ export function parseWeeklyPlanText(text: string): ImportedPlanPreview {
 
     if (!currentSubject && !markedAsTask) continue;
     const task = createTask(line, currentSubject, warnings);
-    if (task) addUniqueTask(tasks, seen, task);
+    if (task) addTask(tasks, seen, duplicateWarnings, warnings, task);
     if (tasks.length >= MAX_TASKS) break;
   }
 
@@ -135,7 +143,7 @@ export function parseWeeklyPlanText(text: string): ImportedPlanPreview {
     for (const line of fallbackLines) {
       if (shouldIgnoreLine(line)) continue;
       const task = createTask(line, null, warnings);
-      if (task) addUniqueTask(tasks, seen, task);
+      if (task) addTask(tasks, seen, duplicateWarnings, warnings, task);
       if (tasks.length >= 10) break;
     }
   }

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  applyTextSpacingOverride,
   expectNoAxeViolations,
   expectNoHorizontalOverflow,
   expectMinimumTargetSize,
@@ -10,10 +11,15 @@ test("lagrer elevens dagsflate som QA-artefakt", async ({ page }, testInfo) => {
   const expectNoRuntimeErrors = observeRuntimeErrors(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/v3/student");
+  if (testInfo.project.name.endsWith("reflow-200")) {
+    await applyTextSpacingOverride(page);
+  }
   await expect(page.getByRole("heading", { name: "Hei, Visuell elev" })).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Visuell arbeidsoppgave" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Visuell arbeidsøkt" })).toBeVisible();
+  await expect(page.getByText("Nå", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Visuell øktoppgave" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Andre oppgaver" })).toBeVisible();
+  await expect(page.getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/)).toBeVisible();
   await expect(page.getByText("Oppgave publisert av vikar", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Be om hjelp" })).toBeVisible();
   // Den visuelle eleven har stille motivasjonsmodus. Det skal heller ikke
@@ -36,15 +42,15 @@ test("lagrer elevens dagsflate som QA-artefakt", async ({ page }, testInfo) => {
 
   const taskCard = page
     .getByRole("article")
-    .filter({ hasText: "Visuell arbeidsoppgave" });
+    .filter({ hasText: "Visuell øktoppgave" });
   const openButton = taskCard.getByRole("button", {
-    name: "Åpne oppgaven Visuell arbeidsoppgave",
+    name: "Åpne oppgaven Visuell øktoppgave",
   });
   await expectMinimumTargetSize(openButton);
   await openButton.focus();
   await expect(openButton).toBeFocused();
   await page.keyboard.press("Enter");
-  const taskDialog = page.getByRole("dialog", { name: "Visuell arbeidsoppgave" });
+  const taskDialog = page.getByRole("dialog", { name: "Visuell øktoppgave" });
   const completeButton = taskDialog.getByRole("button", { name: "Fullfør" });
   await expectMinimumTargetSize(completeButton);
   await expectNoHorizontalOverflow(page);

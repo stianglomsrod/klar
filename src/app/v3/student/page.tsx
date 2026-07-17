@@ -3,12 +3,14 @@ import { StudentHelpControl } from "@/components/v3/StudentHelpControl";
 import { getStudentHelpState } from "@/server/help/help-service";
 import { getStudentToday } from "@/server/tasks/task-service";
 import { getOwnStudentExperience } from "@/server/students/experience-service";
+import { getOwnStudentSessionDay } from "@/server/plans/student-day-service";
 
 export default async function PrototypeStudentPage() {
-  const [today, helpState, experience] = await Promise.all([
+  const [today, helpState, experience, sessionDay] = await Promise.all([
     getStudentToday(),
     getStudentHelpState(),
     getOwnStudentExperience(),
+    getOwnStudentSessionDay(),
   ]);
 
   return (
@@ -18,12 +20,17 @@ export default async function PrototypeStudentPage() {
           Klar 3.0
         </p>
         <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Hei, {today.displayName}</h1>
-        <p className="mt-3 text-lg text-slate-600">Her er det du skal gjøre nå.</p>
+        <p className="mt-3 text-lg text-slate-600">
+          {sessionDay.sessions.length > 0
+            ? "Her er skoledagen din."
+            : "Her er det du skal gjøre nå."}
+        </p>
         <div className="mt-8">
           <StudentTodayPanel
             tasks={today.tasks}
             initialProgress={today.progress}
             initialExperience={experience}
+            sessionDay={sessionDay}
           />
         </div>
         <StudentHelpControl state={helpState} />

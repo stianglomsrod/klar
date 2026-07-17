@@ -1,6 +1,7 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-safety.mjs";
+import { fixtureSessionPlans } from "./fixture-session-plans.mjs";
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -182,6 +183,77 @@ async function publishTask({
     throw assignmentError ?? new Error("E2E-oppgaveiterasjonen mangler.");
   }
   return { taskId, assignmentId: assignment.id };
+}
+
+async function publishWeeklyPlanFixture({
+  classId,
+  actorId,
+  staffAssignmentId,
+  keyPrefix,
+  titlePrefix,
+}) {
+  if (process.env.TZ !== "Europe/Oslo") {
+    throw new Error("Lokal E2E-ukeplan krever TZ=Europe/Oslo.");
+  }
+  const plans = fixtureSessionPlans();
+  let globalIndex = 0;
+  let sessionCount = 0;
+  let taskCount = 0;
+
+  for (const [planIndex, plan] of plans.entries()) {
+    const sessions = plan.windows.map((window) => {
+      globalIndex += 1;
+      const presentationKey = window.presentationKey;
+      const subject = presentationKey === "next" ? "Matematikk" : "Norsk";
+      return {
+        logical_key: `${keyPrefix}1000000-0000-4000-8000-${String(globalIndex).padStart(12, "0")}`,
+        title:
+          presentationKey === "previous"
+            ? `${titlePrefix} lesestund`
+            : presentationKey === "current"
+              ? `${titlePrefix} arbeidsøkt`
+              : `${titlePrefix} matematikk`,
+        subject,
+        starts_at: window.startsAt,
+        ends_at: window.endsAt,
+        tasks: [
+          {
+            logical_key: `${keyPrefix}2000000-0000-4000-8000-${String(globalIndex).padStart(12, "0")}`,
+            title:
+              presentationKey === "current"
+                ? `${titlePrefix} øktoppgave`
+                : `${titlePrefix} ${presentationKey === "previous" ? "leseoppgave" : "regneoppgave"}`,
+            description: "Syntetisk oppgave i en autoritativ undervisningsøkt.",
+            subject,
+            estimated_minutes: 10,
+            support_level: 2,
+          },
+        ],
+      };
+    });
+    const candidate = { schema_version: "weekly_plan_v1", sessions };
+    const semanticHash = createHash("sha256")
+      .update(JSON.stringify(candidate), "utf8")
+      .digest("hex");
+    const { data, error } = await admin.rpc("publish_initial_weekly_plan", {
+      p_class_id: classId,
+      p_actor_id: actorId,
+      p_staff_assignment_id: staffAssignmentId,
+      p_week_start_date: plan.weekStartDate,
+      p_timezone_name: "Europe/Oslo",
+      p_expected_lock_version: 0,
+      p_request_id: `${keyPrefix}3000000-0000-4000-8000-${String(planIndex + 1).padStart(12, "0")}`,
+      p_semantic_hash: semanticHash,
+      p_candidate: candidate,
+    });
+    if (error || !data) {
+      throw error ?? new Error("E2E-ukeplanen ble ikke publisert.");
+    }
+    sessionCount += sessions.length;
+    taskCount += sessions.length;
+  }
+
+  return { sessionCount, taskCount };
 }
 
 await Promise.all([
@@ -384,6 +456,21 @@ await insert("student_login_codes", [
     created_by: IDS.owner,
   },
 ]);
+
+const primaryWeeklyPlan = await publishWeeklyPlanFixture({
+  classId: IDS.class,
+  actorId: IDS.owner,
+  staffAssignmentId: ownerStaffAssignment,
+  keyPrefix: "a",
+  titlePrefix: "Dagens",
+});
+const visualWeeklyPlan = await publishWeeklyPlanFixture({
+  classId: IDS.visualClass,
+  actorId: IDS.visualStaff,
+  staffAssignmentId: visualStaffAssignment,
+  keyPrefix: "b",
+  titlePrefix: "Visuell",
+});
 
 await publishTask({
   classId: IDS.class,
@@ -606,9 +693,11 @@ const ledgerBalance = ledgerResult.data.reduce(
   (sum, entry) => sum + entry.points_delta,
   0,
 );
+const plannedAssignmentCount =
+  primaryWeeklyPlan.taskCount + visualWeeklyPlan.taskCount;
 if (
-  statesResult.data.length !== 7 ||
-  assignedStates !== 4 ||
+  statesResult.data.length !== 7 + plannedAssignmentCount ||
+  assignedStates !== 4 + plannedAssignmentCount ||
   completedStates !== 3 ||
   attemptsResult.data.length !== 1 ||
   transitionsResult.data.length !== 1 ||

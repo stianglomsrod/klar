@@ -261,6 +261,10 @@ export async function getStudentToday(): Promise<StudentToday> {
     .eq("organization_id", actor.organizationId)
     .eq("student_id", actor.userId)
     .in("class_id", activeClassIds)
+    // Plan-linked assignments are projected by get_my_student_day_v1 so that
+    // future days and non-adjacent sessions never leak into "Andre oppgaver".
+    // This query is the compatibility bridge for tasks published before C1.
+    .is("plan_task_id", null)
     .lte("visible_from", new Date().toISOString())
     .order("visible_from");
   if (assignmentError) throw new PrototypeDataError();

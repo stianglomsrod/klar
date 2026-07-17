@@ -32,6 +32,7 @@ const a1FollowupMigrations = [
 const postA1Migrations = [
   "20260716000000_staff_capability_v2.sql",
   "20260716000001_progress_core.sql",
+  "20260716000002_weekly_plan_sessions.sql",
 ];
 const activeContainers = new Set();
 
@@ -93,7 +94,8 @@ function startContainer(label) {
   activeContainers.add(name);
 
   let ready = false;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  let consecutiveReadyProbes = 0;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
     const probe = spawnSync("docker", [
       "exec",
       name,
@@ -111,7 +113,10 @@ function startContainer(label) {
       shell: false,
       timeout: 5_000,
     });
-    if (!probe.error && probe.status === 0) {
+    consecutiveReadyProbes = !probe.error && probe.status === 0
+      ? consecutiveReadyProbes + 1
+      : 0;
+    if (consecutiveReadyProbes >= 6) {
       ready = true;
       break;
     }
@@ -744,6 +749,170 @@ async function runProgressConcurrency(config) {
   });
 }
 
+function weeklyCandidate(prefix, title, date, taskCount = 1) {
+  return {
+    schema_version: "weekly_plan_v1",
+    sessions: [
+      {
+        logical_key: `${prefix}1000000-0000-4000-8000-000000000001`,
+        title,
+        subject: "Norsk",
+        starts_at: `${date}T08:00:00.000Z`,
+        ends_at: `${date}T09:00:00.000Z`,
+        tasks: Array.from({ length: taskCount }, (_, index) => ({
+          logical_key: `${prefix}2000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+          title: `${title} oppgave ${index + 1}`,
+          description: null,
+          subject: "Norsk",
+          estimated_minutes: 10,
+          support_level: 2,
+        })),
+      },
+    ],
+  };
+}
+
+async function runWeeklyPlanConcurrency(config) {
+  const organizationId = "b0000000-0000-4000-8000-000000000001";
+  const classId = "c0000000-0000-4000-8000-000000000001";
+  const actorId = "a0000000-0000-4000-8000-000000000004";
+  const joiningStudentId = "a0000000-0000-4000-8000-000000000007";
+  const staffAssignmentId = await withClient(
+    config,
+    "klar-c1-resolve-assignment",
+    async (client) => {
+      const result = await client.query(
+        `select assignment.id
+         from public.staff_assignments as assignment
+         join public.staff_assignment_class_scopes as scope
+           on scope.assignment_id = assignment.id
+         where assignment.user_id = $1 and scope.class_id = $2
+           and assignment.revoked_at is null`,
+        [actorId, classId],
+      );
+      return result.rows[0].id;
+    },
+  );
+  const publishSql = `select public.publish_initial_weekly_plan(
+    $1,$2,$3,$4::date,'Europe/Oslo',0,$5,$6,$7::jsonb
+  ) as result`;
+  const publishArgs = (week, requestId, hash, candidate) => [
+    classId,
+    actorId,
+    staffAssignmentId,
+    week,
+    requestId,
+    hash,
+    JSON.stringify(candidate),
+  ];
+
+  const sameWeek = "2099-07-20";
+  const sameCandidate = weeklyCandidate("d", "Lik kandidat", "2099-07-21");
+  const sameResults = await synchronizedPair(
+    config,
+    "weekly-same-candidate",
+    (client) => client.query(publishSql, publishArgs(
+      sameWeek,
+      "d3000000-0000-4000-8000-000000000001",
+      "c".repeat(64),
+      sameCandidate,
+    )),
+    (client) => client.query(publishSql, publishArgs(
+      sameWeek,
+      "d3000000-0000-4000-8000-000000000002",
+      "c".repeat(64),
+      sameCandidate,
+    )),
+  );
+  assert(sameResults.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    sameResults.map((result) => result.value.rows[0].result.already_published).sort(),
+    [false, true],
+  );
+  assert.equal(
+    sameResults[0].value.rows[0].result.weekly_plan_id,
+    sameResults[1].value.rows[0].result.weekly_plan_id,
+  );
+
+  await withClient(config, "klar-c1-assert-same", async (client) => {
+    const result = await client.query(
+      `select
+        (select count(*)::integer from public.weekly_plans where class_id = $1 and week_start_date = $2) as plans,
+        (select count(*)::integer from public.plan_revisions as revision join public.weekly_plans as plan on plan.id = revision.weekly_plan_id where plan.class_id = $1 and plan.week_start_date = $2) as revisions,
+        (select count(*)::integer from public.weekly_plan_publish_receipts as receipt join public.weekly_plans as plan on plan.id = receipt.weekly_plan_id where plan.class_id = $1 and plan.week_start_date = $2) as receipts,
+        (select count(*)::integer from public.audit_events where event_name = 'weekly_plan.published' and metadata ->> 'week_start_date' = $2::text) as audits`,
+      [classId, sameWeek],
+    );
+    assert.deepEqual(result.rows[0], { plans: 1, revisions: 1, receipts: 2, audits: 1 });
+  });
+
+  const conflictWeek = "2099-07-27";
+  const conflictResults = await synchronizedPair(
+    config,
+    "weekly-conflict",
+    (client) => client.query(publishSql, publishArgs(
+      conflictWeek,
+      "e3000000-0000-4000-8000-000000000001",
+      "d".repeat(64),
+      weeklyCandidate("e", "Kandidat A", "2099-07-28"),
+    )),
+    (client) => client.query(publishSql, publishArgs(
+      conflictWeek,
+      "f3000000-0000-4000-8000-000000000001",
+      "e".repeat(64),
+      weeklyCandidate("f", "Kandidat B", "2099-07-28"),
+    )),
+  );
+  assert.equal(conflictResults.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(conflictResults.filter((result) => result.status === "rejected").length, 1);
+  await withClient(config, "klar-c1-assert-conflict", async (client) => {
+    const result = await client.query(
+      `select
+        (select count(*)::integer from public.weekly_plans where class_id = $1 and week_start_date = $2) as plans,
+        (select count(*)::integer from public.plan_revisions as revision join public.weekly_plans as plan on plan.id = revision.weekly_plan_id where plan.class_id = $1 and plan.week_start_date = $2) as revisions,
+        (select count(*)::integer from public.weekly_plan_publish_receipts as receipt join public.weekly_plans as plan on plan.id = receipt.weekly_plan_id where plan.class_id = $1 and plan.week_start_date = $2) as receipts,
+        (select count(*)::integer from public.audit_events where event_name = 'weekly_plan.published' and metadata ->> 'week_start_date' = $2::text) as audits`,
+      [classId, conflictWeek],
+    );
+    assert.deepEqual(result.rows[0], { plans: 1, revisions: 1, receipts: 1, audits: 1 });
+  });
+
+  const rosterWeek = "2099-08-03";
+  const rosterTaskCount = 3;
+  const rosterResults = await synchronizedPair(
+    config,
+    "weekly-roster-snapshot",
+    (client) => client.query(publishSql, publishArgs(
+      rosterWeek,
+      "a3000000-0000-4000-8000-000000000009",
+      "f".repeat(64),
+      weeklyCandidate("a", "Mottakerliste", "2099-08-04", rosterTaskCount),
+    )),
+    (client) => client.query(
+      `insert into public.class_memberships (
+        class_id, organization_id, user_id, role, created_by
+      ) values ($1,$2,$3,'student',$4)`,
+      [classId, organizationId, joiningStudentId, actorId],
+    ),
+  );
+  assert(rosterResults.every((result) => result.status === "fulfilled"));
+  await withClient(config, "klar-c1-assert-roster", async (client) => {
+    const result = await client.query(
+      `select count(*)::integer as assignments
+       from public.task_assignments as assignment
+       join public.plan_tasks as plan_task on plan_task.id = assignment.plan_task_id
+       join public.weekly_plans as plan on plan.id = plan_task.weekly_plan_id
+       where plan.class_id = $1 and plan.week_start_date = $2
+         and assignment.student_id = $3`,
+      [classId, rosterWeek, joiningStudentId],
+    );
+    assert(
+      [0, rosterTaskCount].includes(result.rows[0].assignments),
+      `Opptaksracet ga delvis ukeplan: ${result.rows[0].assignments}/${rosterTaskCount}`,
+    );
+  });
+}
+
 async function runEmptyScenario() {
   const container = startContainer("empty");
   try {
@@ -756,6 +925,8 @@ async function runEmptyScenario() {
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/staff_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/progress_concurrency_fixture.sql");
+    runSql(container.name, "supabase/verification/weekly_plan_rpc_smoke.sql");
+    await runWeeklyPlanConcurrency(container.config);
     await runConcurrency(container.config);
     await runProgressConcurrency(container.config);
     console.log("A1 database empty + RLS/RPC + concurrency: PASS");
@@ -774,6 +945,7 @@ function runUpgradeScenario() {
     applyPostA1(positive.name);
     runSql(positive.name, "supabase/verification/staff_upgrade_smoke.sql");
     runSql(positive.name, "supabase/verification/progress_upgrade_smoke.sql");
+    runSql(positive.name, "supabase/verification/weekly_plan_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }

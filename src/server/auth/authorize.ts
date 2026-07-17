@@ -386,6 +386,7 @@ export async function requireAnyStudentActor(): Promise<OrganizationAuthorizatio
     .select("organization_id, role")
     .eq("user_id", actor.userId)
     .eq("role", "student")
+    .order("organization_id", { ascending: true })
     .limit(1)
     .maybeSingle();
 

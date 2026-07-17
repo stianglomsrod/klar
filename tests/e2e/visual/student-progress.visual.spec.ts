@@ -13,6 +13,9 @@ test("viser elevens valgfrie progresjonsflate i relevante viewports", async ({
   await page.goto("/v3/student");
 
   await expect(page.getByRole("heading", { name: "Hei, Testelev" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dagens arbeidsøkt" })).toBeVisible();
+  await expect(page.getByText("Nå", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dagens øktoppgave" })).toBeVisible();
   await expect(page.getByText(/\d+ av \d+ ferdige/).first()).toBeVisible();
 
   const progressDock = page.getByRole("region", { name: "Din fremdrift" });

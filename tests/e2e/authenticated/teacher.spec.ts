@@ -10,6 +10,7 @@ import {
 
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const returnStudentId = "10000000-0000-4000-8000-000000000011";
+const primaryClassId = "30000000-0000-4000-8000-000000000001";
 const returnMessage = "Se på de siste linjene én gang til.";
 
 test("AAL2-læreren åpner en fullført oppgave igjen i eget omfang", async ({
@@ -88,6 +89,9 @@ test("AAL2-læreren åpner en fullført oppgave igjen i eget omfang", async ({
     await expect(
       studentPage.getByRole("heading", { name: "Hei, Returelev" }),
     ).toBeVisible();
+    await studentPage
+      .getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/)
+      .click();
     const reopenedCard = studentPage
       .getByRole("article")
       .filter({ hasText: "Oppgave klar for retur" });
@@ -173,6 +177,120 @@ test("AAL2-læreren åpner en fullført oppgave igjen i eget omfang", async ({
         );
       }
     }
+    await database.end();
+  }
+});
+
+test("læreren kontrollerer og publiserer en strukturert klasseuke atomisk", async ({
+  page,
+}, testInfo) => {
+  const database = await openLocalDatabase();
+  const expectNoRuntimeErrors = observeRuntimeErrors(page);
+  const weekOffset = 2 + testInfo.retry;
+
+  try {
+    const dateResult = await database.query<{
+      week_start: string;
+      session_date: string;
+    }>(
+      `select
+        (date_trunc('week', transaction_timestamp() at time zone 'Europe/Oslo')::date
+          + ($1::integer * 7))::text as week_start,
+        (date_trunc('week', transaction_timestamp() at time zone 'Europe/Oslo')::date
+          + ($1::integer * 7) + 1)::text as session_date`,
+      [weekOffset],
+    );
+    const { week_start: weekStart, session_date: sessionDate } = dateResult.rows[0];
+    const sessionTitle = `Lesestund ${weekStart}`;
+    const taskTitle = `Les side 12 ${weekStart}`;
+
+    await page.goto(`/v3/teacher/classes/${primaryClassId}`);
+    const builder = page.getByRole("region", {
+      name: "Planlegg undervisningsøktene",
+    });
+    await expect(builder).toBeVisible();
+    await builder.getByLabel("Uken starter").fill(weekStart);
+    await builder.getByLabel("Tittel").fill(sessionTitle);
+    await builder.getByLabel("Fag").fill("Norsk");
+    await builder.getByLabel("Dato").fill(sessionDate);
+    await builder.getByLabel("Start", { exact: true }).fill("09:00");
+    await builder.getByLabel("Slutt", { exact: true }).fill("08:45");
+    await builder.getByLabel("Oppgave 1", { exact: true }).fill(taskTitle);
+    await builder
+      .getByLabel(/Kort instruksjon/)
+      .fill("Arbeid i den syntetiske leseboka.");
+    await builder.getByRole("button", { name: "Kontroller klasseuken" }).click();
+    const validationAlert = builder.getByRole("alert");
+    await expect(validationAlert).toHaveText(
+      "Sluttidspunktet for økt 1 må være etter starttidspunktet.",
+    );
+    await expect(validationAlert).toBeFocused();
+    await builder.getByLabel("Slutt", { exact: true }).fill("09:45");
+    await builder.getByRole("button", { name: "Kontroller klasseuken" }).click();
+
+    const review = builder.getByRole("region", {
+      name: "Kontroller før publisering",
+    });
+    await expect(review).toBeVisible();
+    await expect(review.getByRole("heading", { name: "Kontroller før publisering" })).toBeFocused();
+    await expect(review.getByText(sessionTitle, { exact: false })).toBeVisible();
+    await expect(review.getByText(taskTitle, { exact: false })).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectNoAxeViolations(page);
+
+    await review.getByRole("button", { name: "Publiser klasseuken" }).click();
+    const publishStatus = builder.getByRole("status");
+    await expect(publishStatus).toContainText(
+      "1 økt og 1 oppgave er publisert.",
+    );
+    await expect(publishStatus).toBeFocused();
+
+    const proof = await database.query<{
+      plans: number;
+      active_revisions: number;
+      revision_sessions: number;
+      revision_tasks: number;
+      linked_definitions: number;
+      assignments: number;
+      states: number;
+      roster: number;
+      complete_provenance: boolean;
+      receipts: number;
+      audits: number;
+    }>(
+      `with target_plan as (
+         select id, active_revision_id
+         from public.weekly_plans
+         where class_id = $1 and week_start_date = $2::date
+       )
+       select
+         (select count(*)::integer from target_plan) as plans,
+         (select count(*)::integer from target_plan where active_revision_id is not null) as active_revisions,
+         (select count(*)::integer from public.plan_revision_sessions where revision_id = (select active_revision_id from target_plan)) as revision_sessions,
+         (select count(*)::integer from public.plan_revision_tasks where revision_id = (select active_revision_id from target_plan)) as revision_tasks,
+         (select count(*)::integer from public.task_definitions as task join public.plan_revision_tasks as revision_task on revision_task.task_definition_id = task.id where revision_task.revision_id = (select active_revision_id from target_plan)) as linked_definitions,
+         (select count(*)::integer from public.task_assignments as assignment join public.plan_tasks as plan_task on plan_task.id = assignment.plan_task_id where plan_task.weekly_plan_id = (select id from target_plan)) as assignments,
+         (select count(*)::integer from public.student_task_state as state join public.task_assignments as assignment on assignment.id = state.assignment_id join public.plan_tasks as plan_task on plan_task.id = assignment.plan_task_id where plan_task.weekly_plan_id = (select id from target_plan)) as states,
+         (select count(*)::integer from public.class_memberships where class_id = $1 and role = 'student') as roster,
+         coalesce((select bool_and(assignment.plan_task_id is not null and assignment.source_plan_revision_task_id is not null) from public.task_assignments as assignment join public.plan_tasks as plan_task on plan_task.id = assignment.plan_task_id where plan_task.weekly_plan_id = (select id from target_plan)), false) as complete_provenance,
+         (select count(*)::integer from public.weekly_plan_publish_receipts where weekly_plan_id = (select id from target_plan)) as receipts,
+         (select count(*)::integer from public.audit_events where event_name = 'weekly_plan.published' and entity_id = (select active_revision_id from target_plan)) as audits`,
+      [primaryClassId, weekStart],
+    );
+    expect(proof.rows[0]).toMatchObject({
+      plans: 1,
+      active_revisions: 1,
+      revision_sessions: 1,
+      revision_tasks: 1,
+      linked_definitions: 1,
+      states: proof.rows[0].roster,
+      assignments: proof.rows[0].roster,
+      complete_provenance: true,
+      receipts: 1,
+      audits: 1,
+    });
+    expectNoRuntimeErrors();
+  } finally {
     await database.end();
   }
 });

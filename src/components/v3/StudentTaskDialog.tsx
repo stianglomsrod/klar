@@ -19,6 +19,7 @@ export type StudentTaskDialogMode = "task" | "checkpoint";
 export function StudentTaskDialog({
   task,
   mode,
+  returnFocusTarget,
   experience,
   isUpdating,
   hasPendingMutation,
@@ -31,6 +32,7 @@ export function StudentTaskDialog({
 }: {
   task: StudentTodayTask | null;
   mode: StudentTaskDialogMode;
+  returnFocusTarget: HTMLElement | null;
   experience: StudentExperience;
   isUpdating: boolean;
   hasPendingMutation: boolean;
@@ -52,12 +54,13 @@ export function StudentTaskDialog({
     if (!dialog) return;
 
     if (task && !dialog.open) {
-      returnFocusRef.current = document.activeElement as HTMLElement | null;
+      returnFocusRef.current =
+        returnFocusTarget ?? (document.activeElement as HTMLElement | null);
       dialog.showModal();
     } else if (!task && dialog.open) {
       dialog.close();
     }
-  }, [task]);
+  }, [returnFocusTarget, task]);
 
   useEffect(() => {
     const dialog = dialogRef.current;

@@ -21,9 +21,11 @@ Eieren med AAL2 kan:
 En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
 
 - se bare klassene oppdraget omfatter;
-- publisere oppgaver til alle elever i en klasse;
-- importere en DOCX-ukeplan til en redigerbar forhåndsvisning og bekrefte en
-  samlet, transaksjonell publisering;
+- publisere løse oppgaver til alle nåværende elever i en klasse;
+- bygge den første strukturerte klasseuken med tidsfestede økter og oppgaver,
+  kontrollere innholdet og publisere én uforanderlig revisjon atomisk;
+- importere en DOCX til redigerbare oppgaveforslag. DOCX-flyten bevarer ennå
+  ikke økter eller ukeplanrevisjon og publiserer eventuelt løse oppgaver;
 - følge oppgavefremdrift og en sikker, sanntidsoppdatert hjelpekø;
 - angi hvor mye struktur den enkelte eleven skal få se.
 
@@ -34,7 +36,10 @@ tilgang til en klasse.
 Eleven kan:
 
 - logge inn med elevkode og separat passord;
-- se neste oppgave og endre egen oppgavestatus;
+- se forrige, aktuell og neste økt fra den aktive klasseuken, med eldre løse
+  oppgaver i en sekundær seksjon;
+- åpne oppgaven uten «I gang»-status, fullføre uten vedlegg, angre og se en
+  ikke-straffende beskjed når en ansatt åpner oppgaven igjen;
 - be om hjelp, følge køstatus og trekke forespørselen;
 - velge kort, vanlig eller mer detaljert visning;
 - velge en rolig fremdriftsvisning uten poeng, rangering eller sammenligning.
@@ -46,8 +51,9 @@ hvert som behovet blir mindre.
 ## Avgrensning for første skolepilot
 
 - Ingen Feide-integrasjon er nødvendig for prototypetesten.
-- Smart Import bruker lokal, regelbasert DOCX-tolking. Dokumentinnhold sendes
-  ikke til en ekstern KI-tjeneste.
+- DOCX-importen bruker lokal, regelbasert tolking og gir foreløpig bare
+  redigerbare oppgaveforslag. Dokumentinnhold sendes ikke til en ekstern
+  KI-tjeneste. Strukturbevarende Smart Import/reimport er ikke implementert.
 - 2.x-grensesnitt, 2.x-administrasjon, pushvarsler og gamle service-role-ruter
   er deaktivert. De privilegerte 2.x-handlingene er erstattet med inaktive
   stubs i runtime.
@@ -139,6 +145,10 @@ Den autentiserte suiten er verifisert lokalt i Chromium og WebKit. Den er
 fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
 Playwright-smoke og kjører den separate databasepakken i både tomt og
 representativt oppgraderingsscenario.
+
+Første strukturerte klasseuke og den øktstyrte elevdagen er dokumentert med
+akseptansekriterier, avvik, retester og syntetiske fem-viewport-bilder i
+[`docs/qa/CONTROL_POINT_C1.md`](./docs/qa/CONTROL_POINT_C1.md).
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

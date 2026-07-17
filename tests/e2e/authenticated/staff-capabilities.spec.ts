@@ -292,6 +292,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   ];
   const directTaskTitle = `Avvist direkte oppgave ${token}`;
   const directPlanTitle = `Avvist direkte plan ${token}`;
+  const directWeeklyTitle = `Avvist direkte klasseuke ${token}`;
   const weeklyPlanDocx = await createSyntheticWeeklyPlanDocx();
   let assignmentId: string | null = null;
 
@@ -300,6 +301,8 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       task_count: number;
       task_audits: number;
       plan_audits: number;
+      weekly_plan_count: number;
+      weekly_plan_audits: number;
       help_audits: number;
       support_audits: number;
       help_status: string;
@@ -326,6 +329,17 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
             where event_name = 'plan.published'
               and entity_id = $1::uuid
           ) as plan_audits,
+          (
+            select count(*)::integer
+            from public.weekly_plans
+            where class_id = $1::uuid
+          ) as weekly_plan_count,
+          (
+            select count(*)::integer
+            from public.audit_events
+            where event_name = 'weekly_plan.published'
+              and metadata ->> 'class_id' = $1::text
+          ) as weekly_plan_audits,
           (
             select count(*)::integer
             from public.audit_events
@@ -392,11 +406,11 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     await expect(page.getByRole("heading", { name: "Annen skole 5C" })).toBeVisible();
     await expect(page.getByText("Elev ved annen skole", { exact: true })).toBeVisible();
     await expect(page.getByText("Oppgave ved annen skole", { exact: true })).toBeVisible();
-    await page.getByLabel("Tittel").fill(deniedTaskTitle);
+    await page.locator("#task-title").fill(deniedTaskTitle);
 
     const planPage = await context.newPage();
     await planPage.goto(`/v3/teacher/classes/${classId}`);
-    const stalePlanPanel = planPage.getByRole("region", { name: "Smart Import" });
+    const stalePlanPanel = planPage.getByRole("region", { name: "Importer oppgaveforslag" });
     await stalePlanPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
       name: "syntetisk-kapabilitet.docx",
       mimeType: DOCX_MIME,
@@ -412,9 +426,37 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       .getByRole("textbox", { name: "Oppgave 2", exact: true })
       .fill(deniedPlanTitles[1]);
     const stalePlanPublish = stalePlanPanel.getByRole("button", {
-      name: "Bekreft og publiser 2",
+      name: "Publiser 2 som løse oppgaver",
     });
     await expect(stalePlanPublish).toBeVisible();
+
+    const structuredPlanPage = await context.newPage();
+    await structuredPlanPage.goto(`/v3/teacher/classes/${classId}`);
+    const structuredPlanBuilder = structuredPlanPage.getByRole("region", {
+      name: "Planlegg undervisningsøktene",
+    });
+    await structuredPlanBuilder.getByLabel("Uken starter").fill("2099-09-07");
+    await structuredPlanBuilder
+      .getByLabel("Tittel")
+      .fill(`Avvist klasseuke ${token}`);
+    await structuredPlanBuilder.getByLabel("Fag").fill("Norsk");
+    await structuredPlanBuilder.getByLabel("Dato").fill("2099-09-08");
+    await structuredPlanBuilder
+      .getByLabel("Start", { exact: true })
+      .fill("09:00");
+    await structuredPlanBuilder
+      .getByLabel("Slutt", { exact: true })
+      .fill("09:45");
+    await structuredPlanBuilder
+      .getByLabel("Oppgave 1", { exact: true })
+      .fill(`Avvist ukeoppgave ${token}`);
+    await structuredPlanBuilder
+      .getByRole("button", { name: "Kontroller klasseuken" })
+      .click();
+    const staleStructuredPublish = structuredPlanBuilder.getByRole("button", {
+      name: "Publiser klasseuken",
+    });
+    await expect(staleStructuredPublish).toBeVisible();
 
     const helpPage = await context.newPage();
     await helpPage.goto(`/v3/teacher/classes/${classId}`);
@@ -438,6 +480,8 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     const baseline = await readProtectedState();
     expect(baseline).toMatchObject({
       task_count: 1,
+      weekly_plan_count: 0,
+      weekly_plan_audits: 0,
       help_status: "waiting",
       claimed_by: null,
       support_level: 2,
@@ -447,7 +491,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     const wrongClassPreviewPage = await context.newPage();
     await wrongClassPreviewPage.goto(`/v3/teacher/classes/${classId}`);
     const wrongClassPreviewPanel = wrongClassPreviewPage.getByRole("region", {
-      name: "Smart Import",
+      name: "Importer oppgaveforslag",
     });
     await wrongClassPreviewPanel
       .getByLabel("Ukeplan, maks 2 MB")
@@ -549,7 +593,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       reducedPage.getByText("Oppgave ved annen skole", { exact: true }),
     ).toBeVisible();
     await expect(
-      reducedPage.getByRole("heading", { name: "Publiser oppgave" }),
+      reducedPage.getByRole("heading", { name: "Publiser løs oppgave" }),
     ).toHaveCount(0);
     await expect(
       reducedPage.getByRole("heading", { name: "Hjelpekø" }),
@@ -557,9 +601,14 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     await expect(
       reducedPage.getByText("Tilpass visning", { exact: true }),
     ).toHaveCount(0);
+    await expect(
+      reducedPage.getByRole("region", {
+        name: "Planlegg undervisningsøktene",
+      }),
+    ).toHaveCount(0);
 
     const reducedPlanPanel = reducedPage.getByRole("region", {
-      name: "Smart Import",
+      name: "Importer oppgaveforslag",
     });
     await expect(reducedPlanPanel).toBeVisible();
     await reducedPlanPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
@@ -580,22 +629,32 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       reducedPlanPanel.getByText(/gir ikke tilgang til å publisere dem/),
     ).toBeVisible();
     await expect(
-      reducedPlanPanel.getByRole("button", { name: /Bekreft og publiser/ }),
+      reducedPlanPanel.getByRole("button", { name: /Publiser .* som løse oppgaver/ }),
     ).toHaveCount(0);
     expect((await readProtectedState()).task_count).toBe(baseline.task_count);
     await expectNoHorizontalOverflow(reducedPage);
     await expectNoAxeViolations(reducedPage);
 
-    await page.getByRole("button", { name: "Publiser til klassen" }).click();
+    await page.getByRole("button", { name: "Publiser løs oppgave" }).click();
     await expect(page).toHaveURL(new RegExp(`${classId}\\?access=ended$`));
     await expect(
-      page.getByRole("heading", { name: "Publiser oppgave" }),
+      page.getByRole("heading", { name: "Publiser løs oppgave" }),
     ).toHaveCount(0);
 
     await stalePlanPublish.click();
     await expect(planPage).toHaveURL(new RegExp(`${classId}\\?access=ended$`));
     await expect(
-      planPage.getByRole("button", { name: /Bekreft og publiser/ }),
+      planPage.getByRole("button", { name: /Publiser .* som løse oppgaver/ }),
+    ).toHaveCount(0);
+
+    await staleStructuredPublish.click();
+    await expect(structuredPlanPage).toHaveURL(
+      new RegExp(`${classId}\\?access=ended$`),
+    );
+    await expect(
+      structuredPlanPage.getByRole("region", {
+        name: "Planlegg undervisningsøktene",
+      }),
     ).toHaveCount(0);
 
     await staleHelpClaim.click();
@@ -612,37 +671,74 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       supportPage.getByText("Tilpass visning", { exact: true }),
     ).toHaveCount(0);
 
-    const [taskRpc, planRpc, helpRpc, supportRpc] = await Promise.all([
-      admin.rpc("publish_task_to_class", {
-        p_class_id: classId,
-        p_actor_id: staffId,
-        p_staff_assignment_id: assignmentId,
-        p_title: directTaskTitle,
-      }),
-      admin.rpc("publish_plan_to_class", {
-        p_class_id: classId,
-        p_actor_id: staffId,
-        p_staff_assignment_id: assignmentId,
-        p_tasks: [{ title: directPlanTitle }],
-      }),
-      admin.rpc("claim_student_help", {
-        p_request_id: helpRequestId,
-        p_teacher_id: staffId,
-        p_staff_assignment_id: assignmentId,
-      }),
-      admin.rpc("update_student_experience_for_staff", {
-        p_organization_id: organizationId,
-        p_class_id: classId,
-        p_student_id: studentId,
-        p_actor_id: staffId,
-        p_staff_assignment_id: assignmentId,
-        p_support_level: 3,
-        p_progress_enabled: false,
-      }),
-    ]);
+    const [taskRpc, planRpc, weeklyPlanRpc, helpRpc, supportRpc] =
+      await Promise.all([
+        admin.rpc("publish_task_to_class", {
+          p_class_id: classId,
+          p_actor_id: staffId,
+          p_staff_assignment_id: assignmentId,
+          p_title: directTaskTitle,
+        }),
+        admin.rpc("publish_plan_to_class", {
+          p_class_id: classId,
+          p_actor_id: staffId,
+          p_staff_assignment_id: assignmentId,
+          p_tasks: [{ title: directPlanTitle }],
+        }),
+        admin.rpc("publish_initial_weekly_plan", {
+          p_class_id: classId,
+          p_actor_id: staffId,
+          p_staff_assignment_id: assignmentId,
+          p_week_start_date: "2099-09-14",
+          p_timezone_name: "Europe/Oslo",
+          p_expected_lock_version: 0,
+          p_request_id: randomUUID(),
+          p_semantic_hash: "a".repeat(64),
+          p_candidate: {
+            schema_version: "weekly_plan_v1",
+            sessions: [
+              {
+                logical_key: randomUUID(),
+                title: directWeeklyTitle,
+                subject: "Norsk",
+                starts_at: "2099-09-15T08:00:00.000Z",
+                ends_at: "2099-09-15T09:00:00.000Z",
+                tasks: [
+                  {
+                    logical_key: randomUUID(),
+                    title: directWeeklyTitle,
+                    description: null,
+                    subject: "Norsk",
+                    estimated_minutes: 10,
+                    support_level: 2,
+                  },
+                ],
+              },
+            ],
+          },
+        }),
+        admin.rpc("claim_student_help", {
+          p_request_id: helpRequestId,
+          p_teacher_id: staffId,
+          p_staff_assignment_id: assignmentId,
+        }),
+        admin.rpc("update_student_experience_for_staff", {
+          p_organization_id: organizationId,
+          p_class_id: classId,
+          p_student_id: studentId,
+          p_actor_id: staffId,
+          p_staff_assignment_id: assignmentId,
+          p_support_level: 3,
+          p_progress_enabled: false,
+        }),
+      ]);
     for (const [result, expectedMessage] of [
       [taskRpc, "Staff assignment does not authorize task publishing"],
       [planRpc, "Staff assignment does not authorize plan publishing"],
+      [
+        weeklyPlanRpc,
+        "Staff assignment does not authorize weekly plan publishing",
+      ],
       [
         helpRpc,
         "Staff assignment does not authorize help queue management",
@@ -672,6 +768,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
           ...deniedPlanTitles,
           directTaskTitle,
           directPlanTitle,
+          directWeeklyTitle,
         ],
       ],
     );
@@ -696,7 +793,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     const stalePreviewPage = await context.newPage();
     await stalePreviewPage.goto(`/v3/teacher/classes/${classId}`);
     const stalePreviewPanel = stalePreviewPage.getByRole("region", {
-      name: "Smart Import",
+      name: "Importer oppgaveforslag",
     });
     await stalePreviewPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
       name: "syntetisk-forhandsvisning.docx",
@@ -732,7 +829,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       withoutPreviewPage.getByText("Oppgave ved annen skole", { exact: true }),
     ).toBeVisible();
     await expect(
-      withoutPreviewPage.getByRole("region", { name: "Smart Import" }),
+      withoutPreviewPage.getByRole("region", { name: "Importer oppgaveforslag" }),
     ).toHaveCount(0);
 
     await restoreCapabilityProfile(database, assignmentId);

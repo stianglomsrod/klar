@@ -22,6 +22,22 @@ export async function expectNoHorizontalOverflow(page: Page) {
   expect(overflows).toEqual([]);
 }
 
+export async function applyTextSpacingOverride(page: Page) {
+  return page.addStyleTag({
+    content: `
+      :where(body, body *) {
+        line-height: 1.5 !important;
+        letter-spacing: 0.12em !important;
+        word-spacing: 0.16em !important;
+      }
+      :where(body, button, input, select, textarea) {
+        font-family: Arial, sans-serif !important;
+      }
+      p { margin-bottom: 2em !important; }
+    `,
+  });
+}
+
 export async function expectMinimumTargetSize(
   locator: Locator,
   minimum = 44,

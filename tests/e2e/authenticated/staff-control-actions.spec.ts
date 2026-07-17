@@ -770,7 +770,7 @@ test("owner AAL2 oppretter klasse og prototypeelev gjennom kontrollflaten", asyn
       organization_id: organizationId,
       user_id: ownerId,
       job_label: "operational_owner",
-      profile_version: "class_pedagogy_v1",
+      profile_version: "class_pedagogy_v2",
       source: "class_creation",
       ends_at: null,
       revoked_at: null,
@@ -806,8 +806,10 @@ test("owner AAL2 oppretter klasse og prototypeelev gjennom kontrollflaten", asyn
       "help_queue.manage",
       "plan.preview",
       "plan.publish",
+      "student_progress.read",
       "student_support.update",
       "task.publish",
+      "task.return",
     ];
     expect(
       capabilityRows.rows.map(({ capability, profile_version }) => ({
@@ -819,7 +821,7 @@ test("owner AAL2 oppretter klasse og prototypeelev gjennom kontrollflaten", asyn
         .sort()
         .map((capability) => ({
           capability,
-          profile_version: "class_pedagogy_v1",
+          profile_version: "class_pedagogy_v2",
         })),
     );
 

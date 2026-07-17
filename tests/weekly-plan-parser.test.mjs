@@ -25,9 +25,10 @@ describe("rule-based weekly plan parser", () => {
     );
   });
 
-  test("deduplicates repeated tasks", () => {
+  test("preserves repeated tasks and asks the teacher to confirm them", () => {
     const preview = parseWeeklyPlanText("Engelsk:\n- Read page 4\n- Read page 4");
-    assert.equal(preview.tasks.length, 1);
+    assert.equal(preview.tasks.length, 2);
+    assert.match(preview.warnings[0], /forekommer flere ganger/i);
   });
 
   test("falls back to editable suggestions for unstructured text", () => {

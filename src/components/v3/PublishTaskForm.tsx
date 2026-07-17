@@ -47,8 +47,17 @@ export function PublishTaskForm({ classId }: { classId: string }) {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <h2 className="text-lg font-bold">Publiser oppgave</h2>
+    <section
+      aria-labelledby="publish-loose-task-heading"
+      className="rounded-2xl border border-slate-200 bg-white p-5"
+    >
+      <h2 id="publish-loose-task-heading" className="text-lg font-bold">
+        Publiser løs oppgave
+      </h2>
+      <p className="mt-1 text-sm leading-6 text-slate-600">
+        Oppgaven legges utenfor klasseuken. Bruk øktene over når oppgaven skal
+        inngå i elevens planlagte skoledag.
+      </p>
       <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label htmlFor="task-title" className="text-sm font-semibold">
@@ -123,7 +132,7 @@ export function PublishTaskForm({ classId }: { classId: string }) {
             disabled={loading}
             className="w-full rounded-xl bg-indigo-700 px-4 py-2.5 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
           >
-            {loading ? "Publiserer …" : "Publiser til klassen"}
+            {loading ? "Publiserer …" : "Publiser løs oppgave"}
           </button>
         </div>
       </form>
@@ -134,7 +143,7 @@ export function PublishTaskForm({ classId }: { classId: string }) {
       )}
       {success && (
         <p role="status" className="mt-3 text-sm font-semibold text-emerald-700">
-          Oppgaven er publisert.
+          Den løse oppgaven er publisert.
         </p>
       )}
     </section>

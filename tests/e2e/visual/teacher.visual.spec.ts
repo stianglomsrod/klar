@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  applyTextSpacingOverride,
   expectNoAxeViolations,
   expectNoHorizontalOverflow,
   expectMinimumTargetSize,
@@ -15,18 +16,69 @@ test("lagrer assignment-avgrenset ansattflate som QA-artefakt", async ({ page },
   await expect(page.getByRole("link", { name: /Testklasse 3A/ })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Tilganger" })).toHaveCount(0);
   await page.getByRole("link", { name: /Visuell klasse 4B/ }).click();
+  if (testInfo.project.name.endsWith("reflow-200")) {
+    await applyTextSpacingOverride(page);
+  }
   await expect(page.getByRole("heading", { name: "Visuell klasse 4B" })).toBeVisible();
   await expect(
     page
       .getByRole("region", { name: "Elever" })
       .getByText("Visuell elev", { exact: true }),
   ).toBeVisible();
+  const planBuilder = page.getByRole("region", {
+    name: "Planlegg undervisningsøktene",
+  });
+  await expect(planBuilder).toBeVisible();
+  await planBuilder.getByLabel("Tittel").fill("Visuell kontrolløkt");
+  await planBuilder.getByLabel("Fag").fill("Norsk");
+  await planBuilder
+    .getByLabel("Oppgave 1", { exact: true })
+    .fill("Visuell kontrolloppgave");
+  await planBuilder
+    .getByLabel(/Kort instruksjon/)
+    .fill("Syntetisk instruksjon for responsiv kontroll.");
+  await expectMinimumTargetSize(
+    planBuilder.getByRole("button", { name: "Legg til økt" }),
+  );
+  await expectMinimumTargetSize(
+    planBuilder.getByRole("button", { name: "Legg til oppgave" }),
+  );
+  const reviewButton = planBuilder.getByRole("button", {
+    name: "Kontroller klasseuken",
+  });
+  await expectMinimumTargetSize(reviewButton);
+  await reviewButton.click();
+  const review = planBuilder.getByRole("region", {
+    name: "Kontroller før publisering",
+  });
+  await expect(review).toBeVisible();
+  await expectMinimumTargetSize(
+    review.getByRole("button", { name: "Publiser klasseuken" }),
+  );
+  const returnToEditing = review.getByRole("button", {
+    name: "Gå tilbake og endre",
+  });
+  await expectMinimumTargetSize(returnToEditing);
+  await expectNoHorizontalOverflow(page);
+  await expectNoAxeViolations(page);
+  const planScreenshot = testInfo.outputPath("weekly-plan-review-viewport.png");
+  await page.screenshot({
+    path: planScreenshot,
+    fullPage: false,
+    animations: "disabled",
+  });
+  await testInfo.attach("weekly-plan-review-viewport", {
+    path: planScreenshot,
+    contentType: "image/png",
+  });
+  await returnToEditing.click();
+  await expect(planBuilder.getByLabel("Uken starter")).toBeFocused();
   const viewport = page.viewportSize();
   if (viewport && viewport.width < 1024) {
     await expectMinimumTargetSize(page.getByRole("button", { name: "Åpne meny" }));
   }
   await expectMinimumTargetSize(
-    page.getByRole("button", { name: "Publiser til klassen" }),
+    page.getByRole("button", { name: "Publiser løs oppgave" }),
   );
   const taskSection = page.locator("section").filter({
     has: page.getByRole("heading", { name: "Publiserte oppgaver" }),

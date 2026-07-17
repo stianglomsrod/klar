@@ -7,16 +7,21 @@ import { SmartImportPanel } from "@/components/v3/SmartImportPanel";
 import { TeacherHelpQueue } from "@/components/v3/TeacherHelpQueue";
 import { TeacherStudentExperienceEditor } from "@/components/v3/TeacherStudentExperienceEditor";
 import { TeacherTaskReopenControl } from "@/components/v3/TeacherTaskReopenControl";
+import { WeeklyPlanBuilder } from "@/components/v3/WeeklyPlanBuilder";
 import { isAuthorizationError } from "@/server/auth/errors";
 import { getTeacherClassWorkspace } from "@/server/classes/class-service";
 import { getTeacherHelpQueue } from "@/server/help/help-service";
+import { getPublishedWeeklyPlanSummaries } from "@/server/plans/weekly-plan-service";
 
 async function loadClassPage(classId: string) {
   try {
     const workspace = await getTeacherClassWorkspace(classId);
     const canManageHelp = workspace.capabilities.includes("help_queue.manage");
     const helpQueue = canManageHelp ? await getTeacherHelpQueue(classId) : [];
-    return { status: "ready" as const, workspace, helpQueue };
+    const publishedPlans = workspace.capabilities.includes("plan.publish")
+      ? await getPublishedWeeklyPlanSummaries(classId)
+      : [];
+    return { status: "ready" as const, workspace, helpQueue, publishedPlans };
   } catch (error) {
     if (isAuthorizationError(error) && error.code === "STAFF_ACCESS_ENDED") {
       return { status: "access-ended" as const };
@@ -47,7 +52,7 @@ export default async function TeacherClassPage({
     );
   }
 
-  const { workspace, helpQueue } = page;
+  const { workspace, helpQueue, publishedPlans } = page;
   const canPublishTask = workspace.capabilities.includes("task.publish");
   const canPreviewPlan = workspace.capabilities.includes("plan.preview");
   const canPublishPlan = workspace.capabilities.includes("plan.publish");
@@ -81,6 +86,15 @@ export default async function TeacherClassPage({
             <p className="mt-2 text-slate-600">{workspace.academicYear}</p>
           )}
         </div>
+
+        {canPublishPlan && (
+          <div className="mt-8">
+            <WeeklyPlanBuilder
+              classId={workspace.id}
+              publishedPlans={publishedPlans}
+            />
+          </div>
+        )}
 
         {(workspace.isOwner || canPublishTask) && (
           <div className="mt-8 grid gap-6 xl:grid-cols-2">

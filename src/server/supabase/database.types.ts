@@ -125,6 +125,21 @@ type TaskAssignmentRow = {
   due_at: string | null;
   created_at: string;
   points_value_snapshot: number;
+  plan_task_id: string | null;
+  source_plan_revision_task_id: string | null;
+};
+
+type WeeklyPlanRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  week_start_date: string;
+  timezone_name: "Europe/Oslo";
+  active_revision_id: string | null;
+  lock_version: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type StudentTaskStateRow = {
@@ -405,6 +420,23 @@ export type Database = {
           visible_from?: string;
           due_at?: string | null;
           created_at?: string;
+          plan_task_id?: string | null;
+          source_plan_revision_task_id?: string | null;
+        }
+      >;
+      weekly_plans: TableDefinition<
+        WeeklyPlanRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          week_start_date: string;
+          timezone_name?: "Europe/Oslo";
+          active_revision_id?: string | null;
+          lock_version?: number;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
         }
       >;
       student_task_state: TableDefinition<
@@ -760,6 +792,32 @@ export type Database = {
           p_tasks: Json;
         };
         Returns: string[];
+      };
+      publish_initial_weekly_plan: {
+        Args: {
+          p_class_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_week_start_date: string;
+          p_timezone_name: string;
+          p_expected_lock_version: number;
+          p_request_id: string;
+          p_semantic_hash: string;
+          p_candidate: Json;
+        };
+        Returns: Json;
+      };
+      get_student_day_projection_at: {
+        Args: {
+          p_organization_id: string;
+          p_student_id: string;
+          p_reference_at: string;
+        };
+        Returns: Json;
+      };
+      get_my_student_day_v1: {
+        Args: { p_organization_id: string };
+        Returns: Json;
       };
       update_student_experience: {
         Args: {

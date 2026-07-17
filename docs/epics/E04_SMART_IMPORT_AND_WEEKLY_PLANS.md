@@ -1,6 +1,6 @@
 # E04 – Smart Import og ukeplaner
 
-**Status:** Planlagt
+**Status:** Pågår – C1-datagrunnlag og første manuelle revisjon er verifisert
 
 **Kontrakt:** [§ 9 Smart Import og ukeplanrevisjoner](../product/DOMAIN_CONTRACT.md#9-smart-import-og-ukeplanrevisjoner)
 
@@ -13,8 +13,36 @@ læringsmål og oppgaver, kontrollere alt i en strukturert forhåndsvisning og
 publisere en sporbar ukeplan. Reimport viser endringer og konflikter uten å
 duplisere, overskrive manuelle valg eller ødelegge elevhistorikk.
 
-Nåværende 3.0 tolker råtekst til en task-only preview. Hver publisering lager
-nye oppgaver; det finnes ingen ukeplan, revisjon, provenance eller reimport-diff.
+Nåværende 3.0 har `weekly_plans`, uforanderlig første `plan_revision`, stabile
+økt-/oppgaveidentiteter, snapshots, mottakerproveniens og en autorisert,
+idempotent og atomisk første publisering. Læreren bygger foreløpig klasseuken
+manuelt og kontrollerer dato, tid, økter og oppgavetitler før publisering.
+
+DOCX-flyten er fortsatt en separat task-only forhåndsvisning og kan bare
+publisere løse oppgaver. Dokumentproveniens, beskjeder, læringsmål,
+serverlagrede utkast, senere revisjoner, diff, treveis reimport og rollback er
+ikke implementert.
+
+## Levert i C1
+
+- unik klasse/uke i Europe/Oslo med mandag som ukestart og eksplisitt
+  `lock_version`;
+- uforanderlig revisjon 1 med stabile økt- og oppgavenøkler og eksakt
+  innholdssnapshot;
+- økter med eller uten oppgaver og dagsavgrenset synlighet;
+- mottakerlisten snapshots én gang; samtidig elevopptak gir hele planen eller
+  ingen del av den;
+- request-idempotens, semantisk no-op, planlås, stale-avvisning, audit og
+  transaksjonell tilbakeføring uten delgraf ved feil;
+- eksplisitt organisasjons- og klasseavgrensning, RLS/grants og AAL2/
+  `plan.publish` i server og database;
+- menneskelig kontrollsteg og responsiv lærerflate for første publisering;
+- ingen automatisk backfill av historiske løse oppgaver eller oppdiktet
+  provenance.
+
+Elever som meldes inn etter publisering får ikke automatisk oppgavene i den
+allerede publiserte revisjonen. Inntil en egen autorisert backfill-/ny-
+revisjonsoperasjon finnes, skal elevlisten ferdigstilles før publisering.
 
 ## Omfang
 
@@ -104,7 +132,8 @@ navngitt handling og bekreftelse.
   status og XP ved reimport/fjerning.
 - [ ] Vesentlig kildeendring av en oppgave med elevhistorikk oppretter ny
   versjon/iterasjon og omskriver ikke innhold eleven så.
-- [ ] Publisering er atomisk og avvises ved stale planversjon.
+- [x] Første manuelle publisering er atomisk, idempotent og avvises ved stale
+  planversjon.
 - [ ] Aktiv revisjon kan rulles tilbake uten å slette senere historikk.
 - [ ] Multi-klasse-mapping kan ikke lekke eller publisere på tvers av org.
 - [ ] Grunntimeplan endres aldri som sideeffekt av ukeimport.
@@ -121,3 +150,7 @@ elevopplysninger.
 Epicen er ferdig når importen kan demonstreres ende-til-ende fra representativ
 DOCX til publisert revisjon og trygg reimport, med databasetester, auditbevis og
 ingen duplikat eller historikktap.
+
+Delbeviset for den første manuelle planrevisjonen finnes i
+[Kontrollpunkt C1](../qa/CONTROL_POINT_C1.md). Det lukker ikke Smart Import-
+epicen.

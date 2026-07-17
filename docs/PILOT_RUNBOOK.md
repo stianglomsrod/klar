@@ -6,7 +6,12 @@ beskriver tekniske utviklings- og driftsgrep, ikke en produksjonsutrulling.
 ## Fast pilotscope
 
 - Bruk bare 3.0-flatene under `/v3`. 2.x er avslått.
-- Smart Import er lokal, regelbasert DOCX-tolking. Ekstern KI er avslått.
+- DOCX-importen er lokal og regelbasert, men gir foreløpig bare redigerbare
+  forslag til løse oppgaver. Strukturbevarende Smart Import/reimport er ikke
+  del av den aktiverte pilotgrensen. Ekstern KI er avslått.
+- En ansatt kan manuelt kontrollere og publisere den første strukturerte
+  klasseuken med tidsfestede økter og oppgaver. Senere planrevisjoner er ikke
+  implementert.
 - Pushvarsler, innleveringer, fritekst om eleven og konkurrerende spillelementer
   er ikke del av første pilot.
 - Elevkontoer bruker korte visningsnavn, tilfeldig intern e-post, elevkode og
@@ -61,7 +66,8 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    database `postgres`, uten query eller fragment. Runnerne skal aldri peke mot
    piloten.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
-   hele løypa med testdata: elev → oppgave → status → hjelpekø.
+   hele løypa med testdata: nåværende elevliste → strukturert klasseuke →
+   forrige/aktuell/neste økt → fullføring/angre/ansattretur → hjelpekø.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
 
 ## Minimumskontroll før hver testøkt
@@ -76,8 +82,13 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
   snarvei; neste serverlesing eller handling skal avvises.
 - En eier uten klasseoppdrag kan bruke kontrollplanet, men kan ikke lese eller
   mutere pedagogiske data i klassen.
-- Smart Import viser en redigerbar forhåndsvisning og krever eksplisitt
-  bekreftelse før publisering.
+- Strukturert klasseuke viser uke, økttid og oppgavetitler i et eksplisitt
+  kontrollsteg før den første, atomiske publiseringen.
+- En elev ser ikke framtidige dagsoppgaver gjennom «Andre oppgaver» eller
+  read-only RLS før den lokale øktdagen starter. Forrige, aktuell og neste økt
+  kommer fra samme aktive planrevisjon og Europe/Oslo-klokke.
+- DOCX-forslag og manuell klasseuke er to ulike flyter. DOCX-forslag som
+  publiseres nå er løse oppgaver og skal ikke omtales som en planrevisjon.
 - Innlogging, elevens dagsflate og lærerens klasseflate kan brukes med tastatur
   ved 200 % zoom og med redusert bevegelse aktivert.
 - Elevkode og engangspassord er overlevert uten at de ligger igjen i e-post,
@@ -116,8 +127,10 @@ preflight, owner-only kontrollplan, RLS/RPC/grants, ingen anonym skrivetilgang,
 idempotens og samtidighet. Lokal autentisert E2E i Chromium og WebKit
 kontrollerer owner → vikar → tilbakekalling, AAL1/AAL2, avgrenset klasseflate,
 ugyldige oppdragsinput, forfalskede kontrollhandlinger, redusert
-kapabilitetsprofil, positiv regelbasert DOCX-preview/publisering,
-utløpsreconcile, stale handlinger og responsive/tilgjengelige QA-proxyer.
+kapabilitetsprofil, positiv regelbasert forhåndsvisning og publisering av løse
+DOCX-forslag,
+utløpsreconcile, stale handlinger, første strukturerte klasseukepublisering og
+den øktstyrte elevdagen samt responsive/tilgjengelige QA-proxyer.
 Testene bruker bare syntetiske data og lokal Supabase.
 
 ## Manuelle enhetsporter før Kontrollpunkt A kan lukkes

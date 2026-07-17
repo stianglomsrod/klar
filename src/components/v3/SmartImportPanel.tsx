@@ -116,11 +116,12 @@ export function SmartImportPanel({
       className="mt-8 rounded-2xl border border-slate-200 bg-white p-5"
     >
       <h2 id="smart-import-heading" className="text-lg font-bold">
-        Smart Import
+        Importer oppgaveforslag
       </h2>
       <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-        Last opp en ukeplan som DOCX. Klar foreslår oppgaver, men ingenting blir
-        publisert før du har kontrollert og bekreftet listen.
+        Importen leser oppgaveforslag fra DOCX. Den oppretter ikke
+        undervisningsøkter eller en klasseuke; forslag som publiseres her blir
+        liggende som løse oppgaver.
       </p>
 
       <form onSubmit={preview} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -160,7 +161,7 @@ export function SmartImportPanel({
 
       {warnings.length > 0 && (
         <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <h3 className="font-semibold text-amber-950">Kontroller dette</h3>
+          <h3 className="font-semibold text-amber-950">Kontroller forslagene</h3>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-950">
             {warnings.map((warning) => (
               <li key={warning}>{warning}</li>
@@ -229,7 +230,7 @@ export function SmartImportPanel({
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
             <p className="max-w-2xl text-sm text-slate-600">
               {canPublish
-                ? "Ved publisering opprettes oppgavene og tildeles elevene i klassen i én samlet operasjon."
+                ? "Ved publisering opprettes løse oppgaver uten økt. Bruk klasseuken over når oppgaven skal vises i en undervisningsøkt."
                 : "Du kan kontrollere forslagene, men dette oppdraget gir ikke tilgang til å publisere dem."}
             </p>
             {canPublish && (
@@ -239,7 +240,7 @@ export function SmartImportPanel({
                 disabled={publishing || tasks.some((task) => !task.title.trim())}
                 className="min-h-11 rounded-xl bg-indigo-700 px-5 py-3 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
               >
-                {publishing ? "Publiserer …" : `Bekreft og publiser ${tasks.length}`}
+                {publishing ? "Publiserer …" : `Publiser ${tasks.length} som løse oppgaver`}
               </button>
             )}
           </div>

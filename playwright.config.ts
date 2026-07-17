@@ -206,6 +206,30 @@ if (authenticated) {
         viewport: { width: 720, height: 450 },
       },
     });
+    projects.push(
+      {
+        name: "visual-student-reflow-200",
+        testMatch: /visual\/student\.visual\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(authDirectory, "visual-student.json"),
+          // 1440 × 900 at 200 % browser zoom has approximately this CSS viewport.
+          viewport: { width: 720, height: 450 },
+        },
+      },
+      {
+        name: "visual-teacher-reflow-200",
+        testMatch: /visual\/teacher\.visual\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(authDirectory, "visual-staff-aal2.json"),
+          // Exercise the C1 review at the same 200 % reflow proxy.
+          viewport: { width: 720, height: 450 },
+        },
+      },
+    );
   }
 }
 

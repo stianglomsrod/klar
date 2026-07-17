@@ -42,6 +42,10 @@ tilgjengelighetsfeil.
 - [Kontrollpunkt A1](./qa/CONTROL_POINT_A1.md) – implementert
   autorisasjonskjerne med grønne automatiske porter; manuelle enhetsporter
   pågår og loggføres separat.
+- [Kontrollpunkt B1](./qa/CONTROL_POINT_B1.md) – verifisert atomisk
+  oppgaveovergang, XP, elevangre og ansattretur.
+- [Kontrollpunkt C1](./qa/CONTROL_POINT_C1.md) – første strukturerte
+  klasseukerevisjon, øktstyrt elevdag og lagrede responsive QA-artefakter.
 
 ## Dokumenttyper
 

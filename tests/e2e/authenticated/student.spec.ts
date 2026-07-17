@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { openLocalDatabase } from "../support/local-database";
 import {
   expectNoAxeViolations,
@@ -8,6 +8,12 @@ import {
 } from "../support/quality";
 
 const studentId = "10000000-0000-4000-8000-000000000002";
+
+async function revealLegacyTasks(page: Page) {
+  await page
+    .getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/)
+    .click();
+}
 
 test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) => {
   const database = await openLocalDatabase();
@@ -46,6 +52,7 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
 
     await page.goto("/v3/student");
     await expect(page.getByRole("heading", { name: "Hei, Testelev" })).toBeVisible();
+    await revealLegacyTasks(page);
     await expect(page.getByRole("heading", { name: "Regn tre stykker" })).toBeVisible();
     const taskCard = page.getByRole("article").filter({ hasText: "Les fem linjer" });
     await expect(taskCard.getByRole("heading", { name: "Les fem linjer" })).toBeVisible();
@@ -138,7 +145,11 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(progressDock.getByText("Nivå 1", { exact: true })).toBeVisible();
     await expect(progressDock.getByText("20 poeng", { exact: true })).toBeVisible();
 
+    // Wait for Next's server-action refresh to finish before replacing the
+    // document. WebKit reports an aborted in-flight RSC load as a page error.
+    await page.waitForLoadState("networkidle");
     await page.reload();
+    await revealLegacyTasks(page);
     const completedCard = page
       .getByRole("article")
       .filter({ hasText: "Les fem linjer" });
@@ -153,7 +164,9 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(page.getByText("Oppgaven er klar igjen. Poengene er justert.")).toBeVisible();
     await expect(progressDock.getByText("10 poeng", { exact: true })).toBeVisible();
 
+    await page.waitForLoadState("networkidle");
     await page.reload();
+    await revealLegacyTasks(page);
     const reopenedForCompletion = page
       .getByRole("article")
       .filter({ hasText: "Les fem linjer" });

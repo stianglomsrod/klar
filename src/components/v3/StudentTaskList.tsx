@@ -70,7 +70,26 @@ const FALLBACK_PRESENTATION = {
 type ProgressCommand = "complete" | "undo";
 
 type SubjectGroup = {
+  id: string;
   name: string;
+  tasks: StudentTodayTask[];
+  subject: string | null;
+  relation: null;
+  startsAt: null;
+  endsAt: null;
+};
+
+export type StudentTaskSection = {
+  id: string;
+  name: string;
+  subject: string | null;
+  relation: "previous" | "current" | "next" | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  assignmentIds: string[];
+};
+
+type TaskGroup = Omit<StudentTaskSection, "assignmentIds"> & {
   tasks: StudentTodayTask[];
 };
 
@@ -83,9 +102,33 @@ function groupTasksBySubject(tasks: StudentTodayTask[]): SubjectGroup[] {
     grouped.set(name, group);
   }
   return [...grouped.entries()].map(([name, groupedTasks]) => ({
+    id: name.toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]+/g, "-"),
     name,
     tasks: groupedTasks,
+    subject: name,
+    relation: null,
+    startsAt: null,
+    endsAt: null,
   }));
+}
+
+const timeFormatter = new Intl.DateTimeFormat("nb-NO", {
+  timeZone: "Europe/Oslo",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function relationLabel(relation: StudentTaskSection["relation"]): string | null {
+  switch (relation) {
+    case "previous":
+      return "Forrige økt";
+    case "current":
+      return "Nå";
+    case "next":
+      return "Neste økt";
+    default:
+      return null;
+  }
 }
 
 function getSubjectPresentation(subject: string) {
@@ -144,10 +187,12 @@ export function StudentTaskList({
   initialTasks,
   initialProgress,
   experience,
+  sections = [],
 }: {
   initialTasks: StudentTodayTask[];
   initialProgress: StudentProgressSummary;
   experience: StudentExperience;
+  sections?: StudentTaskSection[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [progress, setProgress] = useState(initialProgress);
@@ -158,6 +203,7 @@ export function StudentTaskList({
   const [feedback, setFeedback] = useState<string | null>(null);
   const requestIds = useRef(new Map<string, string>());
   const mutationInFlight = useRef(false);
+  const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => setTasks(initialTasks), [initialTasks]);
   useEffect(() => setProgress(initialProgress), [initialProgress]);
@@ -169,10 +215,28 @@ export function StudentTaskList({
     }
   }, [activeTaskId, tasks]);
 
-  const subjectGroups = useMemo(() => groupTasksBySubject(tasks), [tasks]);
+  const taskGroups = useMemo<TaskGroup[]>(() => {
+    if (sections.length === 0) return groupTasksBySubject(tasks);
+    const taskById = new Map(tasks.map((task) => [task.assignmentId, task]));
+    return sections.map((section) => ({
+      id: section.id,
+      name: section.name,
+      subject: section.subject,
+      relation: section.relation,
+      startsAt: section.startsAt,
+      endsAt: section.endsAt,
+      tasks: section.assignmentIds.flatMap((assignmentId) => {
+        const task = taskById.get(assignmentId);
+        return task ? [task] : [];
+      }),
+    }));
+  }, [sections, tasks]);
   const activeTask =
     tasks.find((task) => task.assignmentId === activeTaskId) ?? null;
-  const nextTaskId = tasks.find((task) => task.status !== "completed")?.assignmentId;
+  const nextTaskId =
+    sections.length === 0
+      ? tasks.find((task) => task.status !== "completed")?.assignmentId
+      : undefined;
   const completedCount = tasks.filter((task) => task.status === "completed").length;
   const hasPendingMutation = updatingId !== null;
 
@@ -245,7 +309,8 @@ export function StudentTaskList({
     }
   }
 
-  function openTask(task: StudentTodayTask) {
+  function openTask(task: StudentTodayTask, trigger: HTMLButtonElement) {
+    dialogTriggerRef.current = trigger;
     setError(null);
     setFeedback(null);
     setDialogMode("task");
@@ -259,7 +324,7 @@ export function StudentTaskList({
     setError(null);
   }
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && sections.length === 0) {
     return (
       <div>
         <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center shadow-sm">
@@ -301,31 +366,149 @@ export function StudentTaskList({
       )}
 
       <div className="space-y-8">
-        {subjectGroups.map((group) => {
-          const presentation = getSubjectPresentation(group.name);
+        {taskGroups.map((group) => {
+          const presentation = getSubjectPresentation(group.subject ?? group.name);
           const groupCompleted = group.tasks.filter(
             (task) => task.status === "completed",
           ).length;
-          const headingId = `subject-${group.name
-            .toLocaleLowerCase("nb-NO")
-            .replace(/[^a-z0-9æøå]+/g, "-")}`;
+          const headingId = `task-group-${group.id}`;
+          const temporalLabel = relationLabel(group.relation);
+          const compactDisclosure =
+            group.relation === "next" ||
+            (sections.length > 0 && group.relation === null);
+          const timeLabel =
+            group.startsAt && group.endsAt
+              ? `${timeFormatter.format(new Date(group.startsAt))}–${timeFormatter.format(new Date(group.endsAt))}`
+              : null;
+          const taskGrid = group.tasks.length > 0 ? (
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              {group.tasks.map((task) => {
+                const isNext = task.assignmentId === nextTaskId;
+                const supportLevel = Math.min(
+                  task.supportLevel,
+                  experience.supportLevel,
+                );
+
+                return (
+                  <article
+                    key={task.assignmentId}
+                    className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition-shadow focus-within:shadow-md ${
+                      isNext
+                        ? "border-indigo-400 ring-4 ring-indigo-100"
+                        : "border-slate-200"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={(event) => openTask(task, event.currentTarget)}
+                      aria-label={`Åpne oppgaven ${task.title}`}
+                      className="group flex min-h-44 w-full flex-col p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600 sm:p-6"
+                    >
+                      <div className="flex w-full items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          {isNext && (
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">
+                              Neste
+                            </p>
+                          )}
+                          <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">
+                            {task.title}
+                          </h3>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                            task.status === "completed"
+                              ? "bg-emerald-50 text-emerald-800"
+                              : task.status === "reopened"
+                                ? "bg-amber-50 text-amber-900"
+                                : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {STATUS_LABELS[task.status]}
+                        </span>
+                      </div>
+
+                      {supportLevel >= 2 && task.description && (
+                        <p className="mt-3 line-clamp-3 leading-6 text-slate-600">
+                          {task.description}
+                        </p>
+                      )}
+
+                      <div className="mt-auto flex w-full items-end justify-between gap-3 pt-5">
+                        {experience.progressEnabled && task.status !== "completed" ? (
+                          <span className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-900">
+                            <Sparkles aria-hidden="true" className="h-4 w-4" />
+                            {task.pointsValue} poeng
+                          </span>
+                        ) : (
+                          <span />
+                        )}
+                        <span className="inline-flex min-h-11 items-center gap-1 font-bold text-indigo-700 group-hover:text-indigo-900">
+                          Åpne
+                          <ChevronRight aria-hidden="true" className="h-5 w-5" />
+                        </span>
+                      </div>
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-4 rounded-2xl bg-white/80 p-4 text-slate-600">
+              Ingen oppgaver i denne økten.
+            </p>
+          );
 
           return (
-            <section key={group.name} aria-labelledby={headingId}>
+            <section
+              key={group.id}
+              aria-labelledby={headingId}
+              className={
+                group.relation === "current"
+                  ? "rounded-[2rem] border-2 border-indigo-400 bg-white p-2 shadow-lg ring-4 ring-indigo-100"
+                  : group.relation === "previous"
+                    ? "opacity-80"
+                    : ""
+              }
+            >
               <div
-                className={`rounded-3xl bg-gradient-to-r ${presentation.surface} px-5 py-5 shadow-sm sm:px-7 sm:py-6`}
+                className={`rounded-3xl bg-gradient-to-r ${presentation.surface} ${
+                  group.relation === "current"
+                    ? "px-5 py-6 sm:px-8 sm:py-8"
+                    : "px-5 py-4 sm:px-7 sm:py-5"
+                } shadow-sm`}
               >
                 <div className="flex items-center gap-4">
-                  <span aria-hidden="true" className="text-4xl sm:text-5xl">
+                  <span
+                    aria-hidden="true"
+                    className={group.relation === "current" ? "text-5xl sm:text-6xl" : "text-4xl"}
+                  >
                     {presentation.emoji}
                   </span>
                   <div className="min-w-0 flex-1">
+                    {(temporalLabel || timeLabel) && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        {temporalLabel && (
+                          <p className={`text-xs font-black uppercase tracking-[0.18em] ${
+                            group.relation === "current" ? "text-indigo-800" : "text-slate-600"
+                          }`}>
+                            {temporalLabel}
+                          </p>
+                        )}
+                        {timeLabel && (
+                          <p className="text-sm font-bold text-slate-700">{timeLabel}</p>
+                        )}
+                      </div>
+                    )}
                     <h2
                       id={headingId}
-                      className={`text-2xl font-black tracking-tight sm:text-3xl ${presentation.accent}`}
+                      className={`${group.relation === "current" ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl"} mt-1 font-black tracking-tight ${presentation.accent}`}
                     >
                       {group.name}
                     </h2>
+                    {group.subject && group.subject !== group.name && (
+                      <p className="mt-1 font-semibold text-slate-700">{group.subject}</p>
+                    )}
                     {experience.progressEnabled && (
                       <p className="mt-1 font-semibold text-slate-700">
                         {groupCompleted} av {group.tasks.length} ferdige
@@ -334,79 +517,25 @@ export function StudentTaskList({
                   </div>
                 </div>
               </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {group.tasks.map((task) => {
-                  const isNext = task.assignmentId === nextTaskId;
-                  const supportLevel = Math.min(
-                    task.supportLevel,
-                    experience.supportLevel,
-                  );
-
-                  return (
-                    <article
-                      key={task.assignmentId}
-                      className={`overflow-hidden rounded-3xl border bg-white shadow-sm transition-shadow focus-within:shadow-md ${
-                        isNext
-                          ? "border-indigo-400 ring-4 ring-indigo-100"
-                          : "border-slate-200"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => openTask(task)}
-                        aria-label={`Åpne oppgaven ${task.title}`}
-                        className="group flex min-h-44 w-full flex-col p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-600 sm:p-6"
-                      >
-                        <div className="flex w-full items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            {isNext && (
-                              <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">
-                                Neste
-                              </p>
-                            )}
-                            <h3 className="mt-1 text-xl font-black leading-tight text-slate-950">
-                              {task.title}
-                            </h3>
-                          </div>
-                          <span
-                            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
-                              task.status === "completed"
-                                ? "bg-emerald-50 text-emerald-800"
-                                : task.status === "reopened"
-                                  ? "bg-amber-50 text-amber-900"
-                                  : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {STATUS_LABELS[task.status]}
-                          </span>
-                        </div>
-
-                        {supportLevel >= 2 && task.description && (
-                          <p className="mt-3 line-clamp-3 leading-6 text-slate-600">
-                            {task.description}
-                          </p>
-                        )}
-
-                        <div className="mt-auto flex w-full items-end justify-between gap-3 pt-5">
-                          {experience.progressEnabled && task.status !== "completed" ? (
-                            <span className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-900">
-                              <Sparkles aria-hidden="true" className="h-4 w-4" />
-                              {task.pointsValue} poeng
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <span className="inline-flex min-h-11 items-center gap-1 font-bold text-indigo-700 group-hover:text-indigo-900">
-                            Åpne
-                            <ChevronRight aria-hidden="true" className="h-5 w-5" />
-                          </span>
-                        </div>
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
+              {group.relation === "previous" && group.tasks.length > 0 ? (
+                <details className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                  <summary className="min-h-11 cursor-pointer rounded-xl px-2 py-2 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+                    Vis oppgavene fra forrige økt
+                  </summary>
+                  {taskGrid}
+                </details>
+              ) : compactDisclosure && group.tasks.length > 0 ? (
+                <details className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                  <summary className="min-h-11 cursor-pointer rounded-xl px-2 py-2 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+                    {group.relation === "next"
+                      ? `Se ${group.tasks.length} ${group.tasks.length === 1 ? "oppgave" : "oppgaver"} i neste økt`
+                      : `Se ${group.tasks.length} ${group.tasks.length === 1 ? "annen oppgave" : "andre oppgaver"}`}
+                  </summary>
+                  {taskGrid}
+                </details>
+              ) : (
+                taskGrid
+              )}
             </section>
           );
         })}
@@ -415,6 +544,7 @@ export function StudentTaskList({
       <StudentTaskDialog
         task={activeTask}
         mode={dialogMode}
+        returnFocusTarget={dialogTriggerRef.current}
         experience={experience}
         isUpdating={updatingId === activeTask?.assignmentId}
         hasPendingMutation={hasPendingMutation}

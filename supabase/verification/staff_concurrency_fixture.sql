@@ -8,7 +8,9 @@ from (values
   ('a0000000-0000-4000-8000-000000000003'::uuid, 'revoke@concurrency.test', 'Revoke-ansatt'),
   ('a0000000-0000-4000-8000-000000000004'::uuid, 'race@concurrency.test', 'Race-ansatt'),
   ('a0000000-0000-4000-8000-000000000005'::uuid, 'demote@concurrency.test', 'Demote-ansatt'),
-  ('a0000000-0000-4000-8000-000000000006'::uuid, 'student@concurrency.test', 'Elev samtidighet')
+  ('a0000000-0000-4000-8000-000000000006'::uuid, 'student@concurrency.test', 'Elev samtidighet'),
+  ('a0000000-0000-4000-8000-000000000007'::uuid, 'joining-student@concurrency.test', 'Elev i opptaksrace'),
+  ('a0000000-0000-4000-8000-000000000008'::uuid, 'revoked-plan@concurrency.test', 'Tilbakekalt planlegger')
 ) as fixture(id, email, display_name);
 
 insert into public.organizations (id, name, created_by)
@@ -26,7 +28,9 @@ from (values
   ('a0000000-0000-4000-8000-000000000003'::uuid, 'teacher'::public.organization_role),
   ('a0000000-0000-4000-8000-000000000004'::uuid, 'teacher'::public.organization_role),
   ('a0000000-0000-4000-8000-000000000005'::uuid, 'teacher'::public.organization_role),
-  ('a0000000-0000-4000-8000-000000000006'::uuid, 'student'::public.organization_role)
+  ('a0000000-0000-4000-8000-000000000006'::uuid, 'student'::public.organization_role),
+  ('a0000000-0000-4000-8000-000000000007'::uuid, 'student'::public.organization_role),
+  ('a0000000-0000-4000-8000-000000000008'::uuid, 'teacher'::public.organization_role)
 ) as members(user_id, role);
 
 insert into public.classes (id, organization_id, name, created_by)
@@ -34,6 +38,14 @@ values (
   'c0000000-0000-4000-8000-000000000001',
   'b0000000-0000-4000-8000-000000000001',
   'Samtidighetsklasse',
+  'a0000000-0000-4000-8000-000000000001'
+);
+
+insert into public.classes (id, organization_id, name, created_by)
+values (
+  'c0000000-0000-4000-8000-000000000002',
+  'b0000000-0000-4000-8000-000000000001',
+  'Klasse utenfor ansattoppdraget',
   'a0000000-0000-4000-8000-000000000001'
 );
 
@@ -60,3 +72,26 @@ from (values
   ('a0000000-0000-4000-8000-000000000003'::uuid, 'd0000000-0000-4000-8000-000000000003'::uuid),
   ('a0000000-0000-4000-8000-000000000004'::uuid, 'd0000000-0000-4000-8000-000000000004'::uuid)
 ) as grants(target_user_id, idempotency_key);
+
+do $$
+declare
+  revoked_assignment_id uuid;
+begin
+  revoked_assignment_id := public.create_staff_assignment(
+    'b0000000-0000-4000-8000-000000000001',
+    'a0000000-0000-4000-8000-000000000001',
+    'a0000000-0000-4000-8000-000000000008',
+    'c0000000-0000-4000-8000-000000000001',
+    'substitute',
+    transaction_timestamp() - interval '1 hour',
+    transaction_timestamp() + interval '1 day',
+    'd0000000-0000-4000-8000-000000000008'
+  );
+
+  perform public.revoke_staff_assignment(
+    'b0000000-0000-4000-8000-000000000001',
+    'a0000000-0000-4000-8000-000000000001',
+    revoked_assignment_id
+  );
+end;
+$$;

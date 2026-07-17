@@ -1,6 +1,6 @@
 # E01 – Elevens dag og oppgaveflyt
 
-**Status:** Planlagt
+**Status:** Pågår – B1/C1-flyten er delvis verifisert
 
 **Kontrakt:** [§ 6 Elevens dagsflate](../product/DOMAIN_CONTRACT.md#6-elevens-dagsflate)
 
@@ -13,8 +13,16 @@ undervisningsøkt. Eleven åpner en oppgave for å se instruksjonen og trykker
 «Fullfør» når arbeidet utenfor Klar er gjort. Et kort sjekkpunkt lar eleven
 bekrefte med `✓ Ferdig`, med eller uten frivillig tekst, lyd eller bilde.
 
-Dette er et målbilde. Nåværende 3.0-side er en enkel oppgaveliste uten
-ukeplan-/sesjonsmodell og uten mediesjekkpunkt.
+Nåværende 3.0 har en autoritativ Europe/Oslo-projeksjon av forrige, aktuell og
+neste økt fra aktiv planrevisjon. Aktuell økt er fremhevet, forrige er tonet
+ned og lukket, neste er kompakt, og historiske løse oppgaver ligger sekundært.
+Oppgaven åpnes uten «I gang», og det eksisterende sjekkpunktet kan fullføres
+uten vedlegg med atomisk XP, elevangre og ansattretur fra B1.
+
+Tekst, lyd og bilde, oppgaveknyttet hånd, flytt/send ut på nytt, offlineflyt og
+hele den fysiske enhetsmatrisen gjenstår. Den eksisterende tekstlige
+hjelpekontrollen er en E03-mellomtilstand og er ikke den avtalte ikonbaserte
+footer-hånden.
 
 ## Omfang
 
@@ -91,18 +99,18 @@ oppbevaring og sletting være dokumentert.
 
 ## Akseptansekriterier
 
-- [ ] Forrige, aktuell og neste økt bestemmes fra samme autoritative klokke og
+- [x] Forrige, aktuell og neste økt bestemmes fra samme autoritative klokke og
   planrevisjon uten egen etter-skoletid-flyt.
-- [ ] Å åpne en oppgave endrer ikke status eller XP og krever ingen «I gang».
-- [ ] Oppgaven kan fullføres med null vedlegg.
+- [x] Å åpne en oppgave endrer ikke status eller XP og krever ingen «I gang».
+- [x] Oppgaven kan fullføres med null vedlegg.
 - [ ] Tekst, lyd og bilde kan velges og fjernes uavhengig før bekreftelse.
-- [ ] XP gis først etter `✓ Ferdig` og nøyaktig én gang per gyldig overgang.
-- [ ] Avbryt fra sjekkpunktet etterlater ingen fullføring eller XP.
+- [x] XP gis først etter `✓ Ferdig` og nøyaktig én gang per gyldig overgang.
+- [x] Avbryt fra sjekkpunktet etterlater ingen fullføring eller XP.
 - [ ] Vedleggsfeil kan prøves på nytt eller fjernes uten skjult deltilstand.
 - [ ] Oppgaveknyttet hånd oppretter samme køtype som footer-hånden.
-- [ ] Elevangre og ansattretur viser riktig, ikke-straffende status.
+- [x] Elevangre og ansattretur viser riktig, ikke-straffende status.
 - [ ] Flytt bevarer iterasjons-ID/XP; send ut på nytt oppretter ny ID/XP.
-- [ ] Ingen uferdig oppgave flyttes eller kopieres automatisk.
+- [x] Ingen uferdig oppgave flyttes eller kopieres automatisk.
 - [ ] Hele flyten består målmatrisen for mobil, iPad, PC og tilgjengelighet.
 
 ## Tester og ferdigbevis
@@ -116,3 +124,7 @@ Epicen kan markeres ferdig først når migrasjoner kan bygges fra tom database,
 testene er grønne, representative skjermbilder fra alle tre enhetsklassene er
 lagret i kontrollpunktet, og README/runbook beskriver den faktisk aktiverte
 pilotgrensen.
+
+Delbevis for øktprojeksjon og den første klasseuken finnes i
+[Kontrollpunkt C1](../qa/CONTROL_POINT_C1.md). Fullførings-/XP-beviset finnes i
+[Kontrollpunkt B1](../qa/CONTROL_POINT_B1.md).

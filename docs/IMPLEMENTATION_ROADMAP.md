@@ -2,7 +2,7 @@
 
 **Status:** Pågår
 
-**Sist avklart:** 16. juli 2026
+**Sist avklart:** 17. juli 2026
 
 **Autoritativ produktkilde:** [Domenekontrakten](./product/DOMAIN_CONTRACT.md)
 
@@ -82,6 +82,9 @@ redusert bevegelse.
 
 ### Kontrollpunkt B – oppgavestatus, XP og belønning
 
+**Status:** Pågår – B1 har levert og verifisert oppgaveovergang, XP-ledger,
+angre og ansattretur. Belønningsvalg/-innløsning og øvrige E02-flater gjenstår.
+
 Implementer E02 før elevens nye fullførflyt kobles på:
 
 - transaksjonell oppgaveovergang og XP-ledger;
@@ -95,6 +98,12 @@ databasetester og tjenestetester uten direkte klientskriv til progresjonsdata.
 
 ### Kontrollpunkt C – ukeplan og Smart Import
 
+**Status:** Pågår – C1 har levert den første manuelle, strukturerte og
+uforanderlige klasseukerevisjonen samt stabil økt-/oppgaveproveniens. DOCX er
+fortsatt task-only; utkast, full strukturbevaring, senere revisjoner, reimport,
+treveis merge og rollback gjenstår. Se
+[`docs/qa/CONTROL_POINT_C1.md`](./qa/CONTROL_POINT_C1.md).
+
 Implementer E04 som datagrunnlag for en tidsbasert elevdag:
 
 - stabile ukeplaner, sesjoner, beskjeder, mål og oppgaver;
@@ -107,6 +116,10 @@ og en endret plan kan publiseres uten å slette elevprogresjon eller manuelle
 lærerendringer.
 
 ### Kontrollpunkt D – elevens dag og oppgave
+
+**Status:** Pågår delvis – C1 projiserer forrige/aktuell/neste økt, og B1 gir
+fullføring uten vedlegg, angre og ansattretur. Medier, kontekstuell hånd,
+flytt/send ut på nytt, offlineflyt og fysisk målenhetsmatrise gjenstår.
 
 Bygg E01 på de stabile sesjons- og progresjonsmodellene:
 

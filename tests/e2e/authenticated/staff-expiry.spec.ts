@@ -86,7 +86,7 @@ test("utløp av et åpent oppdrag avviser handlingen og auditeres én gang", asy
     await page.goto(`/v3/teacher/classes/${classId}`);
     await expect(page.getByRole("heading", { name: className })).toBeVisible();
     await expect(
-      page.getByRole("button", { name: "Publiser til klassen" }),
+      page.getByRole("button", { name: "Publiser løs oppgave" }),
     ).toBeVisible();
 
     await database.query("begin");
@@ -146,7 +146,7 @@ test("utløp av et åpent oppdrag avviser handlingen og auditeres én gang", asy
       before_end: true,
       expiry_audited_at: null,
     });
-    await page.getByLabel("Tittel").fill(deniedTitle);
+    await page.locator("#task-title").fill(deniedTitle);
 
     await expect
       .poll(
@@ -196,7 +196,7 @@ test("utløp av et åpent oppdrag avviser handlingen og auditeres én gang", asy
       expiry_audits: 0,
     });
 
-    await page.getByRole("button", { name: "Publiser til klassen" }).click();
+    await page.getByRole("button", { name: "Publiser løs oppgave" }).click();
     await expect(page).toHaveURL(new RegExp(`${classId}\\?access=ended$`));
     const endedHeading = page.getByRole("heading", {
       name: "Tilgangen er avsluttet",

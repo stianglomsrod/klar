@@ -159,10 +159,10 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     deniedClassPage.getByText("Visuell arbeidsoppgave", { exact: true }),
   ).toHaveCount(0);
   await expect(
-    deniedClassPage.getByRole("region", { name: "Smart Import" }),
+    deniedClassPage.getByRole("region", { name: "Importer oppgaveforslag" }),
   ).toHaveCount(0);
   await expect(
-    deniedClassPage.getByRole("button", { name: "Publiser til klassen" }),
+    deniedClassPage.getByRole("button", { name: "Publiser løs oppgave" }),
   ).toHaveCount(0);
   expect(await deniedClassPage.content()).not.toMatch(
     /Visuell elev|Visuell klasse 4B|Visuell arbeidsoppgave|staff_assignments|operational_owner|legacy_teacher/,
@@ -200,14 +200,14 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await testStudentRow.getByRole("button", { name: "Lagre", exact: true }).click();
   await expect(substitutePage.getByText("Lagret.", { exact: true })).toBeVisible();
 
-  await substitutePage.getByLabel("Tittel").fill("Oppgave publisert av vikar");
-  await substitutePage.getByRole("button", { name: "Publiser til klassen" }).click();
+  await substitutePage.locator("#task-title").fill("Oppgave publisert av vikar");
+  await substitutePage.getByRole("button", { name: "Publiser løs oppgave" }).click();
   await expect(
-    substitutePage.getByRole("status").filter({ hasText: "Oppgaven er publisert" }),
+    substitutePage.getByRole("status").filter({ hasText: "Den løse oppgaven er publisert" }),
   ).toBeVisible();
 
   const importPanel = substitutePage.getByRole("region", {
-    name: "Smart Import",
+    name: "Importer oppgaveforslag",
   });
   const { count: importedBeforePreview, error: importedBeforePreviewError } =
     await admin
@@ -251,7 +251,7 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     .getByRole("textbox", { name: "Oppgave 2", exact: true })
     .fill(`E2E import kontrollert ${importToken}: regn oppgave 4.12`);
   await importPanel
-    .getByRole("button", { name: "Bekreft og publiser 2" })
+    .getByRole("button", { name: "Publiser 2 som løse oppgaver" })
     .click();
   await expect(importPanel.getByRole("status")).toHaveText(
     "2 oppgaver er publisert.",
@@ -373,7 +373,7 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const stalePlanPublishPage = await substitute.newPage();
   await stalePlanPublishPage.goto(`/v3/teacher/classes/${classId}`);
   const stalePublishPanel = stalePlanPublishPage.getByRole("region", {
-    name: "Smart Import",
+    name: "Importer oppgaveforslag",
   });
   await stalePublishPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
     name: "syntetisk-publish.docx",
@@ -398,7 +398,7 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     .getByRole("textbox", { name: "Oppgave 2", exact: true })
     .fill("Avvist import etter tilbakekalling 2");
   const stalePublishButton = stalePublishPanel.getByRole("button", {
-    name: "Bekreft og publiser 2",
+    name: "Publiser 2 som løse oppgaver",
   });
   await expect(stalePublishButton).toBeVisible();
 
@@ -465,8 +465,8 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const planAuditsBefore = planAuditBaseline.count;
   const supportAuditsBefore = supportAuditBaseline.count;
 
-  await substitutePage.getByLabel("Tittel").fill("Avvist etter tilbakekalling");
-  await substitutePage.getByRole("button", { name: "Publiser til klassen" }).click();
+  await substitutePage.locator("#task-title").fill("Avvist etter tilbakekalling");
+  await substitutePage.getByRole("button", { name: "Publiser løs oppgave" }).click();
   await expect(
     substitutePage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
   ).toBeVisible();
