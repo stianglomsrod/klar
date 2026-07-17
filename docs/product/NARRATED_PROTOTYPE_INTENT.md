@@ -50,7 +50,7 @@ aldri svekkes av historisk atferd.
 | 06:43 | Første level-passering kan gi et rolig valg mellom visuell belønning og læreropprettet kupong. | Innarbeidet som mål, delvis implementert domene. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md). Endelig belønningsvalg og UI gjenstår. |
 | 07:06 | Eleven kan rekke opp hånden og trekke forespørselen tilbake. | Tilpasset og implementert. Synlig kønummer er et antimønster. | [E03](../epics/E03_CONTEXTUAL_HELP_QUEUE.md) og [E1](../qa/CONTROL_POINT_E1.md). |
 | 07:14 | Læreren kan se og prioritere køen. | Innarbeidet og implementert i kjerne. Drag kan ikke være eneste metode. | [E2](../qa/CONTROL_POINT_E2.md). |
-| 08:10 | Fag og alle oppgaver gir en sekundær oversikt ved siden av dagens økter. | Utsatt elevflate. | [E01](../epics/E01_STUDENT_DAY_AND_TASK_FLOW.md) og UI/UX-referansen. |
+| 08:10 | Fag og alle oppgaver gir en sekundær oversikt ved siden av dagens økter. | Innarbeidet og implementert i D3. | [E01](../epics/E01_STUDENT_DAY_AND_TASK_FLOW.md), [D3](../qa/CONTROL_POINT_D3.md) og UI/UX-referansen. «Dagen i dag» er fortsatt landing. |
 | 08:16 | Eleven kan angre fullføring, åpne oppgaven igjen og få de krediterte poengene reversert. | Innarbeidet og implementert. | Domenekontrakten § 7.4 og [B1](../qa/CONTROL_POINT_B1.md). |
 | 08:39 | Et valgt nivåvalg beholdes etter XP-reversering; en kupong er tenkt som en engangsbelønning. | Delvis innarbeidet. Bevaring og unik claim er kontrakt; eksakt innløsningslivsløp er utsatt. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md). |
 | 08:51 | Ukeoversikten er sekundær, men dagens kolonne og oppgavestatus skal være lett å finne. | Innarbeidet visuell retning; full flate er utsatt. | E01 og UI/UX-referansen. |

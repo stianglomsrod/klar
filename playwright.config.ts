@@ -75,7 +75,7 @@ if (authenticated) {
     projects.push(
       {
         name: "student-smoke",
-        testMatch: /authenticated\/student\.spec\.ts/,
+        testMatch: /authenticated\/student(?:-subjects)?\.spec\.ts/,
         dependencies: ["auth-setup"],
         use: {
           browserName: authBrowser,
@@ -174,7 +174,7 @@ if (authenticated) {
       projects.push(
         {
           name: `visual-student-${target.name}`,
-          testMatch: /visual\/student\.visual\.spec\.ts/,
+          testMatch: /visual\/student(?:-subjects)?\.visual\.spec\.ts/,
           dependencies: ["auth-setup"],
           use: {
             browserName: authBrowser,
@@ -232,7 +232,7 @@ if (authenticated) {
     projects.push(
       {
         name: "visual-student-reflow-200",
-        testMatch: /visual\/student\.visual\.spec\.ts/,
+        testMatch: /visual\/student(?:-subjects)?\.visual\.spec\.ts/,
         dependencies: ["auth-setup"],
         use: {
           browserName: authBrowser,

@@ -2,9 +2,12 @@ import "server-only";
 
 import { requireAnyStudentActor } from "@/server/auth/authorize";
 import { PrototypeDataError } from "@/server/data/errors";
-import type { Json, StudentTaskStatus } from "@/server/supabase/database.types";
+import type { Json } from "@/server/supabase/database.types";
 import { createClient as createSessionClient } from "@/utils/supabase/server";
-import type { StudentTodayTask } from "@/server/tasks/task-service";
+import {
+  parseStudentTodayTask,
+  type StudentTodayTask,
+} from "@/server/tasks/task-service";
 
 export type StudentSessionRelation = "previous" | "current" | "next";
 
@@ -28,44 +31,6 @@ export type StudentSessionDay = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseTask(value: unknown): StudentTodayTask {
-  if (!isRecord(value)) throw new PrototypeDataError();
-  const status = String(value.status) as StudentTaskStatus;
-  if (
-    typeof value.assignment_id !== "string" ||
-    typeof value.title !== "string" ||
-    !(value.description === null || typeof value.description === "string") ||
-    !(value.subject === null || typeof value.subject === "string") ||
-    !(value.estimated_minutes === null || Number.isInteger(value.estimated_minutes)) ||
-    !Number.isInteger(value.support_level) ||
-    !Number.isInteger(value.points_value) ||
-    !["assigned", "completed", "reopened"].includes(status) ||
-    !Number.isInteger(value.state_version) ||
-    Number(value.state_version) < 1 ||
-    !Number.isInteger(value.schedule_version) ||
-    Number(value.schedule_version) < 1 ||
-    !(value.reopen_message === null || typeof value.reopen_message === "string") ||
-    !(value.due_at === null || typeof value.due_at === "string")
-  ) {
-    throw new PrototypeDataError();
-  }
-  return {
-    assignmentId: value.assignment_id,
-    title: value.title,
-    description: value.description,
-    subject: value.subject,
-    estimatedMinutes:
-      value.estimated_minutes === null ? null : Number(value.estimated_minutes),
-    supportLevel: Number(value.support_level),
-    pointsValue: Number(value.points_value),
-    status,
-    stateVersion: Number(value.state_version),
-    scheduleVersion: Number(value.schedule_version),
-    reopenMessage: value.reopen_message,
-    dueAt: value.due_at,
-  };
 }
 
 function parseDay(value: Json): StudentSessionDay {
@@ -103,7 +68,7 @@ function parseDay(value: Json): StudentSessionDay {
       startsAt: session.starts_at,
       endsAt: session.ends_at,
       relation,
-      tasks: session.tasks.map(parseTask),
+      tasks: session.tasks.map(parseStudentTodayTask),
     };
   });
   return {

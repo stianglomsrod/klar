@@ -77,6 +77,19 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(page.getByRole("heading", { name: "Hei, Testelev" })).toBeVisible();
     await revealLegacyTasks(page);
     await expect(page.getByRole("heading", { name: "Regn tre stykker" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Åpne meny" }).click();
+    await page
+      .getByRole("dialog", { name: "Meny" })
+      .getByRole("link", { name: "Fag og oppgaver" })
+      .click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Fag og oppgaver" }),
+    ).toBeVisible();
+    await page.getByRole("list").getByRole("link", { name: /^Norsk,/ }).click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Norsk" }),
+    ).toBeVisible();
     const taskCard = page.getByRole("article").filter({ hasText: "Les fem linjer" });
     await expect(taskCard.getByRole("heading", { name: "Les fem linjer" })).toBeVisible();
     const openTaskButton = taskCard.getByRole("button", {
@@ -169,6 +182,7 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(progressDock.getByText("20 poeng", { exact: true })).toBeVisible();
 
     await expectDurableTaskStatus(page, "Les fem linjer", "Ferdig");
+    await page.goto("/v3/student");
     await revealLegacyTasks(page);
     const completedCard = page
       .getByRole("article")

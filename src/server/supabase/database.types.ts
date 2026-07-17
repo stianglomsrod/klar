@@ -1320,6 +1320,10 @@ export type Database = {
         Args: { p_organization_id: string };
         Returns: Json;
       };
+      get_my_student_task_catalog_v1: {
+        Args: { p_organization_id: string };
+        Returns: Json;
+      };
       update_student_experience: {
         Args: {
           p_organization_id: string;

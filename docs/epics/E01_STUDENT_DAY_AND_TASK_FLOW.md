@@ -1,6 +1,6 @@
 # E01 – Elevens dag og oppgaveflyt
 
-**Status:** Pågår – B1/C1/D2/E1-flyten er delvis verifisert
+**Status:** Pågår – B1/C1/D2/D3/E1-flyten er delvis verifisert
 
 **Kontrakt:** [§ 6 Elevens dagsflate](../product/DOMAIN_CONTRACT.md#6-elevens-dagsflate)
 
@@ -24,6 +24,12 @@ D2 har levert eksplisitt flytt eller ny lenket utsending. E1 har erstattet den
 tekstlige mellomtilstanden med
 den avtalte ikonbaserte footer-hånden og samme oppgaveknyttede køflyt.
 
+D3 har levert den sekundære «Fag og oppgaver»-flaten fra produkteierens
+fortalte prototypeflyt. Alle oppgaveiterasjoner eleven kan se nå grupperes
+etter fag, mens «Dagen i dag» fortsatt er landing. Fagdetaljen bruker samme
+assignment, oppgavedialog, fullføring, XP, angre og kontekstuelle hånd som
+dagsflaten.
+
 ## Omfang
 
 Epicen omfatter:
@@ -34,6 +40,7 @@ Epicen omfatter:
 - fullføringssjekkpunkt med null eller flere frivillige vedlegg;
 - elevangre og visning av ansattretur;
 - inngang til oppgaveknyttet hjelp når køen er åpen;
+- sekundær oversikt over alle nå synlige oppgaver, gruppert etter fag;
 - lærerhandlingene «flytt samme oppgave» og «send ut på nytt»;
 - responsive tom-, laste-, feil- og offline-tilstander.
 
@@ -44,8 +51,8 @@ Produkteierens talespor beskriver i tillegg flersesjons-fullføring og en
 eksplisitt ukegjentakelse. Om én fullføring kan dekke flere økter er et åpent
 produktvalg. Ukegjentakelse er en utsatt retning, ikke en implementert regel.
 D2 flytter eller sender ut én konkret iterasjon til én senere publisert økt og
-avgjør ingen av delene. Elevens komplette «alle oppgaver»- og
-ukeoversiktsflater er også senere E01-slicer.
+avgjør ingen av delene. «Alle oppgaver» er levert som den sekundære D3-
+fagoversikten; ukeoversikten er fortsatt en senere E01-slice.
 
 ## Elevflyt
 
@@ -118,6 +125,8 @@ oppbevaring og sletting være dokumentert.
 - [x] Elevangre og ansattretur viser riktig, ikke-straffende status.
 - [x] Flytt bevarer iterasjons-ID/XP; send ut på nytt oppretter ny ID/XP.
 - [x] Ingen uferdig oppgave flyttes eller kopieres automatisk.
+- [x] «Fag og oppgaver» viser samme nå synlige assignments og samme
+  fullføringsflyt som dagsflaten, gruppert etter fag.
 - [ ] Hele flyten består målmatrisen for mobil, iPad, PC og tilgjengelighet.
 
 ## Tester og ferdigbevis
@@ -135,6 +144,11 @@ pilotgrensen.
 Delbeviset for flytt og ny utsending finnes i
 [Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md). Det lukker ikke medier,
 offlineflyt eller hele den fysiske enhetsmatrisen.
+
+Delbeviset for den sekundære fagoversikten, caller-bound kataloglesing,
+Chromium/WebKit og den responsive matrisen finnes i
+[Kontrollpunkt D3](../qa/CONTROL_POINT_D3.md). Den fysiske D3-
+skjermleserporten er eksplisitt åpen.
 
 Delbevis for øktprojeksjon og den første klasseuken finnes i
 [Kontrollpunkt C1](../qa/CONTROL_POINT_C1.md). Fullførings-/XP-beviset finnes i

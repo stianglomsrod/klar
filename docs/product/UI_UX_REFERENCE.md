@@ -85,6 +85,12 @@ Elevens toppnivå skal være mindre og oppgaveorientert:
 - timeplan;
 - egne belønninger når aktivert.
 
+I gjeldende 3.0-kjerne er «Dagen i dag» og «Fag og oppgaver» implementert.
+Timeplan og belønninger skal ikke vises som døde navigasjonsmål før de har en
+reell flate. Fagoversikten bruker én lenke per fag, beholder ferdige og
+gjenåpnede oppgaver i samme sammenheng og respekterer elevens valg om stille
+fremdriftsvisning.
+
 Navigasjonen skal aldri konkurrere med aktuell økt. På små skjermer kan
 sekundærnavigasjon ligge bak en kjent meny, mens footerhandlingene for den
 aktive konteksten forblir lette å nå.

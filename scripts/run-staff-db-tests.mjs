@@ -37,6 +37,7 @@ const postA1Migrations = [
 ];
 const e2Migration = "20260717000001_help_queue_staff_controls.sql";
 const d2Migration = "20260717000002_task_iteration_scheduling.sql";
+const d3Migration = "20260717000003_student_task_catalog.sql";
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -206,6 +207,10 @@ function applyE2(containerName) {
 
 function applyD2(containerName) {
   runSql(containerName, `supabase/migrations/${d2Migration}`);
+}
+
+function applyD3(containerName) {
+  runSql(containerName, `supabase/migrations/${d3Migration}`);
 }
 
 function applyA1Followups(containerName) {
@@ -2288,6 +2293,7 @@ async function runEmptyScenario() {
     applyPostA1(container.name);
     applyE2(container.name);
     applyD2(container.name);
+    applyD3(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
@@ -2297,6 +2303,9 @@ async function runEmptyScenario() {
     runSql(container.name, "supabase/verification/task_iteration_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/help_queue_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/task_iteration_rpc_smoke.sql");
+    // D3 intentionally runs after the D2 fixture so the catalog smoke can
+    // prove both a visible historical plan task and a future hidden plan task.
+    runSql(container.name, "supabase/verification/student_task_catalog_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_session_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_staff_controls_rpc_smoke.sql");
     await runHelpQueueStaffControlConcurrency(container.config);
@@ -2329,6 +2338,8 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/task_iteration_upgrade_fixture.sql");
     applyD2(positive.name);
     runSql(positive.name, "supabase/verification/task_iteration_upgrade_smoke.sql");
+    applyD3(positive.name);
+    runSql(positive.name, "supabase/verification/student_task_catalog_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }

@@ -122,3 +122,14 @@ export function useHelpQueueRealtime(
     };
   }, [classId, router, sessionEndsAt]);
 }
+
+export function StudentHelpQueueRealtime({
+  classId,
+  transitionAt,
+}: {
+  classId: string | null;
+  transitionAt: string | null;
+}) {
+  useHelpQueueRealtime(classId, transitionAt);
+  return null;
+}

@@ -18,7 +18,7 @@ export default async function PrototypeStudentPage() {
   );
 
   return (
-    <main id="main-content" tabIndex={-1} className="min-h-screen bg-sky-50 px-4 pb-36 pt-8 text-slate-950 focus:outline-none sm:px-6">
+    <main id="main-content" tabIndex={-1} className="min-h-[calc(100dvh-4rem)] scroll-mt-20 bg-sky-50 px-4 pb-36 pt-8 text-slate-950 focus:outline-none sm:px-6">
       <div className="mx-auto max-w-5xl">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-700">
           Klar 3.0

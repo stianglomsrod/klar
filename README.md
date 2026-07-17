@@ -45,6 +45,8 @@ Eleven kan:
 - logge inn med elevkode og separat passord;
 - se forrige, aktuell og neste økt fra den aktive klasseuken, med eldre løse
   oppgaver i en sekundær seksjon;
+- åpne «Fag og oppgaver» fra den lille elevmenyen og finne igjen alle nå
+  synlige oppgaveiterasjoner gruppert etter fag, også ferdige og gjenåpnede;
 - åpne oppgaven uten «I gang»-status, fullføre uten vedlegg, angre og se en
   ikke-straffende beskjed når en ansatt åpner oppgaven igjen;
 - få en hånd bare når den aktuelle øktkøen er åpen, be om generell eller
@@ -95,8 +97,8 @@ implementasjon og driftsklarhet.
   og den tidligere UI-koden i [`archive/2x-ui`](./archive/2x-ui), men ingen av
   dem bygges eller migreres inn i 3.0.
 - Anonyme klienter har ingen tabelltilgang. Autentiserte klienter er read-only
-  og avgrenses med RLS. Alle mutasjoner går gjennom autoriserte serverhandlinger
-  og eksplisitte service-role-RPC-er.
+  og avgrenses med RLS eller smale, caller-bound lese-RPC-er. Alle mutasjoner
+  går gjennom autoriserte serverhandlinger og eksplisitte service-role-RPC-er.
 - Pedagogiske voksenhandlinger krever nåværende voksenmedlemskap i
   organisasjonen, AAL2, et aktivt tids- og klasseavgrenset oppdrag og den
   eksplisitte kapabiliteten handlingen trenger. Eierens kontrollplan er separat
@@ -181,6 +183,14 @@ representativ oppgradering, målrettet D2-E2E, de fulle autentiserte suitene og
 den responsive Chromium-/WebKit-matrisen er grønne. Fysisk
 D2-iPad-/VoiceOver-port er ikke gjennomført og omtales ikke som automatisk
 bevis.
+
+Den sekundære elevoversikten «Fag og oppgaver» er dokumentert i
+[`docs/qa/CONTROL_POINT_D3.md`](./docs/qa/CONTROL_POINT_D3.md). Caller-bound
+kataloglesing, tom database, representativ oppgradering, fullføring/angre/XP
+fra fagdetalj og den responsive Chromium-/WebKit-matrisen er grønne. Et
+kuratert, syntetisk bildeutvalg er lagret i
+[`docs/qa/evidence/D3`](./docs/qa/evidence/D3/README.md). Fysisk D3-retest med
+VoiceOver/NVDA gjenstår.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

@@ -181,6 +181,13 @@ forrige, aktuell og neste økt. Aktuell økt er visuelt tydeligst. Oppgaver vise
 under økten eller faget de hører til, og eleven skal kunne åpne oppgaven med én
 tydelig handling.
 
+«Dagen i dag» skal forbli landingen. En sekundær «Fag og oppgaver»-flate kan
+samle alle oppgaveiterasjoner som er synlige for eleven nå, gruppert etter fag.
+Den skal bruke de samme assignment-identitetene og overgangene som dagsflaten;
+den skal ikke innføre egen rangering, automatisk skjuling/flytting eller en
+parallell fullføringsovergang.
+Fullførte og gjenåpnede oppgaver forblir synlige i sin faglige sammenheng.
+
 Det skal **ikke** finnes en automatisk «etter skoletid»-modus som:
 
 - rangerer alle uferdige oppgaver på tvers av fag;

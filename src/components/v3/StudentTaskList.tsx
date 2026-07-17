@@ -7,6 +7,10 @@ import {
   undoOwnTaskCompletionAction,
 } from "@/app/actions/v3/task-actions";
 import { createClientUuid } from "@/lib/client-uuid";
+import {
+  getStudentSubjectPresentation,
+  groupStudentTasksBySubject,
+} from "@/lib/student-subjects";
 import type {
   StudentProgressSummary,
   StudentTodayTask,
@@ -17,7 +21,7 @@ import type { StudentExperience } from "@/server/students/experience-service";
 import type { StudentHelpState } from "@/server/help/help-service";
 import { getStudentProgressDockLabel } from "@/lib/student-progress-dock-label";
 import { StudentHelpControl } from "./StudentHelpControl";
-import { useHelpQueueRealtime } from "./useHelpQueueRealtime";
+import { StudentHelpQueueRealtime } from "./useHelpQueueRealtime";
 import {
   StudentTaskDialog,
   type StudentTaskDialogMode,
@@ -29,59 +33,7 @@ const STATUS_LABELS: Record<StudentTaskStatus, string> = {
   reopened: "Åpnet igjen",
 };
 
-const SUBJECT_PRESENTATION: Record<
-  string,
-  { emoji: string; surface: string; accent: string }
-> = {
-  norsk: {
-    emoji: "✏️",
-    surface: "from-rose-50 to-orange-50",
-    accent: "text-rose-800",
-  },
-  matematikk: {
-    emoji: "📐",
-    surface: "from-blue-50 to-indigo-50",
-    accent: "text-blue-800",
-  },
-  engelsk: {
-    emoji: "💬",
-    surface: "from-sky-50 to-cyan-50",
-    accent: "text-sky-800",
-  },
-  samfunnsfag: {
-    emoji: "🌍",
-    surface: "from-amber-50 to-orange-50",
-    accent: "text-amber-900",
-  },
-  naturfag: {
-    emoji: "🌱",
-    surface: "from-emerald-50 to-teal-50",
-    accent: "text-emerald-900",
-  },
-  krle: {
-    emoji: "🕊️",
-    surface: "from-violet-50 to-fuchsia-50",
-    accent: "text-violet-900",
-  },
-};
-
-const FALLBACK_PRESENTATION = {
-  emoji: "📚",
-  surface: "from-indigo-50 to-sky-50",
-  accent: "text-indigo-900",
-};
-
 type ProgressCommand = "complete" | "undo";
-
-type SubjectGroup = {
-  id: string;
-  name: string;
-  tasks: StudentTodayTask[];
-  subject: string | null;
-  relation: null;
-  startsAt: null;
-  endsAt: null;
-};
 
 export type StudentTaskSection = {
   id: string;
@@ -96,25 +48,6 @@ export type StudentTaskSection = {
 type TaskGroup = Omit<StudentTaskSection, "assignmentIds"> & {
   tasks: StudentTodayTask[];
 };
-
-function groupTasksBySubject(tasks: StudentTodayTask[]): SubjectGroup[] {
-  const grouped = new Map<string, StudentTodayTask[]>();
-  for (const task of tasks) {
-    const name = task.subject?.trim() || "Oppgaver";
-    const group = grouped.get(name) ?? [];
-    group.push(task);
-    grouped.set(name, group);
-  }
-  return [...grouped.entries()].map(([name, groupedTasks]) => ({
-    id: name.toLocaleLowerCase("nb-NO").replace(/[^a-z0-9æøå]+/g, "-"),
-    name,
-    tasks: groupedTasks,
-    subject: name,
-    relation: null,
-    startsAt: null,
-    endsAt: null,
-  }));
-}
 
 const timeFormatter = new Intl.DateTimeFormat("nb-NO", {
   timeZone: "Europe/Oslo",
@@ -135,11 +68,7 @@ function relationLabel(relation: StudentTaskSection["relation"]): string | null 
   }
 }
 
-function getSubjectPresentation(subject: string) {
-  return SUBJECT_PRESENTATION[subject.toLocaleLowerCase("nb-NO")] ?? FALLBACK_PRESENTATION;
-}
-
-function StudentProgressDock({
+export function StudentProgressDock({
   progress,
   completedCount,
   taskCount,
@@ -210,12 +139,22 @@ export function StudentTaskList({
   experience,
   helpState,
   sections = [],
+  displayAssignmentIds,
+  singleGroup,
+  helpEligibleAssignmentIds = [],
+  helpTransitionAt,
+  highlightNextTask = true,
 }: {
   initialTasks: StudentTodayTask[];
   initialProgress: StudentProgressSummary;
   experience: StudentExperience;
   helpState: StudentHelpState;
   sections?: StudentTaskSection[];
+  displayAssignmentIds?: readonly string[];
+  singleGroup?: { id: string; name: string; subject: string | null };
+  helpEligibleAssignmentIds?: readonly string[];
+  helpTransitionAt?: string | null;
+  highlightNextTask?: boolean;
 }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [progress, setProgress] = useState(initialProgress);
@@ -241,10 +180,6 @@ export function StudentTaskList({
       (left, right) =>
         new Date(left.startsAt!).getTime() - new Date(right.startsAt!).getTime(),
     )[0];
-  useHelpQueueRealtime(
-    helpState.classId,
-    currentSession?.endsAt ?? nextSession?.startsAt ?? null,
-  );
   const requestIds = useRef(new Map<string, string>());
   const mutationInFlight = useRef(false);
   const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -285,9 +220,33 @@ export function StudentTaskList({
     }
   }, [activeTaskId, tasks]);
 
+  const displayedTasks = useMemo(() => {
+    if (!displayAssignmentIds) return tasks;
+    const visibleIds = new Set(displayAssignmentIds);
+    return tasks.filter((task) => visibleIds.has(task.assignmentId));
+  }, [displayAssignmentIds, tasks]);
   const taskGroups = useMemo<TaskGroup[]>(() => {
-    if (sections.length === 0) return groupTasksBySubject(tasks);
-    const taskById = new Map(tasks.map((task) => [task.assignmentId, task]));
+    if (singleGroup) {
+      return [{
+        ...singleGroup,
+        relation: null,
+        startsAt: null,
+        endsAt: null,
+        tasks: displayedTasks,
+      }];
+    }
+    if (sections.length === 0) {
+      return groupStudentTasksBySubject(displayedTasks).map((group) => ({
+        id: group.key,
+        name: group.name,
+        subject: group.name,
+        relation: null,
+        startsAt: null,
+        endsAt: null,
+        tasks: group.tasks,
+      }));
+    }
+    const taskById = new Map(displayedTasks.map((task) => [task.assignmentId, task]));
     return sections.map((section) => ({
       id: section.id,
       name: section.name,
@@ -300,7 +259,7 @@ export function StudentTaskList({
         return task ? [task] : [];
       }),
     }));
-  }, [sections, tasks]);
+  }, [displayedTasks, sections, singleGroup]);
   const activeTask =
     tasks.find((task) => task.assignmentId === activeTaskId) ?? null;
   const activeTaskSectionId = activeTaskId
@@ -310,15 +269,21 @@ export function StudentTaskList({
     : null;
   const showTaskHelpControl = Boolean(
     helpState.queue &&
-      activeTaskSectionId &&
-      activeTaskSectionId === helpState.queue.revisionSessionId,
+      ((activeTaskSectionId &&
+        activeTaskSectionId === helpState.queue.revisionSessionId) ||
+        (activeTaskId && helpEligibleAssignmentIds.includes(activeTaskId))),
   );
   const nextTaskId =
-    sections.length === 0
-      ? tasks.find((task) => task.status !== "completed")?.assignmentId
+    highlightNextTask && sections.length === 0
+      ? displayedTasks.find((task) => task.status !== "completed")?.assignmentId
       : undefined;
   const completedCount = tasks.filter((task) => task.status === "completed").length;
   const hasPendingMutation = updatingId !== null;
+  const resolvedHelpTransitionAt =
+    helpTransitionAt ??
+    currentSession?.endsAt ??
+    nextSession?.startsAt ??
+    null;
 
   function commandKey(task: StudentTodayTask, command: ProgressCommand): string {
     return `${task.assignmentId}:${task.stateVersion}:${task.scheduleVersion}:${command}`;
@@ -419,9 +384,13 @@ export function StudentTaskList({
     setError(null);
   }
 
-  if (tasks.length === 0 && sections.length === 0) {
+  if (displayedTasks.length === 0 && sections.length === 0) {
     return (
       <div>
+        <StudentHelpQueueRealtime
+          classId={helpState.classId}
+          transitionAt={resolvedHelpTransitionAt}
+        />
         <span className="sr-only" aria-live="polite" aria-atomic="true">
           {helpAnnouncement && (
             <span key={helpAnnouncement.id}>{helpAnnouncement.text}</span>
@@ -451,6 +420,10 @@ export function StudentTaskList({
 
   return (
     <div>
+      <StudentHelpQueueRealtime
+        classId={helpState.classId}
+        transitionAt={resolvedHelpTransitionAt}
+      />
       <span className="sr-only" aria-live="polite" aria-atomic="true">
         {helpAnnouncement && (
           <span key={helpAnnouncement.id}>{helpAnnouncement.text}</span>
@@ -474,7 +447,9 @@ export function StudentTaskList({
 
       <div className="space-y-8">
         {taskGroups.map((group) => {
-          const presentation = getSubjectPresentation(group.subject ?? group.name);
+          const presentation = getStudentSubjectPresentation(
+            group.subject ?? group.name,
+          );
           const groupCompleted = group.tasks.filter(
             (task) => task.status === "completed",
           ).length;
@@ -578,52 +553,61 @@ export function StudentTaskList({
                     : ""
               }
             >
-              <div
-                className={`rounded-3xl bg-gradient-to-r ${presentation.surface} ${
-                  group.relation === "current"
-                    ? "px-5 py-6 sm:px-8 sm:py-8"
-                    : "px-5 py-4 sm:px-7 sm:py-5"
-                } shadow-sm`}
-              >
-                <div className="flex items-center gap-4">
-                  <span
-                    aria-hidden="true"
-                    className={group.relation === "current" ? "text-5xl sm:text-6xl" : "text-4xl"}
-                  >
-                    {presentation.emoji}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    {(temporalLabel || timeLabel) && (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {temporalLabel && (
-                          <p className={`text-xs font-black uppercase tracking-[0.18em] ${
-                            group.relation === "current" ? "text-indigo-800" : "text-slate-600"
-                          }`}>
-                            {temporalLabel}
-                          </p>
-                        )}
-                        {timeLabel && (
-                          <p className="text-sm font-bold text-slate-700">{timeLabel}</p>
-                        )}
-                      </div>
-                    )}
-                    <h2
-                      id={headingId}
-                      className={`${group.relation === "current" ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl"} mt-1 font-black tracking-tight ${presentation.accent}`}
+              {singleGroup ? (
+                <h2
+                  id={headingId}
+                  className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
+                >
+                  {group.name}
+                </h2>
+              ) : (
+                <div
+                  className={`rounded-3xl bg-gradient-to-r ${presentation.surface} ${
+                    group.relation === "current"
+                      ? "px-5 py-6 sm:px-8 sm:py-8"
+                      : "px-5 py-4 sm:px-7 sm:py-5"
+                  } shadow-sm`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span
+                      aria-hidden="true"
+                      className={group.relation === "current" ? "text-5xl sm:text-6xl" : "text-4xl"}
                     >
-                      {group.name}
-                    </h2>
-                    {group.subject && group.subject !== group.name && (
-                      <p className="mt-1 font-semibold text-slate-700">{group.subject}</p>
-                    )}
-                    {experience.progressEnabled && (
-                      <p className="mt-1 font-semibold text-slate-700">
-                        {groupCompleted} av {group.tasks.length} ferdige
-                      </p>
-                    )}
+                      {presentation.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      {(temporalLabel || timeLabel) && (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {temporalLabel && (
+                            <p className={`text-xs font-black uppercase tracking-[0.18em] ${
+                              group.relation === "current" ? "text-indigo-800" : "text-slate-600"
+                            }`}>
+                              {temporalLabel}
+                            </p>
+                          )}
+                          {timeLabel && (
+                            <p className="text-sm font-bold text-slate-700">{timeLabel}</p>
+                          )}
+                        </div>
+                      )}
+                      <h2
+                        id={headingId}
+                        className={`${group.relation === "current" ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl"} mt-1 font-black tracking-tight ${presentation.accent}`}
+                      >
+                        {group.name}
+                      </h2>
+                      {group.subject && group.subject !== group.name && (
+                        <p className="mt-1 font-semibold text-slate-700">{group.subject}</p>
+                      )}
+                      {experience.progressEnabled && (
+                        <p className="mt-1 font-semibold text-slate-700">
+                          {groupCompleted} av {group.tasks.length} ferdige
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
               {group.relation === "previous" && group.tasks.length > 0 ? (
                 <details className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
                   <summary className="min-h-11 cursor-pointer rounded-xl px-2 py-2 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-600">

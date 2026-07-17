@@ -51,7 +51,7 @@ export async function completeOwnTaskAction(
       expectedStateVersion,
       expectedScheduleVersion,
     );
-    revalidatePath("/v3/student");
+    revalidatePath("/v3/student", "layout");
     return { success: true, progress };
   } catch (error) {
     if (isAuthorizationError(error) || isPrototypeDataError(error)) {
@@ -74,7 +74,7 @@ export async function undoOwnTaskCompletionAction(
       expectedStateVersion,
       expectedScheduleVersion,
     );
-    revalidatePath("/v3/student");
+    revalidatePath("/v3/student", "layout");
     return { success: true, progress };
   } catch (error) {
     if (isAuthorizationError(error) || isPrototypeDataError(error)) {
@@ -94,7 +94,7 @@ export async function reopenStudentTaskAction(input: {
   try {
     const progress = await reopenStudentTaskForStaff(input);
     revalidatePath(`/v3/teacher/classes/${input.classId}`);
-    revalidatePath("/v3/student");
+    revalidatePath("/v3/student", "layout");
     return { success: true, progress };
   } catch (error) {
     const authorization = authorizationFailure(error);

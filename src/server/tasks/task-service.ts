@@ -71,6 +71,49 @@ function isInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value);
 }
 
+export function parseStudentTodayTask(value: unknown): StudentTodayTask {
+  if (!isRecord(value)) throw new PrototypeDataError();
+  const status = String(value.status) as StudentTaskStatus;
+  if (
+    !isUuid(value.assignment_id) ||
+    typeof value.title !== "string" ||
+    !(value.description === null || typeof value.description === "string") ||
+    !(value.subject === null || typeof value.subject === "string") ||
+    !(
+      value.estimated_minutes === null ||
+      (isInteger(value.estimated_minutes) && value.estimated_minutes > 0)
+    ) ||
+    !isInteger(value.support_level) ||
+    ![1, 2, 3].includes(value.support_level) ||
+    !isInteger(value.points_value) ||
+    value.points_value < 0 ||
+    !["assigned", "completed", "reopened"].includes(status) ||
+    !isInteger(value.state_version) ||
+    value.state_version < 1 ||
+    !isInteger(value.schedule_version) ||
+    value.schedule_version < 1 ||
+    !(value.reopen_message === null || typeof value.reopen_message === "string") ||
+    !(value.due_at === null || typeof value.due_at === "string")
+  ) {
+    throw new PrototypeDataError();
+  }
+
+  return {
+    assignmentId: value.assignment_id,
+    title: value.title,
+    description: value.description,
+    subject: value.subject,
+    estimatedMinutes: value.estimated_minutes,
+    supportLevel: value.support_level,
+    pointsValue: value.points_value,
+    status,
+    stateVersion: value.state_version,
+    scheduleVersion: value.schedule_version,
+    reopenMessage: value.reopen_message,
+    dueAt: value.due_at,
+  };
+}
+
 function parseLevelArray(value: unknown): number[] | null {
   if (!Array.isArray(value) || !value.every((level) => isInteger(level) && level >= 2)) {
     return null;
