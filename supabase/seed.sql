@@ -1,0 +1,2 @@
+-- Klar 3.0 intentionally ships without users or personal seed data.
+-- Development accounts are created through the authenticated seed tooling.

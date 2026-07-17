@@ -1,0 +1,92 @@
+"use client";
+
+import { useState } from "react";
+import { updateClassStudentExperienceAction } from "@/app/actions/v3/experience-actions";
+import type { SupportLevel } from "@/server/students/experience-service";
+
+export function TeacherStudentExperienceEditor({
+  classId,
+  studentId,
+  studentName,
+  initialSupportLevel,
+  initialProgressEnabled,
+}: {
+  classId: string;
+  studentId: string;
+  studentName: string;
+  initialSupportLevel: SupportLevel;
+  initialProgressEnabled: boolean;
+}) {
+  const [supportLevel, setSupportLevel] = useState(initialSupportLevel);
+  const [progressEnabled, setProgressEnabled] = useState(initialProgressEnabled);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const result = await updateClassStudentExperienceAction(classId, studentId, {
+        supportLevel,
+        progressEnabled,
+      });
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      setSupportLevel(result.experience.supportLevel);
+      setProgressEnabled(result.experience.progressEnabled);
+      setSaved(true);
+    } catch {
+      setError("Kunne ikke lagre visningen akkurat nå.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <details className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
+      <summary className="cursor-pointer font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600">
+        Tilpass visning
+      </summary>
+      <form onSubmit={save} className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+        <div>
+          <label htmlFor={`support-${studentId}`} className="font-semibold">
+            Støtte for {studentName}
+          </label>
+          <select
+            id={`support-${studentId}`}
+            value={supportLevel}
+            onChange={(event) => setSupportLevel(Number(event.target.value) as SupportLevel)}
+            className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-2 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-600"
+          >
+            <option value={1}>Kort</option>
+            <option value={2}>Vanlig</option>
+            <option value={3}>Mer oversikt</option>
+          </select>
+        </div>
+        <label className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+          <input
+            type="checkbox"
+            checked={progressEnabled}
+            onChange={(event) => setProgressEnabled(event.target.checked)}
+            className="h-4 w-4 accent-indigo-700"
+          />
+          Vis fremdrift
+        </label>
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded-lg bg-indigo-700 px-3 py-2 font-semibold text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
+        >
+          {saving ? "Lagrer …" : "Lagre"}
+        </button>
+      </form>
+      {error && <p role="alert" className="mt-2 text-red-700">{error}</p>}
+      {saved && <p role="status" className="mt-2 font-semibold text-emerald-700">Lagret.</p>}
+    </details>
+  );
+}
