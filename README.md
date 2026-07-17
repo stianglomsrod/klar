@@ -28,6 +28,8 @@ En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
   ikke økter eller ukeplanrevisjon og publiserer eventuelt løse oppgaver;
 - følge oppgavefremdrift, åpne og stenge hjelpekø for den aktuelle økten og ta
   eller løse elevforespørsler innenfor sitt klasseoppdrag;
+- prioritere køen privat og reviderbart, frigi en overtatt forespørsel eller
+  overføre den til en annen aktiv og autorisert ansatt i samme klasse;
 - angi hvor mye struktur den enkelte eleven skal få se.
 
 Vanlige ansatte kan ikke opprette kontoer eller klasser eller forvalte
@@ -61,8 +63,8 @@ hvert som behovet blir mindre.
   stubs i runtime.
 - Innlevering av bilder, lyd eller fritekst om elever er ikke del av kjernen.
 - Motivasjonsvisningen er frivillig og ikke-konkurrerende.
-- Hjelpekøen bruker foreløpig FIFO, claim/resolve og øktbundet stenging.
-  Manuell reorder, release/transfer, gruppekø og en global køwidget er ikke
+- Hjelpekøen bruker øktbundet stenging, privat og atomisk rekkefølge,
+  claim/resolve og release/transfer. Gruppekø og en global køwidget er ikke
   implementert.
 
 ## Avklart målbilde
@@ -160,6 +162,11 @@ reconnect er dokumentert i
 [`docs/qa/CONTROL_POINT_E1.md`](./docs/qa/CONTROL_POINT_E1.md). Chromium,
 WebKit, databaseportene og syntetisk visuell QA er automatisert; fysisk
 E1-touch og skjermleser er fortsatt en manuell produktport.
+
+Privat, reviderbar ansattprioritering, release/transfer og atomisk staff-
+snapshot er dokumentert i
+[`docs/qa/CONTROL_POINT_E2.md`](./docs/qa/CONTROL_POINT_E2.md). Den samlede
+fysiske touch-/skjermleserporten for E03 står fortsatt åpen.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er
