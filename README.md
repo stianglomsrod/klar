@@ -34,7 +34,9 @@ En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
   eller løse elevforespørsler innenfor sitt klasseoppdrag;
 - prioritere køen privat og reviderbart, frigi en overtatt forespørsel eller
   overføre den til en annen aktiv og autorisert ansatt i samme klasse;
-- angi hvor mye struktur den enkelte eleven skal få se.
+- angi hvor mye struktur den enkelte eleven skal få se;
+- åpne eller lukke blomsterhagen for en elev i eget klasseomfang uten å kunne
+  endre elevens personlige valg om å vise den.
 
 Vanlige ansatte kan ikke opprette kontoer eller klasser eller forvalte
 ansattoppdrag. Eierens kontrollplantilgang gir ikke i seg selv pedagogisk
@@ -52,7 +54,11 @@ Eleven kan:
 - få en hånd bare når den aktuelle øktkøen er åpen, be om generell eller
   oppgaveknyttet hjelp og melde seg av uten å se køplass eller andre elever;
 - velge kort, vanlig eller mer detaljert visning;
-- velge en rolig fremdriftsvisning uten poeng, rangering eller sammenligning.
+- velge om poeng/fremdrift og blomsterhage skal vises, uavhengig av hverandre;
+- når læreren har åpnet hagen, få ett varig kronblad ved første passering av
+  et nytt nivå, velge blant åtte navngitte farger og se kronbladene i en rolig
+  samling. Angre eller ansattretur trekker tilbake XP, men ikke et valgt
+  kronblad, og samme nivå kan ikke farmes på nytt.
 
 Støtten er bygget som et stillas: læreren setter hvor mye støtte en oppgave
 kan tilby, mens elevens individuelle valg kan redusere mengden informasjon etter
@@ -156,10 +162,13 @@ pilotprosjektet som reserve. Visuelle kjøringer lagrer QA-artefakter i
 `test-results/<browser>-<modus>`; historiske prototypebilder er ikke
 pixel-baselines.
 
-Den autentiserte suiten er verifisert lokalt i Chromium og WebKit. Den er
-fortsatt en eksplisitt lokal kontrollpunktport. CI beholder offentlig
-Playwright-smoke og kjører den separate databasepakken i både tomt og
-representativt oppgraderingsscenario.
+Den autentiserte grunnsuiten er verifisert lokalt i Chromium og WebKit. B2s
+funksjonelle WebKit-flyt passerer alle produktoppslag, men Next.js sine interne
+RSC-fallbacks registreres fortsatt som runtimefeil av WebKit; dette åpne
+avviket er dokumentert i kontrollpunktet og skjules ikke. Suiten er fortsatt
+en eksplisitt lokal kontrollpunktport. CI beholder offentlig Playwright-smoke
+og kjører den separate databasepakken i både tomt og representativt
+oppgraderingsscenario.
 
 Første strukturerte klasseuke og den øktstyrte elevdagen er dokumentert med
 akseptansekriterier, avvik, retester og syntetiske fem-viewport-bilder i
@@ -191,6 +200,12 @@ fra fagdetalj og den responsive Chromium-/WebKit-matrisen er grønne. Et
 kuratert, syntetisk bildeutvalg er lagret i
 [`docs/qa/evidence/D3`](./docs/qa/evidence/D3/README.md). Fysisk D3-retest med
 VoiceOver/NVDA gjenstår.
+
+Den varige blomsterbelønningen er dokumentert i
+[`docs/qa/CONTROL_POINT_B2.md`](./docs/qa/CONTROL_POINT_B2.md). Tom database,
+representativ oppgradering, RLS/grants, retry/samtidighet, komplett
+Chromium-flyt og seks kuraterte responsive bilder er verifisert. B2s
+WebKit-runtimeavvik og fysisk VoiceOver/NVDA-flyt står fortsatt åpne.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

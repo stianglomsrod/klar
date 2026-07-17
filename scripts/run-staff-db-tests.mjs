@@ -38,6 +38,7 @@ const postA1Migrations = [
 const e2Migration = "20260717000001_help_queue_staff_controls.sql";
 const d2Migration = "20260717000002_task_iteration_scheduling.sql";
 const d3Migration = "20260717000003_student_task_catalog.sql";
+const b2Migration = "20260717000004_flower_rewards.sql";
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -211,6 +212,10 @@ function applyD2(containerName) {
 
 function applyD3(containerName) {
   runSql(containerName, `supabase/migrations/${d3Migration}`);
+}
+
+function applyB2(containerName) {
+  runSql(containerName, `supabase/migrations/${b2Migration}`);
 }
 
 function applyA1Followups(containerName) {
@@ -979,6 +984,235 @@ function weeklyCandidate(prefix, title, date, taskCount = 1) {
       },
     ],
   };
+}
+
+async function runFlowerRewardConcurrency(config) {
+  const organizationId = "b0000000-0000-4000-8000-000000000001";
+  const studentId = "b2e00000-0000-4000-8000-000000000001";
+  const assignments = [
+    "b2f10000-0000-4000-8000-000000000001",
+    "b2f10000-0000-4000-8000-000000000002",
+    "b2f10000-0000-4000-8000-000000000003",
+  ];
+
+  async function completeTask(assignmentId, requestId) {
+    return withClient(
+      config,
+      `klar-b2-complete-${assignmentId.slice(-4)}`,
+      async (client) => {
+        const versions = await client.query(
+          `select state.state_version::integer as state_version,
+             assignment.schedule_version::integer as schedule_version
+           from public.task_assignments as assignment
+           join public.student_task_state as state
+             on state.assignment_id = assignment.id
+           where assignment.id = $1`,
+          [assignmentId],
+        );
+        assert.equal(versions.rowCount, 1);
+        const result = await client.query(
+          `select public.complete_student_task_v2(
+            $1,$2,$3,$4,$5,$6
+          ) as result`,
+          [
+            organizationId,
+            assignmentId,
+            studentId,
+            requestId,
+            versions.rows[0].state_version,
+            versions.rows[0].schedule_version,
+          ],
+        );
+        assert.equal(result.rows[0].result.changed, true);
+      },
+    );
+  }
+
+  async function readEntitlement(level) {
+    return withClient(
+      config,
+      `klar-b2-entitlement-${level}`,
+      async (client) => {
+        const result = await client.query(
+          `select id
+           from public.level_reward_entitlements
+           where organization_id = $1 and student_id = $2 and level = $3`,
+          [organizationId, studentId, level],
+        );
+        assert.equal(result.rowCount, 1);
+        return result.rows[0].id;
+      },
+    );
+  }
+
+  const claimSql = `select public.claim_student_flower_reward_v1(
+    $1,$2,$3,$3,$4,$5::public.flower_reward_color
+  ) as result`;
+
+  await completeTask(
+    assignments[0],
+    "b2f20000-0000-4000-8000-000000000001",
+  );
+  const firstEntitlementId = await readEntitlement(2);
+  const sameRequestPayload = [
+    organizationId,
+    firstEntitlementId,
+    studentId,
+    "b2f20000-0000-4000-8000-000000000002",
+    "red",
+  ];
+  const sameRequest = await synchronizedPair(
+    config,
+    "flower-same-request",
+    (client) => client.query(claimSql, sameRequestPayload),
+    (client) => client.query(claimSql, sameRequestPayload),
+  );
+  assert(sameRequest.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    sameRequest[0].value.rows[0].result,
+    sameRequest[1].value.rows[0].result,
+  );
+
+  await withClient(config, "klar-b2-assert-same-request", async (client) => {
+    const result = await client.query(
+      `select
+        (select count(*)::integer from public.reward_claims where entitlement_id = $1) as claims,
+        (select count(*)::integer from public.audit_events where event_name = 'reward.claimed' and metadata ->> 'entitlement_id' = $1::text) as audits`,
+      [firstEntitlementId],
+    );
+    assert.deepEqual(result.rows[0], { claims: 1, audits: 1 });
+  });
+
+  await completeTask(
+    assignments[1],
+    "b2f20000-0000-4000-8000-000000000003",
+  );
+  const secondEntitlementId = await readEntitlement(3);
+  const differentChoices = await synchronizedPair(
+    config,
+    "flower-different-choice",
+    (client) => client.query(claimSql, [
+      organizationId,
+      secondEntitlementId,
+      studentId,
+      "b2f20000-0000-4000-8000-000000000004",
+      "blue",
+    ]),
+    (client) => client.query(claimSql, [
+      organizationId,
+      secondEntitlementId,
+      studentId,
+      "b2f20000-0000-4000-8000-000000000005",
+      "green",
+    ]),
+  );
+  assert.equal(
+    differentChoices.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    differentChoices.filter((result) => result.status === "rejected").length,
+    1,
+  );
+  assert.match(
+    differentChoices.find((result) => result.status === "rejected").reason.message,
+    /reward entitlement is unavailable/i,
+  );
+
+  await withClient(config, "klar-b2-assert-different-choice", async (client) => {
+    const result = await client.query(
+      `select collection_sequence::integer as collection_sequence,
+         flower_color::text as flower_color
+       from public.reward_claims
+       where organization_id = $1 and student_id = $2
+       order by collection_sequence`,
+      [organizationId, studentId],
+    );
+    assert.equal(result.rows.length, 2);
+    assert.deepEqual(
+      result.rows.map((row) => row.collection_sequence),
+      [1, 2],
+    );
+    assert(["blue", "green"].includes(result.rows[1].flower_color));
+  });
+
+  await completeTask(
+    assignments[2],
+    "b2f20000-0000-4000-8000-000000000006",
+  );
+  const thirdEntitlementId = await readEntitlement(4);
+  const claimUndoRace = await synchronizedPair(
+    config,
+    "flower-claim-undo",
+    (client) => client.query(claimSql, [
+      organizationId,
+      thirdEntitlementId,
+      studentId,
+      "b2f20000-0000-4000-8000-000000000007",
+      "purple",
+    ]),
+    (client) => client.query(
+      `select public.undo_student_task_completion_v2(
+        $1,$2,$3,$4,$5,$6
+      ) as result`,
+      [
+        organizationId,
+        assignments[2],
+        studentId,
+        "b2f20000-0000-4000-8000-000000000008",
+        2,
+        1,
+      ],
+    ),
+  );
+  assert.equal(claimUndoRace[1].status, "fulfilled");
+  if (claimUndoRace[0].status === "rejected") {
+    assert.match(
+      claimUndoRace[0].reason.message,
+      /reward entitlement is unavailable/i,
+    );
+  }
+
+  await withClient(config, "klar-b2-assert-claim-undo", async (client) => {
+    const result = await client.query(
+      `select
+        progress.xp_balance::integer as xp_balance,
+        progress.current_level::integer as current_level,
+        entitlement.status::text as entitlement_status,
+        entitlement.selected_at,
+        claim.claimed_at,
+        (select count(*)::integer from public.reward_claims where organization_id = $1 and student_id = $2) as claims,
+        (select count(*)::integer from public.audit_events where event_name = 'reward.claimed' and organization_id = $1 and actor_id = $2) as audits
+       from public.student_progress as progress
+       join public.level_reward_entitlements as entitlement
+         on entitlement.organization_id = progress.organization_id
+        and entitlement.student_id = progress.student_id
+        and entitlement.id = $3
+       left join public.reward_claims as claim
+         on claim.entitlement_id = entitlement.id
+       where progress.organization_id = $1 and progress.student_id = $2`,
+      [organizationId, studentId, thirdEntitlementId],
+    );
+    assert.equal(result.rowCount, 1);
+    const row = result.rows[0];
+    assert.deepEqual(
+      { xp_balance: row.xp_balance, current_level: row.current_level },
+      { xp_balance: 2000, current_level: 3 },
+    );
+    if (claimUndoRace[0].status === "fulfilled") {
+      assert.equal(row.entitlement_status, "selected");
+      assert.equal(
+        new Date(row.selected_at).toISOString(),
+        new Date(row.claimed_at).toISOString(),
+      );
+      assert.equal(row.claims, 3);
+    } else {
+      assert.equal(row.entitlement_status, "pending");
+      assert.equal(row.claimed_at, null);
+      assert.equal(row.claims, 2);
+    }
+    assert.equal(row.audits, row.claims);
+  });
 }
 
 async function runTaskScheduleConcurrency(config) {
@@ -2294,11 +2528,14 @@ async function runEmptyScenario() {
     applyE2(container.name);
     applyD2(container.name);
     applyD3(container.name);
+    applyB2(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
+    runSql(container.name, "supabase/verification/flower_reward_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/staff_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/progress_concurrency_fixture.sql");
+    runSql(container.name, "supabase/verification/flower_reward_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/weekly_plan_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/task_iteration_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/help_queue_concurrency_fixture.sql");
@@ -2314,6 +2551,7 @@ async function runEmptyScenario() {
     await runTaskScheduleConcurrency(container.config);
     await runConcurrency(container.config);
     await runProgressConcurrency(container.config);
+    await runFlowerRewardConcurrency(container.config);
     console.log("A1 database empty + RLS/RPC + concurrency: PASS");
   } finally {
     cleanupContainer(container.name);
@@ -2340,6 +2578,19 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/task_iteration_upgrade_smoke.sql");
     applyD3(positive.name);
     runSql(positive.name, "supabase/verification/student_task_catalog_upgrade_smoke.sql");
+    runSql(positive.name, "supabase/verification/flower_reward_upgrade_fixture.sql");
+    const invalidFlowerUpgrade = runSql(
+      positive.name,
+      `supabase/migrations/${b2Migration}`,
+      { expectFailure: true },
+    );
+    assert.match(
+      invalidFlowerUpgrade,
+      /selected reward entitlements require an explicit reward migration/i,
+    );
+    runSql(positive.name, "supabase/verification/flower_reward_upgrade_restore.sql");
+    applyB2(positive.name);
+    runSql(positive.name, "supabase/verification/flower_reward_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }

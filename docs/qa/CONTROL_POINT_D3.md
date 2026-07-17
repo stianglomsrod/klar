@@ -122,9 +122,9 @@ hjelpeflyten. Samme assignment er samme oppgave i begge elevflater.
 
 - Ingen tekst-, lyd- eller bildevedlegg. Det krever et eget avklart
   lagrings-, skannings-, personvern- og slettingskontrollpunkt.
-- Ingen belønningsclaim, kuponginnløsning, blomsterhage, streak, avatar eller
-  klassekonkurranse. Varig blomsterclaim planlegges som neste B2-slice;
-  kuponginnløsning er fortsatt uavklart.
+- D3 leverte ingen belønningsclaim, blomsterhage, streak, avatar eller
+  klassekonkurranse. Varig blomsterclaim og hage er senere levert separat i
+  [B2](./CONTROL_POINT_B2.md); kuponginnløsning er fortsatt uavklart.
 - Ingen uke-/timeplanvisning, søk, filter, lærerdefinert fagsymbol/-farge,
   elevarkiv eller automatisk skjuling av ferdig arbeid.
 - Ingen ny oppgavestatus, «I gang»-knapp, quizkrav eller egen XP-beregning.

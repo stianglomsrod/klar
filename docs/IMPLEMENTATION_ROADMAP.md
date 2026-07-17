@@ -82,8 +82,12 @@ redusert bevegelse.
 
 ### Kontrollpunkt B – oppgavestatus, XP og belønning
 
-**Status:** Pågår – B1 har levert og verifisert oppgaveovergang, XP-ledger,
-angre og ansattretur. Belønningsvalg/-innløsning og øvrige E02-flater gjenstår.
+**Status:** Pågår – B1 har levert oppgaveovergang, XP-ledger, angre og
+ansattretur. [B2](./qa/CONTROL_POINT_B2.md) har levert varig kronbladvalg,
+blomsterhage, ansattramme og elevens separate synlighetspreferanse. B2s
+database-, Chromium- og responsive porter er grønne; WebKit-runtimeavvik og
+fysisk VoiceOver/NVDA-retest er åpne. Kuponginnløsning og øvrige E02-flater
+gjenstår.
 
 Implementer E02 før elevens nye fullførflyt kobles på:
 

@@ -48,6 +48,9 @@ tilgjengelighetsfeil.
   pågår og loggføres separat.
 - [Kontrollpunkt B1](./qa/CONTROL_POINT_B1.md) – verifisert atomisk
   oppgaveovergang, XP, elevangre og ansattretur.
+- [Kontrollpunkt B2](./qa/CONTROL_POINT_B2.md) – varig blomsterclaim,
+  ansattramme, elevpreferanse og responsiv hage; WebKit-runtime og fysisk
+  skjermleserretest er åpne.
 - [Kontrollpunkt C1](./qa/CONTROL_POINT_C1.md) – første strukturerte
   klasseukerevisjon, øktstyrt elevdag og lagrede responsive QA-artefakter.
 - [Kontrollpunkt D2](./qa/CONTROL_POINT_D2.md) – eksplisitt flytt av samme

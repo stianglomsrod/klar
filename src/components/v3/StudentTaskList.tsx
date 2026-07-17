@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronRight, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, ChevronRight, Flower2, Sparkles } from "lucide-react";
 import {
   completeOwnTaskAction,
   undoOwnTaskCompletionAction,
@@ -156,6 +158,7 @@ export function StudentTaskList({
   helpTransitionAt?: string | null;
   highlightNextTask?: boolean;
 }) {
+  const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [progress, setProgress] = useState(initialProgress);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -163,6 +166,7 @@ export function StudentTaskList({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [newRewardCount, setNewRewardCount] = useState(0);
   const [helpAnnouncement, setHelpAnnouncement] = useState<{
     id: number;
     text: string;
@@ -290,6 +294,7 @@ export function StudentTaskList({
   }
 
   function applyResult(result: TaskProgressResult): void {
+    setNewRewardCount(0);
     setTasks((currentTasks) =>
       currentTasks.map((currentTask) =>
         currentTask.assignmentId === result.assignmentId
@@ -310,6 +315,18 @@ export function StudentTaskList({
 
     if (!result.changed) {
       setFeedback("Oppgaven var allerede oppdatert.");
+    } else if (
+      result.newMilestoneLevels.length > 0 &&
+      experience.flowerRewardsAllowed &&
+      experience.flowerRewardsVisible
+    ) {
+      const rewardCount = result.newMilestoneLevels.length;
+      setNewRewardCount(rewardCount);
+      setFeedback(
+        rewardCount === 1
+          ? "Oppgaven er ferdig. Et kronblad venter i blomsterhagen."
+          : `Oppgaven er ferdig. ${rewardCount} kronblader venter i blomsterhagen.`,
+      );
     } else if (!experience.progressEnabled && result.xpDelta > 0) {
       setFeedback("Oppgaven er ferdig.");
     } else if (!experience.progressEnabled) {
@@ -359,6 +376,13 @@ export function StudentTaskList({
 
       requestIds.current.delete(key);
       applyResult(result.progress);
+      if (
+        result.progress.newMilestoneLevels.length > 0 &&
+        experience.flowerRewardsAllowed &&
+        experience.flowerRewardsVisible
+      ) {
+        router.refresh();
+      }
       setActiveTaskId(null);
       setDialogMode("task");
     } catch {
@@ -431,9 +455,18 @@ export function StudentTaskList({
       </span>
       <div aria-live="polite" aria-atomic="true">
         {feedback && (
-          <p className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-semibold text-emerald-900">
-            {feedback}
-          </p>
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-semibold text-emerald-900">
+            <p>{feedback}</p>
+            {newRewardCount > 0 && (
+              <Link
+                href="/v3/student/rewards"
+                className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-3 py-2 text-pink-800 underline-offset-4 shadow-sm hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-pink-700 focus-visible:ring-offset-2"
+              >
+                <Flower2 aria-hidden="true" className="h-5 w-5" />
+                Åpne blomsterhagen
+              </Link>
+            )}
+          </div>
         )}
       </div>
       {error && !activeTask && (

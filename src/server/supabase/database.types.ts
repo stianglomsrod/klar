@@ -19,6 +19,16 @@ export type TaskReopenReason =
   | "other";
 export type XpLedgerKind = "credit" | "reversal";
 export type RewardEntitlementStatus = "pending" | "available" | "selected";
+export type RewardClaimType = "flower_petal_v1";
+export type FlowerRewardColor =
+  | "red"
+  | "turquoise"
+  | "green"
+  | "pink"
+  | "purple"
+  | "orange"
+  | "yellow"
+  | "blue";
 export type HelpRequestStatus =
   | "waiting"
   | "claimed"
@@ -388,6 +398,8 @@ type StudentExperienceSettingsRow = {
   student_id: string;
   support_level: number;
   progress_enabled: boolean;
+  flower_rewards_allowed: boolean;
+  flower_rewards_visible: boolean;
   updated_by: string | null;
   created_at: string;
   updated_at: string;
@@ -469,6 +481,20 @@ type LevelRewardEntitlementRow = {
   selected_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type RewardClaimRow = {
+  id: string;
+  organization_id: string;
+  student_id: string;
+  entitlement_id: string;
+  claimed_by: string;
+  request_id: string;
+  request_fingerprint: string;
+  reward_type: RewardClaimType;
+  flower_color: FlowerRewardColor;
+  collection_sequence: number;
+  claimed_at: string;
 };
 
 type ProgressCommandReceiptRow = {
@@ -873,6 +899,8 @@ export type Database = {
           student_id: string;
           support_level?: number;
           progress_enabled?: boolean;
+          flower_rewards_allowed?: boolean;
+          flower_rewards_visible?: boolean;
           updated_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -966,6 +994,22 @@ export type Database = {
           selected_at?: string | null;
           created_at?: string;
           updated_at?: string;
+        }
+      >;
+      reward_claims: TableDefinition<
+        RewardClaimRow,
+        {
+          id?: string;
+          organization_id: string;
+          student_id: string;
+          entitlement_id: string;
+          claimed_by: string;
+          request_id: string;
+          request_fingerprint: string;
+          reward_type: RewardClaimType;
+          flower_color: FlowerRewardColor;
+          collection_sequence: number;
+          claimed_at?: string;
         }
       >;
       progress_command_receipts: TableDefinition<
@@ -1324,6 +1368,21 @@ export type Database = {
         Args: { p_organization_id: string };
         Returns: Json;
       };
+      get_my_flower_rewards_v1: {
+        Args: { p_organization_id: string };
+        Returns: Json;
+      };
+      claim_student_flower_reward_v1: {
+        Args: {
+          p_organization_id: string;
+          p_entitlement_id: string;
+          p_student_id: string;
+          p_actor_id: string;
+          p_request_id: string;
+          p_flower_color: FlowerRewardColor;
+        };
+        Returns: Json;
+      };
       update_student_experience: {
         Args: {
           p_organization_id: string;
@@ -1343,6 +1402,29 @@ export type Database = {
           p_staff_assignment_id: string;
           p_support_level: number;
           p_progress_enabled: boolean;
+        };
+        Returns: StudentExperienceSettingsRow;
+      };
+      update_student_experience_for_staff_v2: {
+        Args: {
+          p_organization_id: string;
+          p_class_id: string;
+          p_student_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_support_level: number;
+          p_flower_rewards_allowed: boolean;
+        };
+        Returns: StudentExperienceSettingsRow;
+      };
+      update_student_experience_v2: {
+        Args: {
+          p_organization_id: string;
+          p_student_id: string;
+          p_actor_id: string;
+          p_support_level: number;
+          p_progress_enabled: boolean;
+          p_flower_rewards_visible: boolean;
         };
         Returns: StudentExperienceSettingsRow;
       };
@@ -1395,6 +1477,8 @@ export type Database = {
       task_reopen_reason: TaskReopenReason;
       xp_ledger_kind: XpLedgerKind;
       reward_entitlement_status: RewardEntitlementStatus;
+      reward_claim_type: RewardClaimType;
+      flower_reward_color: FlowerRewardColor;
       task_schedule_command: TaskScheduleCommand;
     };
     CompositeTypes: Record<string, never>;

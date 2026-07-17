@@ -37,8 +37,9 @@ gjeldende kontrakt, epics, åpne valg og faktisk implementeringsstatus, finnes i
 - Reaksjon og kommentar på elevens levering er en ønsket retning, men
   fortellerstemmen omtaler den viste kommentarflyten som feilende. Bildet er
   derfor ikke akseptansebevis for interaksjonen.
-- Første passering av et nivå kan gi et valg mellom en rolig visuell belønning
-  og en læreropprettet kupong.
+- Ved nivåoppgang kan en elev med blomst aktivert velge å fargelegge et
+  kronblad. Den viste belønningsflaten inneholder også læreropprettede
+  belønninger. Videoen avklarer ikke bevaring etter XP-reversering.
 - Smart Import skal ende i en redigerbar forhåndsvisning før publisering.
 - Synlige eller enkelt genererte elevpassord mot slutten av omvisningen er
   legacy-atferd og skal ikke porteres til 3.0.
@@ -57,12 +58,12 @@ gjeldende kontrakt, epics, åpne valg og faktisk implementeringsstatus, finnes i
 | 06:10 | `00-06-10-student-home.png` | **Intensjon:** dagens økter som rolige, tidsstyrte kort med aktuell økt tydeligst. |
 | 06:24 | `00-06-24-task-detail.png` | **Intensjon:** ett fag, én oppgave og én tydelig fullføringshandling. Ingen «Start» eller «I gang». |
 | 06:26 | `00-06-26-completion-flow-a.png` | **Intensjon:** kort sjekkpunkt med frivillig lyd, kamera og bilde; null vedlegg er gyldig. |
-| 06:43 | `00-06-43-level-up.png` | **Intensjon + delvis antimønster:** varig valg ved førstegangs nivåpassering. Stor konfetti skal være kort, valgfri og respektere redusert bevegelse. |
+| 06:43 | `00-06-43-level-up.png` | **Fortalt og vist historisk flyt:** ved nivåoppgang kan en elev med blomst aktivert velge å fargelegge et kronblad; fortelleren viser deretter pågående og ferdig blomst. Konfetti og tvungen modal er legacy-uttrykk, ikke 3.0-krav. |
 | 07:06 | `00-07-06-student-queue.png` | **Antimønster:** elevens synlige «Nr 1» kopieres ikke. Bare hånd og «Står i kø» vises. |
 | 07:14 | `00-07-14-teacher-queue.png` | **Intensjon + delvis antimønster:** ansatt kan se og prioritere køen. Dra-og-slipp kan aldri være eneste metode. |
 | 08:10 | `00-08-10-all-tasks.png` | **Intensjon:** fagkort gir sekundær oversikt over alle oppgaver uten å konkurrere med dagens økt. |
 | 08:16 | `00-08-16-task-undo.png` | **Intensjon:** en fullført oppgave kan åpnes igjen med «Angre»; talesporet bekrefter at de krediterte poengene samtidig reverseres. |
-| 08:39 | `00-08-39-reward-coupon.png` | **Intensjon:** valgt kupong er varig og kan innløses én gang. Elevens angre på oppgaven fjerner ikke et allerede valgt nivåvalg. |
+| 08:24–08:45 | `00-08-39-reward-coupon.png` | **Fortalt og vist historisk flyt:** en læreropprettet belønning vises som aktiv kupong med «Bruk kupong»; fortelleren sier at eleven kan velge å bruke den. Bevaring etter XP-reversering og eksakt innløsningslivsløp fremgår ikke av videoen. |
 | 08:51 | `00-08-51-student-schedule.png` | **Intensjon:** ukeoversikt er sekundær; dagens kolonne og oppgavestatus skal være lett å finne. |
 | 09:41 | `00-09-41-parsed-plan.png` | **Intensjon:** strukturert, redigerbar forhåndsvisning med menneskelig publiseringskontroll. |
 
@@ -70,8 +71,8 @@ gjeldende kontrakt, epics, åpne valg og faktisk implementeringsstatus, finnes i
 
 Bevar informasjonsarkitektur, flyt, gjenkjennelige symboler og rolig tone.
 Ikke porter direkte Supabase-klientmutasjoner, offentlig elevmedia, gammel RLS,
-kønummer for eleven, drag-only-interaksjon, klientberegnet XP eller gjentakbar
-level-up-belønning fra legacy-implementasjonen.
+kønummer for eleven, drag-only-interaksjon, klientberegnet XP eller legacyens
+klientstyrte og delvis inkonsistente angre-/belønningsmodell.
 
 Nåværende implementeringsbevis føres separat: den øktbundne køflyten fra
 fortellerstemmen og bildene 00:33, 07:06 og 07:14 spores i

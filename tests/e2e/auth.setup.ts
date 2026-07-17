@@ -10,6 +10,9 @@ const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const states = {
   student: path.join(authDirectory, "student.json"),
   visualStudent: path.join(authDirectory, "visual-student.json"),
+  rewardStudent: path.join(authDirectory, "reward-student.json"),
+  rewardVisualStudent: path.join(authDirectory, "reward-visual-student.json"),
+  progressVisualStudent: path.join(authDirectory, "progress-visual-student.json"),
   d2Student: path.join(authDirectory, "d2-student.json"),
   returnStudent: path.join(authDirectory, "return-student.json"),
   helpStudent: path.join(authDirectory, "help-student.json"),
@@ -113,6 +116,43 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
   await expect(visualStudentPage).toHaveURL(/\/v3\/student$/);
   await visualStudentContext.storageState({ path: states.visualStudent });
   await visualStudentContext.close();
+
+  const rewardStudentContext = await browser.newContext({ baseURL });
+  const rewardStudentPage = await rewardStudentContext.newPage();
+  await fillLogin(
+    rewardStudentPage,
+    credentials.rewardStudentCode,
+    credentials.rewardStudentPassword,
+  );
+  await expect(rewardStudentPage).toHaveURL(/\/v3\/student$/);
+  await rewardStudentContext.storageState({ path: states.rewardStudent });
+  await rewardStudentContext.close();
+
+  const rewardVisualStudentContext = await browser.newContext({ baseURL });
+  const rewardVisualStudentPage = await rewardVisualStudentContext.newPage();
+  await fillLogin(
+    rewardVisualStudentPage,
+    credentials.rewardVisualStudentCode,
+    credentials.rewardVisualStudentPassword,
+  );
+  await expect(rewardVisualStudentPage).toHaveURL(/\/v3\/student$/);
+  await rewardVisualStudentContext.storageState({
+    path: states.rewardVisualStudent,
+  });
+  await rewardVisualStudentContext.close();
+
+  const progressVisualStudentContext = await browser.newContext({ baseURL });
+  const progressVisualStudentPage = await progressVisualStudentContext.newPage();
+  await fillLogin(
+    progressVisualStudentPage,
+    credentials.progressVisualStudentCode,
+    credentials.progressVisualStudentPassword,
+  );
+  await expect(progressVisualStudentPage).toHaveURL(/\/v3\/student$/);
+  await progressVisualStudentContext.storageState({
+    path: states.progressVisualStudent,
+  });
+  await progressVisualStudentContext.close();
 
   const d2StudentContext = await browser.newContext({ baseURL });
   const d2StudentPage = await d2StudentContext.newPage();

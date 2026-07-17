@@ -2,6 +2,7 @@ export type StudentSupportSettingRow = {
   student_id: string;
   support_level: number;
   progress_enabled: boolean;
+  flower_rewards_allowed: boolean;
 };
 
 export type StudentSupportBoundaryResult = {
@@ -40,10 +41,15 @@ export async function readStudentSupportSettingsAtBoundary({
 export function resolveStudentSupportSetting(
   rowsByStudent: Map<string, StudentSupportSettingRow>,
   studentId: string,
-): { supportLevel: number; progressEnabled: boolean } {
+): {
+  supportLevel: number;
+  progressEnabled: boolean;
+  flowerRewardsAllowed: boolean;
+} {
   const row = rowsByStudent.get(studentId);
   return {
     supportLevel: row?.support_level ?? 2,
     progressEnabled: row?.progress_enabled ?? false,
+    flowerRewardsAllowed: row?.flower_rewards_allowed ?? false,
   };
 }

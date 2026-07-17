@@ -83,8 +83,10 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    elevfane ikke kan gi XP → send samme definisjon ut på nytt → bekreft at
    originalen er urørt og den nye utsendingen er separat →
    åpne «Fag og oppgaver» → fullfør fra en fagdetalj → bekreft samme varige
-   status på «Dagen i dag» → angre/ansattretur → åpne hjelpekø → generell og
-   oppgaveknyttet hånd → avmelding → claim → privat reorder →
+   status på «Dagen i dag» → åpne blomsterhagen for eleven → kryss en ny
+   nivåmilepæl → velg ett kronblad → angre og gjenvinn samme nivå uten ny
+   belønning → skjul og vis hagen → angre/ansattretur → åpne hjelpekø →
+   generell og oppgaveknyttet hånd → avmelding → claim → privat reorder →
    release/transfer → resolve →
    `closing`/`closed` → reconnect.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
@@ -116,6 +118,14 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
   assignments i aktive medlemskap. Framtidige tildelinger, andre elever og
   organisasjoner skal være fraværende, mens fullførte og gjenåpnede oppgaver
   fortsatt finnes i riktig fag.
+- Blomsterhagen vises bare når en AAL2-verifisert ansatt med aktivt
+  klasseomfang har åpnet rammen og eleven selv har valgt å vise hagen. Elevens
+  `flower_rewards_visible` og poengpreferansen er uavhengige. Skjuling sletter
+  ikke claims, entitlements eller XP-historikk.
+- Første passering av et nytt nivå kan gi nøyaktig ett kronblad. Claim er
+  frivillig og kan vente. Valgt kronblad består etter elevangre, ansattretur,
+  refresh og klasseovergang i samme organisasjon, og samme nivå kan ikke gi en
+  ny belønning ved gjenvinning.
 - DOCX-forslag og manuell klasseuke er to ulike flyter. DOCX-forslag som
   publiseres nå er løse oppgaver og skal ikke omtales som en planrevisjon.
 - Hånden er skjult før aktuell øktkø åpnes og etter at den lukkes. Under
@@ -182,8 +192,25 @@ request-versus-flytt, framtidsskjuling og null XP-sideeffekt fra en gammel
 elevfane. D3-pakken verifiserer den caller-bound elevkatalogen uten
 service-role-runtime-lesing, aktivt medlemskapsomfang, framtidsskjuling,
 oppgraderingskompatibilitet og samme fullførings-/XP-operasjon fra
-fagdetaljen i Chromium og WebKit.
+fagdetaljen i Chromium og WebKit. B2-pakken verifiserer varig
+blomsterentitlement/claim, RLS/grants, retry, rollback, samtidige fargevalg,
+claim-versus-angre, organisasjonsbundet klasseovergang, separate elev- og
+ansattpreferanser og komplett Chromium-flyt. B2s WebKit-produktpåstander
+passerer, men runtimeporten er fortsatt åpen fordi Next.js sine interne
+RSC-fallbacks rapporteres som access-control-feil av motoren.
 Testene bruker bare syntetiske data og lokal Supabase.
+
+## Manuell B2-port som gjenstår
+
+Med VoiceOver på iPad/Safari og NVDA i en støttet desktopnettleser skal eleven
+fullføre en oppgave som krysser en ny milepæl, oppdage den diskrete
+hageinngangen, åpne hagen, navigere de åtte navngitte fargene, lagre ett
+kronblad og få bekreftelsen lest med fokus på riktig sted. Deretter skal valgt
+blomst finnes etter refresh, angre og gjenvunnet nivå uten ny claim. Kontroller
+også at elevens skjul/vis og lærerens AAL2-styrte ramme fjerner inngangen uten å
+slette hagen. Registrer eksakt iPadOS/Safari- eller Windows-/nettleserversjon,
+orientering, skjermleser og resultat i
+[`CONTROL_POINT_B2.md`](./qa/CONTROL_POINT_B2.md).
 
 ## Manuell D3-port som gjenstår
 

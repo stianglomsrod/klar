@@ -169,7 +169,7 @@ export default async function TeacherClassPage({
                         studentId={student.id}
                         studentName={student.displayName}
                         initialSupportLevel={student.supportLevel}
-                        initialProgressEnabled={student.progressEnabled}
+                        initialFlowerRewardsAllowed={student.flowerRewardsAllowed}
                       />
                     )}
                   </li>

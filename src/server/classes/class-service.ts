@@ -40,6 +40,7 @@ export type ClassStudentSummary = {
   assignedTasks: number;
   supportLevel: SupportLevel;
   progressEnabled: boolean;
+  flowerRewardsAllowed: boolean;
 };
 
 export type CompletedTaskAssignmentSummary = {
@@ -243,7 +244,9 @@ export async function getTeacherClassWorkspace(
         select: async ({ organizationId, studentIds: scopedStudentIds }) => {
           const result = await admin
             .from("student_experience_settings")
-            .select("student_id, support_level, progress_enabled")
+            .select(
+              "student_id, support_level, progress_enabled, flower_rewards_allowed",
+            )
             .eq("organization_id", organizationId)
             .in("student_id", scopedStudentIds);
           if (result.error) throw new PrototypeDataError();
@@ -341,6 +344,7 @@ export async function getTeacherClassWorkspace(
             : null,
           supportLevel: experience.supportLevel as SupportLevel,
           progressEnabled: experience.progressEnabled,
+          flowerRewardsAllowed: experience.flowerRewardsAllowed,
         };
       })
       .sort((first, second) =>

@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, House, LogOut, Menu, X } from "lucide-react";
+import { BookOpen, Flower2, House, LogOut, Menu, X } from "lucide-react";
 import { signOutPrototypeAction } from "@/app/actions/v3/auth-actions";
+import { getPendingFlowerRewardLabel } from "@/lib/flower-rewards";
 import { restoreDialogFocus, trapDialogFocus } from "./dialog-focus";
 
-const links = [
+const coreLinks = [
   { href: "/v3/student", label: "Dagen i dag", icon: House },
   {
     href: "/v3/student/subjects",
@@ -19,10 +20,22 @@ const links = [
 function StudentNavigation({
   pathname,
   onNavigate,
+  flowerGardenVisible,
 }: {
   pathname: string;
   onNavigate: (href: string) => void;
+  flowerGardenVisible: boolean;
 }) {
+  const links = flowerGardenVisible
+    ? [
+        ...coreLinks,
+        {
+          href: "/v3/student/rewards",
+          label: "Blomsterhagen",
+          icon: Flower2,
+        },
+      ]
+    : coreLinks;
   return (
     <nav aria-label="Elevmeny" className="flex flex-col gap-2">
       {links.map((link) => {
@@ -52,7 +65,15 @@ function StudentNavigation({
   );
 }
 
-export function StudentShell({ children }: { children: React.ReactNode }) {
+export function StudentShell({
+  children,
+  flowerGardenVisible,
+  pendingFlowerRewards,
+}: {
+  children: React.ReactNode;
+  flowerGardenVisible: boolean;
+  pendingFlowerRewards: number;
+}) {
   const pathname = usePathname();
   const drawerRef = useRef<HTMLDialogElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -103,7 +124,21 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
         >
           Klar
         </Link>
-        <span aria-hidden="true" />
+        {flowerGardenVisible && pendingFlowerRewards > 0 ? (
+          <Link
+            href="/v3/student/rewards"
+            aria-label={getPendingFlowerRewardLabel(pendingFlowerRewards)}
+            className="relative grid min-h-11 min-w-11 place-items-center justify-self-end rounded-xl text-pink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-700 focus-visible:ring-offset-2"
+          >
+            <Flower2 aria-hidden="true" className="h-7 w-7" />
+            <span
+              aria-hidden="true"
+              className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-orange-500"
+            />
+          </Link>
+        ) : (
+          <span aria-hidden="true" />
+        )}
       </header>
 
       {children}
@@ -142,6 +177,7 @@ export function StudentShell({ children }: { children: React.ReactNode }) {
             <StudentNavigation
               pathname={pathname}
               onNavigate={navigateFromDrawer}
+              flowerGardenVisible={flowerGardenVisible}
             />
           </div>
 

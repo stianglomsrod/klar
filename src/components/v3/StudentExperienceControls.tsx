@@ -28,6 +28,9 @@ export function StudentExperienceControls({
   const [progressEnabled, setProgressEnabled] = useState(
     initialExperience.progressEnabled,
   );
+  const [flowerRewardsVisible, setFlowerRewardsVisible] = useState(
+    initialExperience.flowerRewardsVisible,
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +44,7 @@ export function StudentExperienceControls({
       const result = await updateOwnStudentExperienceAction({
         supportLevel,
         progressEnabled,
+        flowerRewardsVisible,
       });
       if (!result.success) {
         setError(result.error);
@@ -48,6 +52,7 @@ export function StudentExperienceControls({
       }
       setSupportLevel(result.experience.supportLevel);
       setProgressEnabled(result.experience.progressEnabled);
+      setFlowerRewardsVisible(result.experience.flowerRewardsVisible);
       onSaved?.(result.experience);
       setMessage("Visningen er lagret.");
     } catch {
@@ -109,6 +114,23 @@ export function StudentExperienceControls({
             </span>
           </span>
         </label>
+
+        {initialExperience.flowerRewardsAllowed && (
+          <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-300 p-3 focus-within:ring-2 focus-within:ring-sky-600">
+            <input
+              type="checkbox"
+              checked={flowerRewardsVisible}
+              onChange={(event) => setFlowerRewardsVisible(event.target.checked)}
+              className="mt-1 h-4 w-4 accent-sky-700"
+            />
+            <span>
+              <span className="block font-semibold">Vis blomsterhagen</span>
+              <span className="mt-1 block text-sm text-slate-600">
+                Skjul eller vis din egen hage. Kronbladene blir ikke borte.
+              </span>
+            </span>
+          </label>
+        )}
 
         <button
           type="submit"

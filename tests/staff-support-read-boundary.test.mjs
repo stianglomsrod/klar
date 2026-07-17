@@ -11,6 +11,7 @@ const sensitiveRow = {
   student_id: studentId,
   support_level: 3,
   progress_enabled: true,
+  flower_rewards_allowed: true,
 };
 
 function resolved(rows) {
@@ -38,6 +39,7 @@ describe("staff support read boundary", () => {
     assert.deepEqual(resolved(result.rows), {
       supportLevel: 2,
       progressEnabled: false,
+      flowerRewardsAllowed: false,
     });
   });
 
@@ -62,6 +64,7 @@ describe("staff support read boundary", () => {
     assert.deepEqual(resolved(result.rows), {
       supportLevel: 3,
       progressEnabled: true,
+      flowerRewardsAllowed: true,
     });
   });
 
@@ -78,6 +81,7 @@ describe("staff support read boundary", () => {
     assert.deepEqual(resolved(result.rows), {
       supportLevel: 2,
       progressEnabled: false,
+      flowerRewardsAllowed: false,
     });
   });
 

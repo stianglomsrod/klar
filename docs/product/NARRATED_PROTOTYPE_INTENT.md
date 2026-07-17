@@ -19,6 +19,11 @@ masteroppgaven og historisk kode. Ved konflikt gjelder kilderekkefølgen i
 domenekontrakten. Sikkerhets-, personvern- og autorisasjonsgrensene i 3.0 kan
 aldri svekkes av historisk atferd.
 
+Videoen dokumenterer belønningstypene og den synlige valgsituasjonen. Den
+spesifiserer ikke bevaring etter XP-reversering eller vern mot ny belønning ved
+samme nivå. Disse reglene er senere eksplisitte produktbeslutninger og spores
+normativt i domenekontrakten § 7.3.
+
 ## Klassifisering
 
 - **Innarbeidet:** intensjonen finnes i domenekontrakten og har en eier i en
@@ -47,12 +52,12 @@ aldri svekkes av historisk atferd.
 | 06:10 | Elevens startpunkt er dagens undervisningsøkter, med aktuell økt tydeligst. | Innarbeidet, delvis implementert. | Domenekontrakten § 6 og [C1](../qa/CONTROL_POINT_C1.md). |
 | 06:24 | Åpning av oppgaven viser instruksjonen direkte; eleven trenger ingen egen «Start» eller «I gang». | Innarbeidet og implementert i gjeldende kjerneflyt. | [E01](../epics/E01_STUDENT_DAY_AND_TASK_FLOW.md) og [B1](../qa/CONTROL_POINT_B1.md). |
 | 06:26 | Etter «Fullfør» kan eleven velge tekst, lyd, kamera eller bilde, men også bekrefte uten vedlegg. | Innarbeidet; medier er utsatt. | Domenekontrakten § 6.3. Null vedlegg er implementert i B1; medielagring krever eget personvernkontrollpunkt. |
-| 06:43 | Første level-passering kan gi et rolig valg mellom visuell belønning og læreropprettet kupong. | Innarbeidet som mål, delvis implementert domene. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md). Endelig belønningsvalg og UI gjenstår. |
+| 06:43 | Ved nivåoppgang kan en elev med blomst aktivert velge å fargelegge et kronblad; fortelleren viser både pågående og ferdig blomst. Den viste flaten tilbyr også læreropprettede belønninger. | Tilpasset og innarbeidet som retning. Rolig presentasjon, førstegangsmilepæl og unik claim er senere 3.0-regler. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md) og [B2](../qa/CONTROL_POINT_B2.md). |
 | 07:06 | Eleven kan rekke opp hånden og trekke forespørselen tilbake. | Tilpasset og implementert. Synlig kønummer er et antimønster. | [E03](../epics/E03_CONTEXTUAL_HELP_QUEUE.md) og [E1](../qa/CONTROL_POINT_E1.md). |
 | 07:14 | Læreren kan se og prioritere køen. | Innarbeidet og implementert i kjerne. Drag kan ikke være eneste metode. | [E2](../qa/CONTROL_POINT_E2.md). |
 | 08:10 | Fag og alle oppgaver gir en sekundær oversikt ved siden av dagens økter. | Innarbeidet og implementert i D3. | [E01](../epics/E01_STUDENT_DAY_AND_TASK_FLOW.md), [D3](../qa/CONTROL_POINT_D3.md) og UI/UX-referansen. «Dagen i dag» er fortsatt landing. |
 | 08:16 | Eleven kan angre fullføring, åpne oppgaven igjen og få de krediterte poengene reversert. | Innarbeidet og implementert. | Domenekontrakten § 7.4 og [B1](../qa/CONTROL_POINT_B1.md). |
-| 08:39 | Et valgt nivåvalg beholdes etter XP-reversering; en kupong er tenkt som en engangsbelønning. | Delvis innarbeidet. Bevaring og unik claim er kontrakt; eksakt innløsningslivsløp er utsatt. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md). |
+| 08:24–08:45 | Fortelleren går opp i nivå for å vise andre belønningstyper. En læreropprettet belønning vises som kupong eleven kan velge å bruke. | Utsatt kuponglivsløp. Videoen avklarer ikke bevaring etter XP-reversering eller engangssemantikk. | [E02](../epics/E02_PROGRESS_AND_REWARDS.md); domenekontrakten § 12 holder innløsning og retting åpent. |
 | 08:51 | Ukeoversikten er sekundær, men dagens kolonne og oppgavestatus skal være lett å finne. | Innarbeidet visuell retning; full flate er utsatt. | E01 og UI/UX-referansen. |
 | 09:41 | Smart Import skal gi en menneskekontrollert og redigerbar kandidat før publisering. | Innarbeidet, delvis implementert. | E04 og C1. |
 | Tidskode ikke bevart i nøkkelbildesettet | Egendefinerte fag kan få et symbol og en farge som følger inn i elevflaten. | Utsatt intensjon. Farge kan aldri være eneste informasjonsbærer. | UI/UX-referansen; fagadministrasjon mangler et eget kontrollpunkt. |

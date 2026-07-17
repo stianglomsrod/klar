@@ -5,7 +5,9 @@ import { isPrototypeDataError } from "@/server/data/errors";
 import {
   updateClassStudentExperience,
   updateOwnStudentExperience,
+  type StaffStudentExperienceUpdate,
   type StudentExperience,
+  type StudentExperiencePreferences,
 } from "@/server/students/experience-service";
 import { authorizationFailure, type ActionFailure } from "./action-errors";
 
@@ -21,11 +23,11 @@ function failure(error: unknown): ExperienceResult {
 }
 
 export async function updateOwnStudentExperienceAction(
-  input: StudentExperience,
+  input: StudentExperiencePreferences,
 ): Promise<ExperienceResult> {
   try {
     const experience = await updateOwnStudentExperience(input);
-    revalidatePath("/v3/student");
+    revalidatePath("/v3/student", "layout");
     return { success: true, experience };
   } catch (error) {
     return failure(error);
@@ -35,7 +37,7 @@ export async function updateOwnStudentExperienceAction(
 export async function updateClassStudentExperienceAction(
   classId: string,
   studentId: string,
-  input: StudentExperience,
+  input: StaffStudentExperienceUpdate,
 ): Promise<ExperienceResult> {
   try {
     const experience = await updateClassStudentExperience(classId, studentId, input);

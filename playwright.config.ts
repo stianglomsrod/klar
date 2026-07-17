@@ -95,6 +95,18 @@ if (authenticated) {
         },
       },
       {
+        name: "student-flower-reward",
+        testMatch: /authenticated\/student-flower-reward\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        retries: 0,
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(authDirectory, "reward-student.json"),
+          viewport: { width: 360, height: 640 },
+          hasTouch: true,
+        },
+      },
+      {
         name: "task-iteration",
         testMatch: /authenticated\/task-iteration\.spec\.ts/,
         dependencies: ["auth-setup"],
@@ -189,7 +201,24 @@ if (authenticated) {
           dependencies: ["auth-setup"],
           use: {
             browserName: authBrowser,
-            storageState: path.join(authDirectory, "student.json"),
+            storageState: path.join(
+              authDirectory,
+              "progress-visual-student.json",
+            ),
+            viewport: { width: target.width, height: target.height },
+            hasTouch: target.hasTouch,
+          },
+        },
+        {
+          name: `visual-student-flower-reward-${target.name}`,
+          testMatch: /visual\/student-flower-reward\.visual\.spec\.ts/,
+          dependencies: ["auth-setup"],
+          use: {
+            browserName: authBrowser,
+            storageState: path.join(
+              authDirectory,
+              "reward-visual-student.json",
+            ),
             viewport: { width: target.width, height: target.height },
             hasTouch: target.hasTouch,
           },
@@ -238,6 +267,19 @@ if (authenticated) {
           browserName: authBrowser,
           storageState: path.join(authDirectory, "visual-student.json"),
           // 1440 × 900 at 200 % browser zoom has approximately this CSS viewport.
+          viewport: { width: 720, height: 450 },
+        },
+      },
+      {
+        name: "visual-student-flower-reward-reflow-200",
+        testMatch: /visual\/student-flower-reward\.visual\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(
+            authDirectory,
+            "reward-visual-student.json",
+          ),
           viewport: { width: 720, height: 450 },
         },
       },

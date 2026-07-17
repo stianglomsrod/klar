@@ -1,6 +1,7 @@
 # E02 – Progresjon og belønninger
 
-**Status:** Pågår – B1-kjernen er verifisert
+**Status:** Pågår – B1- og B2-kjernen er verifisert; fysisk skjermleserport og
+WebKit-runtimeavvik gjenstår
 
 **Kontrakt:** [§ 7 Oppgavestatus, XP, nivå og belønning](../product/DOMAIN_CONTRACT.md#7-oppgavestatus-xp-nivå-og-belønning)
 
@@ -15,10 +16,17 @@ farming.
 
 Kontrollpunkt [B1](../qa/CONTROL_POINT_B1.md) har levert oppgavestatus,
 snapshotsatt XP, append-only ledger, nivåmodell, unik milepæl/entitlement,
-elevangre og ansattretur. Det som gjenstår i epicen er særlig autoritativt
-belønningsvalg/claim, separat ansattstyrt motivasjonsramme og elevpreferanse,
-samt de endelige rolige belønningsflatene. 2.x viser ønsket produktintensjon,
-men bruker flere klientskriv og skal ikke porteres direkte.
+elevangre og ansattretur. Kontrollpunkt
+[B2](../qa/CONTROL_POINT_B2.md) leverer autoritativt kronbladvalg, append-only
+claim, separat ansattstyrt blomsterhagerramme, separat elevpreferanse og den
+første rolige belønningsflaten. 2.x viser belønningsvalget og
+samlingsmetaforen, men ikke en konsistent bevaringsregel. Bevaring og
+anti-farming følger den senere eksplisitte produktbeslutningen i
+domenekontrakten § 7.3.
+
+Det som fortsatt gjenstår i epicen er fysisk VoiceOver/NVDA-bevis,
+WebKit/Next.js-runtimeavviket i B2 og avklaring/implementering av eventuelle
+andre belønningstyper, særlig kuponginnløsning.
 
 [Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md) er et delbevis for iterasjons-
 og XP-grensen: flytt beholder samme assignment, historikk og ene XP-mulighet,
@@ -107,15 +115,16 @@ hindres. Dette må kontraktsfestes før kuponginnløsning implementeres.
 - [x] Ny fullføring etter angre/retur gjenoppretter korrekt netto XP.
 - [x] En oppgave som krysser flere nivåer oppretter én entitlement per nytt
   nivå.
-- [ ] Valgt belønning består og kan brukes etter nivåfall.
+- [x] Valgt belønning består og kan brukes etter nivåfall.
 - [x] Uvalgt belønning dupliseres ikke når nivået gjenvinnes.
-- [ ] To samtidige, forskjellige belønningsvalg kan ikke begge lykkes.
+- [x] To samtidige, forskjellige belønningsvalg kan ikke begge lykkes.
 - [x] Senere endring i oppgavens XP-verdi omskriver ikke historikken.
 - [x] Avsluttet klassemedlemskap bevarer historikken, men stanser nye
   tildelinger, direkte browserlesing, elevkommandoer og ansattretur.
-- [ ] Autoriserte ansatte kan angi tilgjengelige motivasjonselementer i eget
+- [x] Autoriserte ansatte kan angi tilgjengelig blomsterhage i eget
   omfang; andre ansatte og eleven kan ikke utvide denne rammen.
-- [ ] Eleven kan redusere eller skjule tilgjengelige elementer selv.
+- [x] Eleven kan skjule og vise blomsterhagen innenfor ansattrammen uten å
+  endre opptjente data.
 - [x] Deaktivering/skjuling sletter ikke ledger, milepæler eller belønninger.
 - [x] Audit viser aktør, årsak, overgang og tekniske ID-er uten unødvendig
   elevfritekst.

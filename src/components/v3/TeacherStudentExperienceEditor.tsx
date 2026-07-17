@@ -10,16 +10,18 @@ export function TeacherStudentExperienceEditor({
   studentId,
   studentName,
   initialSupportLevel,
-  initialProgressEnabled,
+  initialFlowerRewardsAllowed,
 }: {
   classId: string;
   studentId: string;
   studentName: string;
   initialSupportLevel: SupportLevel;
-  initialProgressEnabled: boolean;
+  initialFlowerRewardsAllowed: boolean;
 }) {
   const [supportLevel, setSupportLevel] = useState(initialSupportLevel);
-  const [progressEnabled, setProgressEnabled] = useState(initialProgressEnabled);
+  const [flowerRewardsAllowed, setFlowerRewardsAllowed] = useState(
+    initialFlowerRewardsAllowed,
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -32,7 +34,7 @@ export function TeacherStudentExperienceEditor({
     try {
       const result = await updateClassStudentExperienceAction(classId, studentId, {
         supportLevel,
-        progressEnabled,
+        flowerRewardsAllowed,
       });
       if (!result.success) {
         if (redirectIfStaffAccessEnded(result, classId)) return;
@@ -40,7 +42,7 @@ export function TeacherStudentExperienceEditor({
         return;
       }
       setSupportLevel(result.experience.supportLevel);
-      setProgressEnabled(result.experience.progressEnabled);
+      setFlowerRewardsAllowed(result.experience.flowerRewardsAllowed);
       setSaved(true);
     } catch {
       setError("Kunne ikke lagre visningen akkurat nå.");
@@ -54,7 +56,10 @@ export function TeacherStudentExperienceEditor({
       <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600">
         Tilpass visning
       </summary>
-      <form onSubmit={save} className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+      <form
+        onSubmit={save}
+        className="mt-3 grid gap-3 sm:grid-cols-2 sm:items-end"
+      >
         <div>
           <label htmlFor={`support-${studentId}`} className="font-semibold">
             Støtte for {studentName}
@@ -73,11 +78,11 @@ export function TeacherStudentExperienceEditor({
         <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
           <input
             type="checkbox"
-            checked={progressEnabled}
-            onChange={(event) => setProgressEnabled(event.target.checked)}
+            checked={flowerRewardsAllowed}
+            onChange={(event) => setFlowerRewardsAllowed(event.target.checked)}
             className="h-5 w-5 accent-indigo-700"
           />
-          Vis fremdrift
+          Blomsterhage tilgjengelig
         </label>
         <button
           type="submit"

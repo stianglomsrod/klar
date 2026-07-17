@@ -13,7 +13,9 @@ test("viser elevens valgfrie progresjonsflate i relevante viewports", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/v3/student");
 
-  await expect(page.getByRole("heading", { name: "Hei, Testelev" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Hei, Visuell progresjonselev" }),
+  ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dagens arbeidsøkt" })).toBeVisible();
   await expect(page.getByText("Nå", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Dagens øktoppgave" })).toBeVisible();

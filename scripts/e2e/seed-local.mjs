@@ -1,6 +1,10 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
-import { assertLocalSupabaseUrl } from "./local-safety.mjs";
+import { Client } from "pg";
+import {
+  assertLocalDatabaseUrl,
+  assertLocalSupabaseUrl,
+} from "./local-safety.mjs";
 import {
   addLocalDays,
   fixtureSessionPlans,
@@ -31,6 +35,9 @@ const IDS = {
   helpStaff: "10000000-0000-4000-8000-000000000014",
   d2Student: "10000000-0000-4000-8000-000000000015",
   d2FormerStudent: "10000000-0000-4000-8000-000000000016",
+  rewardStudent: "10000000-0000-4000-8000-000000000017",
+  rewardVisualStudent: "10000000-0000-4000-8000-000000000018",
+  progressVisualStudent: "10000000-0000-4000-8000-000000000019",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -40,6 +47,9 @@ const IDS = {
   visualControlClass: "30000000-0000-4000-8000-000000000004",
   helpClass: "30000000-0000-4000-8000-000000000005",
   d2Class: "30000000-0000-4000-8000-000000000006",
+  rewardClass: "30000000-0000-4000-8000-000000000007",
+  rewardVisualClass: "30000000-0000-4000-8000-000000000008",
+  progressVisualClass: "30000000-0000-4000-8000-000000000009",
 };
 
 const url = assertLocalSupabaseUrl(required("NEXT_PUBLIC_SUPABASE_URL"));
@@ -50,6 +60,15 @@ const studentCode = required("KLAR_E2E_STUDENT_CODE")
   .toUpperCase()
   .replace(/[\s_]+/g, "-");
 const visualStudentCode = required("KLAR_E2E_VISUAL_STUDENT_CODE")
+  .toUpperCase()
+  .replace(/[\s_]+/g, "-");
+const rewardStudentCode = required("KLAR_E2E_REWARD_STUDENT_CODE")
+  .toUpperCase()
+  .replace(/[\s_]+/g, "-");
+const rewardVisualStudentCode = required("KLAR_E2E_REWARD_VISUAL_STUDENT_CODE")
+  .toUpperCase()
+  .replace(/[\s_]+/g, "-");
+const progressVisualStudentCode = required("KLAR_E2E_PROGRESS_VISUAL_STUDENT_CODE")
   .toUpperCase()
   .replace(/[\s_]+/g, "-");
 const d2StudentCode = required("KLAR_E2E_D2_STUDENT_CODE")
@@ -85,6 +104,18 @@ const credentials = {
     email: "visual-student@e2e.klar.invalid",
     password: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
   },
+  rewardStudent: {
+    email: "reward-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_REWARD_STUDENT_PASSWORD"),
+  },
+  rewardVisualStudent: {
+    email: "reward-visual-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_REWARD_VISUAL_STUDENT_PASSWORD"),
+  },
+  progressVisualStudent: {
+    email: "progress-visual-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_PROGRESS_VISUAL_STUDENT_PASSWORD"),
+  },
   d2Student: {
     email: "d2-student@e2e.klar.invalid",
     password: required("KLAR_E2E_D2_STUDENT_PASSWORD"),
@@ -109,6 +140,11 @@ const admin = createClient(url, serviceRoleKey, {
 const publicClient = createClient(url, anonKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+const fixtureDatabase = new Client({
+  connectionString: assertLocalDatabaseUrl(required("KLAR_E2E_DB_URL")),
+  connectionTimeoutMillis: 5_000,
+});
+await fixtureDatabase.connect();
 
 const { data: blockedSignup, error: blockedSignupError } =
   await publicClient.auth.signUp({
@@ -209,6 +245,148 @@ async function publishTask({
     throw assignmentError ?? new Error("E2E-oppgaveiterasjonen mangler.");
   }
   return { taskId, assignmentId: assignment.id };
+}
+
+async function insertTaskFixture({
+  taskId,
+  assignmentId,
+  classId,
+  actorId,
+  studentId,
+  title,
+  description,
+  subject,
+  estimatedMinutes,
+  points,
+}) {
+  if (!Number.isInteger(points) || points < 1 || points > 10000) {
+    throw new Error("E2E-poeng må være et heltall mellom 1 og 10000.");
+  }
+  await fixtureDatabase.query("begin");
+  try {
+    // Test-only construction of point boundary cases. Production and ordinary
+    // seed mutations still go through the authorized RPC surface. The visual
+    // reward class intentionally has no staff assignment, so this transaction
+    // disables role triggers while creating internally consistent fixture rows.
+    // This client accepts only the guarded loopback:54322 database URL.
+    await fixtureDatabase.query("set local session_replication_role = replica");
+    await fixtureDatabase.query(
+      `
+        insert into public.task_definitions (
+          id,
+          organization_id,
+          class_id,
+          title,
+          description,
+          subject,
+          estimated_minutes,
+          support_level,
+          points_value,
+          publication_status,
+          created_by,
+          published_at
+        ) values (
+          $1::uuid,
+          $2::uuid,
+          $3::uuid,
+          $4::text,
+          $5::text,
+          $6::text,
+          $7::smallint,
+          2,
+          $8::integer,
+          'published'::public.task_publication_status,
+          $9::uuid,
+          '2020-01-01T08:00:00.000Z'::timestamptz
+        )
+      `,
+      [
+        taskId,
+        IDS.organization,
+        classId,
+        title,
+        description,
+        subject,
+        estimatedMinutes,
+        points,
+        actorId,
+      ],
+    );
+    await fixtureDatabase.query(
+      `
+        insert into public.task_assignments (
+          id,
+          organization_id,
+          class_id,
+          task_definition_id,
+          student_id,
+          assigned_by,
+          points_value_snapshot,
+          visible_from,
+          due_at
+        ) values (
+          $1::uuid,
+          $2::uuid,
+          $3::uuid,
+          $4::uuid,
+          $5::uuid,
+          $6::uuid,
+          $7::integer,
+          '2020-01-01T08:00:00.000Z'::timestamptz,
+          '2099-12-31T14:00:00.000Z'::timestamptz
+        )
+      `,
+      [
+        assignmentId,
+        IDS.organization,
+        classId,
+        taskId,
+        studentId,
+        actorId,
+        points,
+      ],
+    );
+    await fixtureDatabase.query(
+      `
+        insert into public.student_task_state (
+          assignment_id,
+          organization_id,
+          student_id
+        ) values ($1::uuid, $2::uuid, $3::uuid)
+      `,
+      [assignmentId, IDS.organization, studentId],
+    );
+    await fixtureDatabase.query("commit");
+  } catch (error) {
+    await fixtureDatabase.query("rollback");
+    throw error;
+  }
+  return { taskId, assignmentId };
+}
+
+async function completeTaskFixture({
+  assignmentId,
+  studentId,
+  requestId,
+  expectedXpBalance,
+}) {
+  const { data, error } = await admin.rpc("complete_student_task_v2", {
+    p_organization_id: IDS.organization,
+    p_assignment_id: assignmentId,
+    p_student_id: studentId,
+    p_request_id: requestId,
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
+  });
+  if (
+    error ||
+    !data ||
+    data.status !== "completed" ||
+    data.xp_balance !== expectedXpBalance
+  ) {
+    throw error ?? new Error("E2E-progresjonsfixturen er inkonsistent.");
+  }
+  return data;
 }
 
 async function publishWeeklyPlanFixture({
@@ -557,6 +735,21 @@ await Promise.all([
     password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
     displayName: "Tidligere D2-elev",
   }),
+  createUser({
+    id: IDS.rewardStudent,
+    ...credentials.rewardStudent,
+    displayName: "Belønningselev",
+  }),
+  createUser({
+    id: IDS.rewardVisualStudent,
+    ...credentials.rewardVisualStudent,
+    displayName: "Visuell hageelev",
+  }),
+  createUser({
+    id: IDS.progressVisualStudent,
+    ...credentials.progressVisualStudent,
+    displayName: "Visuell progresjonselev",
+  }),
 ]);
 
 await insert("organizations", [
@@ -589,6 +782,9 @@ await insert("memberships", [
   { organization_id: IDS.organization, user_id: IDS.lifecycleHelpStudent, role: "student", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.d2Student, role: "student", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.d2FormerStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.rewardStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.rewardVisualStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.progressVisualStudent, role: "student", created_by: IDS.owner },
 ]);
 await insert("classes", [
   {
@@ -633,6 +829,27 @@ await insert("classes", [
     academic_year: "2026/2027",
     created_by: IDS.owner,
   },
+  {
+    id: IDS.rewardClass,
+    organization_id: IDS.organization,
+    name: "Belønningsklasse 2B",
+    academic_year: "2026/2027",
+    created_by: IDS.owner,
+  },
+  {
+    id: IDS.rewardVisualClass,
+    organization_id: IDS.organization,
+    name: "Visuell blomsterklasse 3C",
+    academic_year: "2026/2027",
+    created_by: IDS.owner,
+  },
+  {
+    id: IDS.progressVisualClass,
+    organization_id: IDS.organization,
+    name: "Visuell progresjonsklasse 4D",
+    academic_year: "2026/2027",
+    created_by: IDS.owner,
+  },
 ]);
 await insert("class_memberships", [
   { class_id: IDS.class, organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
@@ -641,6 +858,9 @@ await insert("class_memberships", [
   { class_id: IDS.helpClass, organization_id: IDS.organization, user_id: IDS.helpStudent, role: "student", created_by: IDS.owner },
   { class_id: IDS.d2Class, organization_id: IDS.organization, user_id: IDS.d2Student, role: "student", created_by: IDS.owner },
   { class_id: IDS.d2Class, organization_id: IDS.organization, user_id: IDS.d2FormerStudent, role: "student", created_by: IDS.owner },
+  { class_id: IDS.rewardClass, organization_id: IDS.organization, user_id: IDS.rewardStudent, role: "student", created_by: IDS.owner },
+  { class_id: IDS.rewardVisualClass, organization_id: IDS.organization, user_id: IDS.rewardVisualStudent, role: "student", created_by: IDS.owner },
+  { class_id: IDS.progressVisualClass, organization_id: IDS.organization, user_id: IDS.progressVisualStudent, role: "student", created_by: IDS.owner },
 ]);
 
 const { data: visualOperationalClass, error: visualOperationalClassError } =
@@ -693,6 +913,22 @@ const helpOwnerStaffAssignment = await createAssignment({
   classId: IDS.helpClass,
   jobLabel: "contact_teacher",
   key: "60000000-0000-4000-8000-000000000008",
+});
+await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.owner,
+  classId: IDS.rewardClass,
+  jobLabel: "contact_teacher",
+  key: "60000000-0000-4000-8000-000000000011",
+});
+const progressVisualStaffAssignment = await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.owner,
+  classId: IDS.progressVisualClass,
+  jobLabel: "contact_teacher",
+  key: "60000000-0000-4000-8000-000000000013",
 });
 await createAssignment({
   organizationId: IDS.organization,
@@ -750,6 +986,15 @@ const codeDigest = createHmac("sha256", pepper)
 const visualStudentCodeDigest = createHmac("sha256", pepper)
   .update(visualStudentCode, "utf8")
   .digest("hex");
+const rewardStudentCodeDigest = createHmac("sha256", pepper)
+  .update(rewardStudentCode, "utf8")
+  .digest("hex");
+const rewardVisualStudentCodeDigest = createHmac("sha256", pepper)
+  .update(rewardVisualStudentCode, "utf8")
+  .digest("hex");
+const progressVisualStudentCodeDigest = createHmac("sha256", pepper)
+  .update(progressVisualStudentCode, "utf8")
+  .digest("hex");
 const d2StudentCodeDigest = createHmac("sha256", pepper)
   .update(d2StudentCode, "utf8")
   .digest("hex");
@@ -764,6 +1009,24 @@ await insert("student_login_codes", [
     user_id: IDS.visualStudent,
     organization_id: IDS.organization,
     code_digest: visualStudentCodeDigest,
+    created_by: IDS.owner,
+  },
+  {
+    user_id: IDS.rewardStudent,
+    organization_id: IDS.organization,
+    code_digest: rewardStudentCodeDigest,
+    created_by: IDS.owner,
+  },
+  {
+    user_id: IDS.rewardVisualStudent,
+    organization_id: IDS.organization,
+    code_digest: rewardVisualStudentCodeDigest,
+    created_by: IDS.owner,
+  },
+  {
+    user_id: IDS.progressVisualStudent,
+    organization_id: IDS.organization,
+    code_digest: progressVisualStudentCodeDigest,
     created_by: IDS.owner,
   },
   {
@@ -974,6 +1237,149 @@ await publishTask({
   estimatedMinutes: 10,
 });
 
+const rewardBaselineTask = await insertTaskFixture({
+  taskId: "90000000-0000-4000-8000-000000000001",
+  assignmentId: "91000000-0000-4000-8000-000000000001",
+  classId: IDS.rewardClass,
+  actorId: IDS.owner,
+  studentId: IDS.rewardStudent,
+  title: "Poeng fram til første milepæl",
+  description: "Syntetisk grunnlag som lar neste lille oppgave nå første nivå.",
+  subject: "Norsk",
+  estimatedMinutes: 5,
+  points: 990,
+});
+await insertTaskFixture({
+  taskId: "90000000-0000-4000-8000-000000000002",
+  assignmentId: "91000000-0000-4000-8000-000000000002",
+  classId: IDS.rewardClass,
+  actorId: IDS.owner,
+  studentId: IDS.rewardStudent,
+  title: "Fullfør første milepæl",
+  description: "Fullfør oppgaven for å få det første kronbladet.",
+  subject: "Norsk",
+  estimatedMinutes: 5,
+  points: 10,
+});
+const rewardVisualFirstTask = await insertTaskFixture({
+  taskId: "90000000-0000-4000-8000-000000000003",
+  assignmentId: "91000000-0000-4000-8000-000000000003",
+  classId: IDS.rewardVisualClass,
+  actorId: IDS.owner,
+  studentId: IDS.rewardVisualStudent,
+  title: "Visuelt hagegrunnlag én",
+  description: "Syntetisk milepæl for en varig valgt belønning.",
+  subject: "Norsk",
+  estimatedMinutes: 5,
+  points: 1000,
+});
+const rewardVisualSecondTask = await insertTaskFixture({
+  taskId: "90000000-0000-4000-8000-000000000004",
+  assignmentId: "91000000-0000-4000-8000-000000000004",
+  classId: IDS.rewardVisualClass,
+  actorId: IDS.owner,
+  studentId: IDS.rewardVisualStudent,
+  title: "Visuelt hagegrunnlag to",
+  description: "Syntetisk milepæl med ett ventende kronblad.",
+  subject: "Matematikk",
+  estimatedMinutes: 5,
+  points: 1000,
+});
+const progressVisualTask = await insertTaskFixture({
+  taskId: "90000000-0000-4000-8000-000000000005",
+  assignmentId: "91000000-0000-4000-8000-000000000005",
+  classId: IDS.progressVisualClass,
+  actorId: IDS.owner,
+  studentId: IDS.progressVisualStudent,
+  title: "Visuell progresjonsoppgave",
+  description: "Syntetisk read-only-fixture for progresjonsflaten.",
+  subject: "Norsk",
+  estimatedMinutes: 5,
+  points: 10,
+});
+
+await insert("student_experience_settings", [
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.rewardStudent,
+    support_level: 2,
+    progress_enabled: true,
+    flower_rewards_allowed: true,
+    updated_by: IDS.owner,
+  },
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.rewardVisualStudent,
+    support_level: 2,
+    progress_enabled: true,
+    flower_rewards_allowed: true,
+    updated_by: IDS.owner,
+  },
+  {
+    organization_id: IDS.organization,
+    student_id: IDS.progressVisualStudent,
+    support_level: 2,
+    progress_enabled: true,
+    flower_rewards_allowed: false,
+    updated_by: IDS.owner,
+  },
+]);
+
+await completeTaskFixture({
+  assignmentId: rewardBaselineTask.assignmentId,
+  studentId: IDS.rewardStudent,
+  requestId: "80000000-0000-4000-8000-000000000004",
+  expectedXpBalance: 990,
+});
+await completeTaskFixture({
+  assignmentId: rewardVisualFirstTask.assignmentId,
+  studentId: IDS.rewardVisualStudent,
+  requestId: "80000000-0000-4000-8000-000000000005",
+  expectedXpBalance: 1000,
+});
+const { data: rewardVisualEntitlement, error: rewardVisualEntitlementError } =
+  await admin
+    .from("level_reward_entitlements")
+    .select("id")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardVisualStudent)
+    .eq("level", 2)
+    .single();
+if (rewardVisualEntitlementError || !rewardVisualEntitlement) {
+  throw rewardVisualEntitlementError ?? new Error("Visuell reward-entitlement mangler.");
+}
+const { data: rewardVisualClaim, error: rewardVisualClaimError } = await admin.rpc(
+  "claim_student_flower_reward_v1",
+  {
+    p_organization_id: IDS.organization,
+    p_entitlement_id: rewardVisualEntitlement.id,
+    p_student_id: IDS.rewardVisualStudent,
+    p_actor_id: IDS.rewardVisualStudent,
+    p_request_id: "81000000-0000-4000-8000-000000000001",
+    p_flower_color: "turquoise",
+  },
+);
+if (
+  rewardVisualClaimError ||
+  !rewardVisualClaim ||
+  rewardVisualClaim.flower_color !== "turquoise" ||
+  rewardVisualClaim.collection_sequence !== 1
+) {
+  throw rewardVisualClaimError ?? new Error("Visuell flower-claim er inkonsistent.");
+}
+await completeTaskFixture({
+  assignmentId: rewardVisualSecondTask.assignmentId,
+  studentId: IDS.rewardVisualStudent,
+  requestId: "80000000-0000-4000-8000-000000000006",
+  expectedXpBalance: 2000,
+});
+await completeTaskFixture({
+  assignmentId: progressVisualTask.assignmentId,
+  studentId: IDS.progressVisualStudent,
+  requestId: "80000000-0000-4000-8000-000000000007",
+  expectedXpBalance: 10,
+});
+
 const { error: positionError } = await admin
   .from("task_definitions")
   .update({ position: 1 })
@@ -1118,7 +1524,14 @@ const [
   progressResult,
   receiptsResult,
 ] = await Promise.all([
-  admin.from("student_task_state").select("assignment_id, status"),
+  admin
+    .from("student_task_state")
+    .select("assignment_id, status")
+    // B1's consistency proof remains scoped to its original fixtures. The
+    // isolated B2/read-only visual students are verified separately below.
+    .neq("student_id", IDS.rewardStudent)
+    .neq("student_id", IDS.rewardVisualStudent)
+    .neq("student_id", IDS.progressVisualStudent),
   admin
     .from("task_completion_attempts")
     .select("id")
@@ -1217,4 +1630,88 @@ if (
   );
 }
 
-console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual-, D2-, help-queue- og other-org-data.");
+await publishWeeklyPlanFixture({
+  classId: IDS.progressVisualClass,
+  actorId: IDS.owner,
+  staffAssignmentId: progressVisualStaffAssignment,
+  keyPrefix: "f",
+  titlePrefix: "Dagens",
+});
+await openCurrentHelpQueue({
+  classId: IDS.progressVisualClass,
+  actorId: IDS.owner,
+  staffAssignmentId: progressVisualStaffAssignment,
+  keyPrefix: "f",
+});
+
+const [rewardProgress, rewardEntitlements, rewardVisualProgress, rewardVisualClaims,
+  rewardVisualEntitlements, progressVisualProgress] = await Promise.all([
+  admin
+    .from("student_progress")
+    .select("xp_balance, current_level, highest_level")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardStudent)
+    .single(),
+  admin
+    .from("level_reward_entitlements")
+    .select("id")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardStudent),
+  admin
+    .from("student_progress")
+    .select("xp_balance, current_level, highest_level")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardVisualStudent)
+    .single(),
+  admin
+    .from("reward_claims")
+    .select("flower_color, collection_sequence")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardVisualStudent),
+  admin
+    .from("level_reward_entitlements")
+    .select("level, status")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.rewardVisualStudent)
+    .order("level"),
+  admin
+    .from("student_progress")
+    .select("xp_balance, current_level, highest_level")
+    .eq("organization_id", IDS.organization)
+    .eq("student_id", IDS.progressVisualStudent)
+    .single(),
+]);
+const b2ReadError = [
+  rewardProgress.error,
+  rewardEntitlements.error,
+  rewardVisualProgress.error,
+  rewardVisualClaims.error,
+  rewardVisualEntitlements.error,
+  progressVisualProgress.error,
+].find(Boolean);
+if (b2ReadError) throw b2ReadError;
+if (
+  rewardProgress.data.xp_balance !== 990 ||
+  rewardProgress.data.current_level !== 1 ||
+  rewardProgress.data.highest_level !== 1 ||
+  rewardEntitlements.data.length !== 0 ||
+  rewardVisualProgress.data.xp_balance !== 2000 ||
+  rewardVisualProgress.data.current_level !== 3 ||
+  rewardVisualProgress.data.highest_level !== 3 ||
+  rewardVisualClaims.data.length !== 1 ||
+  rewardVisualClaims.data[0]?.flower_color !== "turquoise" ||
+  rewardVisualClaims.data[0]?.collection_sequence !== 1 ||
+  JSON.stringify(rewardVisualEntitlements.data) !==
+    JSON.stringify([
+      { level: 2, status: "selected" },
+      { level: 3, status: "available" },
+    ]) ||
+  progressVisualProgress.data.xp_balance !== 10 ||
+  progressVisualProgress.data.current_level !== 1 ||
+  progressVisualProgress.data.highest_level !== 1
+) {
+  throw new Error("B2-/visuell progresjonsfixture er inkonsistent.");
+}
+
+console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual-, reward-, D2-, help-queue- og other-org-data.");
+await fixtureDatabase.end();
