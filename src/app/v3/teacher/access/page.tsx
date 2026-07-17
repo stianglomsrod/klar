@@ -11,7 +11,10 @@ export default async function StaffAccessPage() {
 
   return (
     <main id="main-content" tabIndex={-1} className="focus:outline-none">
-      <StaffAccessManager management={management} />
+      <StaffAccessManager
+        management={management}
+        initialNow={new Date().toISOString()}
+      />
     </main>
   );
 }

@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import {
   OsloDateTimeError,
+  osloInstantToLocalDateTime,
   osloLocalDateTimeToIso,
   osloMondayForInstant,
 } from "../src/lib/oslo-date-time.ts";
@@ -16,6 +17,17 @@ describe("Europe/Oslo school time", () => {
     assert.equal(
       osloLocalDateTimeToIso("2026-07-13", "09:00"),
       "2026-07-13T07:00:00.000Z",
+    );
+  });
+
+  test("formats datetime-local values in Oslo independently of process time zone", () => {
+    assert.equal(
+      osloInstantToLocalDateTime(new Date("2026-01-12T08:00:00.000Z")),
+      "2026-01-12T09:00",
+    );
+    assert.equal(
+      osloInstantToLocalDateTime(new Date("2026-07-13T07:00:00.000Z")),
+      "2026-07-13T09:00",
     );
   });
 

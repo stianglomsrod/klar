@@ -69,6 +69,18 @@ function partsAt(instantMs: number): DateTimeParts {
   };
 }
 
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+export function osloInstantToLocalDateTime(instant: Date): string {
+  if (Number.isNaN(instant.getTime())) {
+    throw new OsloDateTimeError("Tidspunktet er ugyldig.");
+  }
+  const parts = partsAt(instant.getTime());
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}T${pad2(parts.hour)}:${pad2(parts.minute)}`;
+}
+
 function sameParts(first: DateTimeParts, second: DateTimeParts): boolean {
   return (
     first.year === second.year &&

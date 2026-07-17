@@ -18,6 +18,10 @@ import type {
   StaffJobLabel,
 } from "@/server/auth/policy";
 import { createClientUuid } from "@/lib/client-uuid";
+import {
+  osloInstantToLocalDateTime,
+  osloLocalDateTimeToIso,
+} from "@/lib/oslo-date-time";
 import { restoreDialogFocus, trapDialogFocus } from "./dialog-focus";
 
 const JOB_LABELS: Record<StaffJobLabel, string> = {
@@ -53,16 +57,13 @@ const SOURCE_LABELS = {
   class_creation: "Opprettet med klassen",
 } as const;
 
-function localDateTime(date: Date): string {
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
-
-function initialTimes() {
-  const startsAt = new Date();
-  startsAt.setSeconds(0, 0);
+function initialTimes(now = new Date()) {
+  const startsAt = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
   const endsAt = new Date(startsAt.getTime() + 8 * 60 * 60 * 1000);
-  return { startsAt: localDateTime(startsAt), endsAt: localDateTime(endsAt) };
+  return {
+    startsAt: osloInstantToLocalDateTime(startsAt),
+    endsAt: osloInstantToLocalDateTime(endsAt),
+  };
 }
 
 function formatDate(value: string | null): string {
@@ -74,11 +75,20 @@ function formatDate(value: string | null): string {
   }).format(new Date(value));
 }
 
+function localInputToIso(value: string): string {
+  const parts = value.split("T");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    throw new Error("Tidspunktet er ugyldig.");
+  }
+  return osloLocalDateTimeToIso(parts[0], parts[1]);
+}
+
 function formatLocalInput(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? "Velg tidspunkt"
-    : formatDate(date.toISOString());
+  try {
+    return formatDate(localInputToIso(value));
+  } catch {
+    return "Velg tidspunkt";
+  }
 }
 
 function Status({ status }: { status: StaffAssignmentStatus }) {
@@ -92,8 +102,10 @@ function Status({ status }: { status: StaffAssignmentStatus }) {
 
 export function StaffAccessManager({
   management,
+  initialNow,
 }: {
   management: StaffAccessManagement;
+  initialNow: string;
 }) {
   const router = useRouter();
   const createDialog = useRef<HTMLDialogElement>(null);
@@ -105,7 +117,7 @@ export function StaffAccessManager({
   const messageSummary = useRef<HTMLParagraphElement>(null);
   const errorSummary = useRef<HTMLDivElement>(null);
   const revokeErrorSummary = useRef<HTMLDivElement>(null);
-  const [times, setTimes] = useState(initialTimes);
+  const [times, setTimes] = useState(() => initialTimes(new Date(initialNow)));
   const [targetUserId, setTargetUserId] = useState(management.people[0]?.id ?? "");
   const [classId, setClassId] = useState(management.classes[0]?.id ?? "");
   const [jobLabel, setJobLabel] =
@@ -153,8 +165,8 @@ export function StaffAccessManager({
         targetUserId,
         classId,
         jobLabel,
-        startsAt: new Date(times.startsAt).toISOString(),
-        endsAt: new Date(times.endsAt).toISOString(),
+        startsAt: localInputToIso(times.startsAt),
+        endsAt: localInputToIso(times.endsAt),
         idempotencyKey,
       });
       if (!result.success) {
