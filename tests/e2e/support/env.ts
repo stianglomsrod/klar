@@ -21,5 +21,7 @@ export function getE2ECredentials() {
     visualStudentPassword: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
     returnStudentEmail: "return-student@e2e.klar.invalid",
     returnStudentPassword: required("KLAR_E2E_RETURN_STUDENT_PASSWORD"),
+    helpStudentEmail: "help-student@e2e.klar.invalid",
+    helpStudentPassword: required("KLAR_E2E_STUDENT_PASSWORD"),
   };
 }

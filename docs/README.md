@@ -11,7 +11,8 @@ Ved motstrid gjelder følgende rekkefølge:
 1. eksplisitte produktbeslutninger fra produkteier, innarbeidet i
    [domenekontrakten](./product/DOMAIN_CONTRACT.md);
 2. masteroppgavens fem designprinsipper og funnene fra den siste evalueringen;
-3. de utvalgte Klar-skjermbildene og den dokumenterte oppgaveflyten;
+3. produkteierens fortellerstemme i den kuraterte videoomvisningen, de utvalgte
+   Klar-skjermbildene og den dokumenterte oppgaveflyten;
 4. øvrig UI og kode fra Klar 2.x som interaksjons- og visuell referanse;
 5. eldre dokumentasjon, skisser og tidlige designartefakter som historikk.
 
@@ -46,6 +47,8 @@ tilgjengelighetsfeil.
   oppgaveovergang, XP, elevangre og ansattretur.
 - [Kontrollpunkt C1](./qa/CONTROL_POINT_C1.md) – første strukturerte
   klasseukerevisjon, øktstyrt elevdag og lagrede responsive QA-artefakter.
+- [Kontrollpunkt E1](./qa/CONTROL_POINT_E1.md) – øktbundet hjelpekø,
+  elevhånd, privacy, samtidighet, reconnect og responsive QA-artefakter.
 
 ## Dokumenttyper
 

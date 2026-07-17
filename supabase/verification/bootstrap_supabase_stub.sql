@@ -8,6 +8,11 @@ create role service_role nologin bypassrls;
 
 create schema auth;
 
+-- Exercise the same publication branches as a local Supabase project. The
+-- verification containers never stream these tables; this only proves the
+-- migration's allow-list transitions.
+create publication supabase_realtime;
+
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text,

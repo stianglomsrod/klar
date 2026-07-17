@@ -14,6 +14,10 @@ import type {
 } from "@/server/tasks/task-service";
 import type { StudentTaskStatus } from "@/server/supabase/database.types";
 import type { StudentExperience } from "@/server/students/experience-service";
+import type { StudentHelpState } from "@/server/help/help-service";
+import { getStudentProgressDockLabel } from "@/lib/student-progress-dock-label";
+import { StudentHelpControl } from "./StudentHelpControl";
+import { useHelpQueueRealtime } from "./useHelpQueueRealtime";
 import {
   StudentTaskDialog,
   type StudentTaskDialogMode,
@@ -139,44 +143,61 @@ function StudentProgressDock({
   progress,
   completedCount,
   taskCount,
+  showProgress,
+  helpState,
 }: {
   progress: StudentProgressSummary;
   completedCount: number;
   taskCount: number;
+  showProgress: boolean;
+  helpState: StudentHelpState;
 }) {
   const levelFloor = Math.max(0, (progress.currentLevel - 1) * 1000);
   const xpInLevel = Math.min(1000, Math.max(0, progress.xpBalance - levelFloor));
+  const regionLabel = getStudentProgressDockLabel(
+    showProgress,
+    Boolean(helpState.queue),
+  );
 
   return (
     <section
       role="region"
-      aria-label="Din fremdrift"
+      aria-label={regionLabel}
       className="student-progress-dock fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur"
     >
-      <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:gap-6 sm:px-6">
-        <div className="shrink-0">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-indigo-700">
-            Nivå {progress.currentLevel}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold text-slate-700">
-            {progress.xpBalance} poeng
-          </p>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3 text-xs font-semibold text-slate-600">
-            <span>Mot nivå {progress.currentLevel + 1}</span>
-            <span>{xpInLevel} / 1000</span>
+      <div
+        className={`mx-auto flex max-w-5xl flex-col gap-2 px-4 py-2 min-[24rem]:flex-row min-[24rem]:items-center min-[24rem]:gap-4 sm:gap-6 sm:px-6 ${showProgress ? "" : "items-end"}`}
+      >
+        {showProgress && (
+          <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 min-[24rem]:flex-1 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-5">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-indigo-700">
+                Nivå {progress.currentLevel}
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-700">
+                {progress.xpBalance} poeng
+              </p>
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 text-xs font-semibold text-slate-600">
+                <span>Mot nivå {progress.currentLevel + 1}</span>
+                <span>{xpInLevel} / 1000</span>
+              </div>
+              <progress
+                value={xpInLevel}
+                max={1000}
+                aria-label={`${xpInLevel} av 1000 poeng mot nivå ${progress.currentLevel + 1}`}
+                className="mt-1.5 h-2.5 w-full accent-emerald-600"
+              />
+            </div>
+            <div className="hidden shrink-0 items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-900 sm:inline-flex">
+              <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
+              {completedCount} av {taskCount}
+            </div>
           </div>
-          <progress
-            value={xpInLevel}
-            max={1000}
-            aria-label={`${xpInLevel} av 1000 poeng mot nivå ${progress.currentLevel + 1}`}
-            className="mt-1.5 h-2.5 w-full accent-emerald-600"
-          />
-        </div>
-        <div className="hidden shrink-0 items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-900 sm:inline-flex">
-          <CheckCircle2 aria-hidden="true" className="h-5 w-5" />
-          {completedCount} av {taskCount}
+        )}
+        <div className="self-end">
+          <StudentHelpControl state={helpState} />
         </div>
       </div>
     </section>
@@ -187,11 +208,13 @@ export function StudentTaskList({
   initialTasks,
   initialProgress,
   experience,
+  helpState,
   sections = [],
 }: {
   initialTasks: StudentTodayTask[];
   initialProgress: StudentProgressSummary;
   experience: StudentExperience;
+  helpState: StudentHelpState;
   sections?: StudentTaskSection[];
 }) {
   const [tasks, setTasks] = useState(initialTasks);
@@ -201,12 +224,59 @@ export function StudentTaskList({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [helpAnnouncement, setHelpAnnouncement] = useState<{
+    id: number;
+    text: string;
+  } | null>(null);
+  const helpAnnouncementSequence = useRef(0);
+  const currentSession = sections.find(
+    (section) => section.relation === "current",
+  );
+  const nextSession = sections
+    .filter(
+      (section) =>
+        section.startsAt && new Date(section.startsAt).getTime() > Date.now(),
+    )
+    .sort(
+      (left, right) =>
+        new Date(left.startsAt!).getTime() - new Date(right.startsAt!).getTime(),
+    )[0];
+  useHelpQueueRealtime(
+    helpState.classId,
+    currentSession?.endsAt ?? nextSession?.startsAt ?? null,
+  );
   const requestIds = useRef(new Map<string, string>());
   const mutationInFlight = useRef(false);
   const dialogTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const previousHelpState = useRef(helpState);
 
   useEffect(() => setTasks(initialTasks), [initialTasks]);
   useEffect(() => setProgress(initialProgress), [initialProgress]);
+
+  useEffect(() => {
+    const previous = previousHelpState.current;
+    let announcement: string | null = null;
+    if (previous.activeRequest && !helpState.activeRequest) {
+      announcement = "Du står ikke lenger i kø.";
+    } else if (!previous.queue && helpState.queue?.status === "open") {
+      announcement = "Hjelpekøen er åpen.";
+    } else if (previous.queue && !helpState.queue) {
+      announcement = "Hjelpekøen er stengt.";
+    } else if (
+      previous.queue?.status === "open" &&
+      helpState.queue?.status === "closing"
+    ) {
+      announcement = "Hjelpekøen stenger.";
+    }
+    if (announcement) {
+      helpAnnouncementSequence.current += 1;
+      setHelpAnnouncement({
+        id: helpAnnouncementSequence.current,
+        text: announcement,
+      });
+    }
+    previousHelpState.current = helpState;
+  }, [helpState]);
 
   useEffect(() => {
     if (activeTaskId && !tasks.some((task) => task.assignmentId === activeTaskId)) {
@@ -233,6 +303,16 @@ export function StudentTaskList({
   }, [sections, tasks]);
   const activeTask =
     tasks.find((task) => task.assignmentId === activeTaskId) ?? null;
+  const activeTaskSectionId = activeTaskId
+    ? sections.find((section) =>
+        section.assignmentIds.includes(activeTaskId),
+      )?.id ?? null
+    : null;
+  const showTaskHelpControl = Boolean(
+    helpState.queue &&
+      activeTaskSectionId &&
+      activeTaskSectionId === helpState.queue.revisionSessionId,
+  );
   const nextTaskId =
     sections.length === 0
       ? tasks.find((task) => task.status !== "completed")?.assignmentId
@@ -327,6 +407,11 @@ export function StudentTaskList({
   if (tasks.length === 0 && sections.length === 0) {
     return (
       <div>
+        <span className="sr-only" aria-live="polite" aria-atomic="true">
+          {helpAnnouncement && (
+            <span key={helpAnnouncement.id}>{helpAnnouncement.text}</span>
+          )}
+        </span>
         <div className="rounded-3xl border border-sky-100 bg-white p-8 text-center shadow-sm">
           <span aria-hidden="true" className="text-5xl">
             🌤️
@@ -336,11 +421,13 @@ export function StudentTaskList({
             Det er ingen publiserte oppgaver akkurat nå.
           </p>
         </div>
-        {experience.progressEnabled && (
+        {(experience.progressEnabled || helpState.queue) && (
           <StudentProgressDock
             progress={progress}
             completedCount={0}
             taskCount={0}
+            showProgress={experience.progressEnabled}
+            helpState={helpState}
           />
         )}
       </div>
@@ -349,6 +436,11 @@ export function StudentTaskList({
 
   return (
     <div>
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {helpAnnouncement && (
+          <span key={helpAnnouncement.id}>{helpAnnouncement.text}</span>
+        )}
+      </span>
       <div aria-live="polite" aria-atomic="true">
         {feedback && (
           <p className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 font-semibold text-emerald-900">
@@ -549,6 +641,8 @@ export function StudentTaskList({
         isUpdating={updatingId === activeTask?.assignmentId}
         hasPendingMutation={hasPendingMutation}
         error={error}
+        helpState={helpState}
+        showHelpControl={showTaskHelpControl}
         onClose={closeTask}
         onShowCheckpoint={() => {
           setError(null);
@@ -566,11 +660,13 @@ export function StudentTaskList({
         }}
       />
 
-      {experience.progressEnabled && (
+      {(experience.progressEnabled || helpState.queue) && (
         <StudentProgressDock
           progress={progress}
           completedCount={completedCount}
           taskCount={tasks.length}
+          showProgress={experience.progressEnabled}
+          helpState={helpState}
         />
       )}
     </div>

@@ -132,10 +132,10 @@ begin
   if not exists (
     select 1 from public.help_requests
     where id = '86000000-0000-4000-8000-000000000001'
-      and status = 'waiting'
+      and status = 'expired'
       and task_assignment_id = '85000000-0000-4000-8000-000000000001'
   ) then
-    raise exception 'Legacy queue changed during upgrade';
+    raise exception 'Legacy queue was not safely terminalized during upgrade';
   end if;
   if not exists (
     select 1 from public.student_experience_settings

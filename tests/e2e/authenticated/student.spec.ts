@@ -10,9 +10,31 @@ import {
 const studentId = "10000000-0000-4000-8000-000000000002";
 
 async function revealLegacyTasks(page: Page) {
-  await page
-    .getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/)
-    .click();
+  const summary = page.getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/);
+  const details = summary.locator("..");
+  if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await summary.click();
+  }
+}
+
+async function expectDurableTaskStatus(
+  sourcePage: Page,
+  taskTitle: string,
+  status: string,
+) {
+  const durabilityPage = await sourcePage.context().newPage();
+  const expectNoRuntimeErrors = observeRuntimeErrors(durabilityPage);
+  try {
+    await durabilityPage.goto("/v3/student");
+    await revealLegacyTasks(durabilityPage);
+    const taskCard = durabilityPage
+      .getByRole("article")
+      .filter({ hasText: taskTitle });
+    await expect(taskCard.getByText(status, { exact: true })).toBeVisible();
+    expectNoRuntimeErrors();
+  } finally {
+    await durabilityPage.close();
+  }
 }
 
 test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) => {
@@ -145,10 +167,7 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(progressDock.getByText("Nivå 1", { exact: true })).toBeVisible();
     await expect(progressDock.getByText("20 poeng", { exact: true })).toBeVisible();
 
-    // Wait for Next's server-action refresh to finish before replacing the
-    // document. WebKit reports an aborted in-flight RSC load as a page error.
-    await page.waitForLoadState("networkidle");
-    await page.reload();
+    await expectDurableTaskStatus(page, "Les fem linjer", "Ferdig");
     await revealLegacyTasks(page);
     const completedCard = page
       .getByRole("article")
@@ -164,8 +183,7 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
     await expect(page.getByText("Oppgaven er klar igjen. Poengene er justert.")).toBeVisible();
     await expect(progressDock.getByText("10 poeng", { exact: true })).toBeVisible();
 
-    await page.waitForLoadState("networkidle");
-    await page.reload();
+    await expectDurableTaskStatus(page, "Les fem linjer", "Klar");
     await revealLegacyTasks(page);
     const reopenedForCompletion = page
       .getByRole("article")

@@ -5,6 +5,8 @@ import { isPrototypeDataError } from "@/server/data/errors";
 import {
   cancelOwnHelp,
   claimStudentHelp,
+  closeTeacherHelpQueue,
+  openTeacherHelpQueue,
   requestOwnHelp,
   resolveStudentHelp,
 } from "@/server/help/help-service";
@@ -27,11 +29,16 @@ function resultFromError(
 }
 
 export async function requestOwnHelpAction(
-  classId: string,
+  queueSessionId: string,
+  requestId: string,
   taskAssignmentId?: string,
 ): Promise<StudentHelpMutationResult> {
   try {
-    const activeRequest = await requestOwnHelp(classId, taskAssignmentId);
+    const activeRequest = await requestOwnHelp(
+      queueSessionId,
+      requestId,
+      taskAssignmentId,
+    );
     revalidatePath("/v3/student");
     return { success: true, activeRequest };
   } catch (error) {
@@ -41,9 +48,10 @@ export async function requestOwnHelpAction(
 
 export async function cancelOwnHelpAction(
   requestId: string,
+  commandRequestId: string,
 ): Promise<StudentHelpMutationResult> {
   try {
-    await cancelOwnHelp(requestId);
+    await cancelOwnHelp(requestId, commandRequestId);
     revalidatePath("/v3/student");
     return { success: true, activeRequest: null };
   } catch (error) {
@@ -51,12 +59,49 @@ export async function cancelOwnHelpAction(
   }
 }
 
-export async function claimStudentHelpAction(
+export async function openTeacherHelpQueueAction(
   classId: string,
+  revisionSessionId: string,
   requestId: string,
 ): Promise<MutationResult> {
   try {
-    await claimStudentHelp(classId, requestId);
+    await openTeacherHelpQueue(classId, revisionSessionId, requestId);
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    revalidatePath("/v3/student");
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke åpne hjelpekøen.");
+  }
+}
+
+export async function closeTeacherHelpQueueAction(
+  classId: string,
+  queueSessionId: string,
+  expectedVersion: number,
+  requestId: string,
+): Promise<MutationResult> {
+  try {
+    await closeTeacherHelpQueue(
+      classId,
+      queueSessionId,
+      expectedVersion,
+      requestId,
+    );
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    revalidatePath("/v3/student");
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke stenge hjelpekøen.");
+  }
+}
+
+export async function claimStudentHelpAction(
+  classId: string,
+  requestId: string,
+  commandRequestId: string,
+): Promise<MutationResult> {
+  try {
+    await claimStudentHelp(classId, requestId, commandRequestId);
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {
@@ -67,9 +112,10 @@ export async function claimStudentHelpAction(
 export async function resolveStudentHelpAction(
   classId: string,
   requestId: string,
+  commandRequestId: string,
 ): Promise<MutationResult> {
   try {
-    await resolveStudentHelp(classId, requestId);
+    await resolveStudentHelp(classId, requestId, commandRequestId);
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {

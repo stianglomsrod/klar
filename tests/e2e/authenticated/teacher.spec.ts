@@ -105,7 +105,8 @@ test("AAL2-læreren åpner en fullført oppgave igjen i eget omfang", async ({
         .getByText(returnMessage, { exact: true }),
     ).toBeVisible();
     const progressDock = studentPage.getByRole("region", {
-      name: "Din fremdrift",
+      name: "Din fremdrift og hjelp",
+      exact: true,
     });
     await expect(progressDock.getByText("Nivå 1", { exact: true })).toBeVisible();
     await expect(progressDock.getByText("0 poeng", { exact: true })).toBeVisible();
@@ -204,7 +205,22 @@ test("læreren kontrollerer og publiserer en strukturert klasseuke atomisk", asy
     const sessionTitle = `Lesestund ${weekStart}`;
     const taskTitle = `Les side 12 ${weekStart}`;
 
+    const initialQueueSync = page.waitForResponse(
+      (response) => {
+        const request = response.request();
+        return (
+          request.method() === "GET" &&
+          new URL(response.url()).pathname ===
+            `/v3/teacher/classes/${primaryClassId}` &&
+          request.headers().rsc === "1" &&
+          (response.headers()["content-type"] ?? "").includes(
+            "text/x-component",
+          )
+        );
+      },
+    );
     await page.goto(`/v3/teacher/classes/${primaryClassId}`);
+    await initialQueueSync;
     const builder = page.getByRole("region", {
       name: "Planlegg undervisningsøktene",
     });
@@ -219,6 +235,14 @@ test("læreren kontrollerer og publiserer en strukturert klasseuke atomisk", asy
     await builder
       .getByLabel(/Kort instruksjon/)
       .fill("Arbeid i den syntetiske leseboka.");
+    await expect(builder.getByLabel("Uken starter")).toHaveValue(weekStart);
+    await expect(builder.getByLabel("Dato")).toHaveValue(sessionDate);
+    await expect(builder.getByLabel("Start", { exact: true })).toHaveValue(
+      "09:00",
+    );
+    await expect(builder.getByLabel("Slutt", { exact: true })).toHaveValue(
+      "08:45",
+    );
     await builder.getByRole("button", { name: "Kontroller klasseuken" }).click();
     const validationAlert = builder.getByRole("alert");
     await expect(validationAlert).toHaveText(

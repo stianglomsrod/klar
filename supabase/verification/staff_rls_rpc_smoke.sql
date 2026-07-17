@@ -179,6 +179,8 @@ begin
     'task_assignments',
     'student_task_state',
     'help_requests',
+    'help_queue_sessions',
+    'help_queue_command_receipts',
     'student_experience_settings',
     'staff_assignments',
     'staff_assignment_class_scopes',
@@ -909,7 +911,6 @@ do $$
 begin
   if (select count(*) from public.task_definitions) <> 1
     or (select count(*) from public.student_experience_settings) <> 1
-    or (select count(*) from public.help_requests) <> 0
   then
     raise exception 'Missing help capability did not isolate direct queue read';
   end if;
@@ -942,7 +943,6 @@ select set_config(
 do $$
 begin
   if (select count(*) from public.task_definitions) <> 1
-    or (select count(*) from public.help_requests) <> 1
     or (select count(*) from public.student_experience_settings) <> 0
   then
     raise exception 'Missing support capability did not isolate direct support read';
@@ -1013,8 +1013,8 @@ begin
   then
     raise exception 'Active AAL2 staff scope failed';
   end if;
-  if (select count(*) from public.help_requests) <> 1 then
-    raise exception 'Active AAL2 queue scope failed';
+  if has_table_privilege('authenticated', 'public.help_requests', 'SELECT') then
+    raise exception 'Internal queue ownership leaked through direct browser reads';
   end if;
   if (select count(*) from public.audit_events) <> 0 then
     raise exception 'Operational staff could read owner-only audit events';
@@ -1064,7 +1064,6 @@ select set_config(
 do $$
 begin
   if (select count(*) from public.task_definitions) <> 0
-    or (select count(*) from public.help_requests) <> 0
     or (select count(*) from public.student_experience_settings) <> 0
     or (select count(*) from public.class_memberships) <> 0
   then
@@ -1089,7 +1088,6 @@ begin
     raise exception 'Owner AAL2 cannot inspect organization audit events';
   end if;
   if (select count(*) from public.task_definitions) <> 0
-    or (select count(*) from public.help_requests) <> 0
     or (select count(*) from public.student_experience_settings) <> 0
   then
     raise exception 'Owner without assignment received pedagogical rows';
@@ -1182,8 +1180,6 @@ declare
   second_retry_id uuid;
   task_id uuid;
   plan_ids uuid[];
-  help_request public.help_requests;
-  revoked_help_id uuid;
   experience public.student_experience_settings;
   conflict_denied boolean := false;
   stale_denied boolean := false;
@@ -1194,7 +1190,6 @@ declare
   plan_rollback_denied boolean := false;
   support_denials integer := 0;
   revoke_denials integer := 0;
-  stale_help_denied boolean := false;
   demotion_denied boolean := false;
   task_count_before integer;
   audit_count_before integer;
@@ -1432,51 +1427,6 @@ begin
     raise exception 'Student support escaped class or organization scope';
   end if;
 
-  help_request := public.claim_student_help(
-    '70000000-0000-4000-8000-000000000001',
-    '10000000-0000-4000-8000-000000000005',
-    staff_assignment_id
-  );
-  help_request := public.resolve_student_help(
-    help_request.id,
-    '10000000-0000-4000-8000-000000000005',
-    staff_assignment_id
-  );
-  if help_request.status <> 'resolved'
-    or not exists (
-      select 1
-      from public.audit_events
-      where entity_id = help_request.id
-        and event_name = 'help.claimed'
-        and actor_id = '10000000-0000-4000-8000-000000000005'
-        and authorizing_staff_assignment_id = staff_assignment_id
-        and authorizing_capability = 'help_queue.manage'
-    )
-    or not exists (
-      select 1
-      from public.audit_events
-      where entity_id = help_request.id
-        and event_name = 'help.resolved'
-        and actor_id = '10000000-0000-4000-8000-000000000005'
-        and authorizing_staff_assignment_id = staff_assignment_id
-        and authorizing_capability = 'help_queue.manage'
-    )
-  then
-    raise exception 'Help claim/resolve or audit attribution failed';
-  end if;
-
-  help_request := public.request_student_help(
-    '30000000-0000-4000-8000-000000000001',
-    '10000000-0000-4000-8000-000000000007',
-    null
-  );
-  help_request := public.claim_student_help(
-    help_request.id,
-    '10000000-0000-4000-8000-000000000005',
-    staff_assignment_id
-  );
-  revoked_help_id := help_request.id;
-
   begin
     update public.memberships
     set role = 'student'
@@ -1581,17 +1531,8 @@ begin
   exception when others then
     stale_support_denied := true;
   end;
-  begin
-    perform public.resolve_student_help(
-      revoked_help_id,
-      '10000000-0000-4000-8000-000000000005',
-      staff_assignment_id
-    );
-  exception when others then
-    stale_help_denied := true;
-  end;
-  if not stale_plan_denied or not stale_support_denied or not stale_help_denied then
-    raise exception 'Revoked assignment remained usable in plan, support, or help RPC';
+  if not stale_plan_denied or not stale_support_denied then
+    raise exception 'Revoked assignment remained usable in plan or support RPC';
   end if;
 
   perform public.revoke_staff_assignment(
@@ -1619,67 +1560,6 @@ begin
       and revoked_at is not null
   ) <> 2 then
     raise exception 'Historical assignments were deleted or remained authorizing after demotion';
-  end if;
-end;
-$$;
-
-reset role;
-do $$
-declare
-  revoked_help_id uuid;
-  denial_message text;
-begin
-  select request.id into revoked_help_id
-  from public.help_requests as request
-  where request.claimed_by = '10000000-0000-4000-8000-000000000005'
-    and request.status = 'claimed';
-  if revoked_help_id is null then
-    raise exception 'Revoked-help trigger fixture was not left claimed';
-  end if;
-
-  begin
-    update public.help_requests
-    set status = 'resolved',
-        resolved_at = transaction_timestamp()
-    where id = revoked_help_id;
-  exception when others then
-    get stacked diagnostics denial_message = message_text;
-  end;
-  if denial_message is distinct from
-    'Help request staff transitions require an active staff assignment'
-  then
-    raise exception 'Revoked claimant resolution was not rejected correctly: %', denial_message;
-  end if;
-
-  update public.help_requests
-  set status = 'cancelled'
-  where id = revoked_help_id;
-  insert into public.help_requests (
-    id,
-    organization_id,
-    class_id,
-    student_id
-  ) values (
-    '70000000-0000-4000-8000-000000000002',
-    '20000000-0000-4000-8000-000000000001',
-    '30000000-0000-4000-8000-000000000001',
-    '10000000-0000-4000-8000-000000000007'
-  );
-
-  denial_message := null;
-  begin
-    update public.help_requests
-    set status = 'resolved',
-        resolved_at = transaction_timestamp(),
-        claimed_by = null
-    where id = '70000000-0000-4000-8000-000000000002';
-  exception when others then
-    get stacked diagnostics denial_message = message_text;
-  end;
-  if denial_message is distinct from
-    'Help request staff transitions require an active staff assignment'
-  then
-    raise exception 'Null-claimant resolution was not rejected correctly: %', denial_message;
   end if;
 end;
 $$;

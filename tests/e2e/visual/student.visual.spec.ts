@@ -21,7 +21,12 @@ test("lagrer elevens dagsflate som QA-artefakt", async ({ page }, testInfo) => {
   await expect(page.getByRole("heading", { name: "Andre oppgaver" })).toBeVisible();
   await expect(page.getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/)).toBeVisible();
   await expect(page.getByText("Oppgave publisert av vikar", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Be om hjelp" })).toBeVisible();
+  const globalHelp = page.getByRole("button", {
+    name: "Be om hjelp",
+    exact: true,
+  });
+  await expect(globalHelp).toBeVisible();
+  await expectMinimumTargetSize(globalHelp);
   // Den visuelle eleven har stille motivasjonsmodus. Det skal heller ikke
   // lekke poeng eller fremdrift gjennom en fast footer.
   await expect(
@@ -51,6 +56,11 @@ test("lagrer elevens dagsflate som QA-artefakt", async ({ page }, testInfo) => {
   await expect(openButton).toBeFocused();
   await page.keyboard.press("Enter");
   const taskDialog = page.getByRole("dialog", { name: "Visuell øktoppgave" });
+  const taskHelp = taskDialog.getByRole("button", {
+    name: "Be om hjelp med denne oppgaven",
+  });
+  await expect(taskHelp).toBeVisible();
+  await expectMinimumTargetSize(taskHelp);
   const completeButton = taskDialog.getByRole("button", { name: "Fullfør" });
   await expectMinimumTargetSize(completeButton);
   await expectNoHorizontalOverflow(page);

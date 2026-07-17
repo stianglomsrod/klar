@@ -21,6 +21,8 @@ const IDS = {
   visualAssignee: "10000000-0000-4000-8000-000000000009",
   otherStudent: "10000000-0000-4000-8000-000000000010",
   returnStudent: "10000000-0000-4000-8000-000000000011",
+  helpStudent: "10000000-0000-4000-8000-000000000012",
+  lifecycleHelpStudent: "10000000-0000-4000-8000-000000000013",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -28,7 +30,7 @@ const IDS = {
   visualClass: "30000000-0000-4000-8000-000000000002",
   otherClass: "30000000-0000-4000-8000-000000000003",
   visualControlClass: "30000000-0000-4000-8000-000000000004",
-  otherHelp: "70000000-0000-4000-8000-000000000004",
+  helpClass: "30000000-0000-4000-8000-000000000005",
 };
 
 const url = assertLocalSupabaseUrl(required("NEXT_PUBLIC_SUPABASE_URL"));
@@ -74,6 +76,10 @@ const credentials = {
   returnStudent: {
     email: "return-student@e2e.klar.invalid",
     password: required("KLAR_E2E_RETURN_STUDENT_PASSWORD"),
+  },
+  helpStudent: {
+    email: "help-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_STUDENT_PASSWORD"),
   },
 };
 
@@ -256,6 +262,100 @@ async function publishWeeklyPlanFixture({
   return { sessionCount, taskCount };
 }
 
+async function publishQueueOnlyPlan({
+  classId,
+  actorId,
+  staffAssignmentId,
+  keyPrefix,
+}) {
+  const plan = fixtureSessionPlans().find((candidate) =>
+    candidate.windows.some((window) => window.presentationKey === "current"),
+  );
+  const currentWindow = plan?.windows.find(
+    (window) => window.presentationKey === "current",
+  );
+  if (!plan || !currentWindow) {
+    throw new Error("E2E-fixturen mangler en aktuell undervisningsøkt.");
+  }
+  const candidate = {
+    schema_version: "weekly_plan_v1",
+    sessions: [
+      {
+        logical_key: `${keyPrefix}1000000-0000-4000-8000-000000000001`,
+        title: "Aktuell hjelpekøøkt",
+        subject: "Norsk",
+        starts_at: currentWindow.startsAt,
+        ends_at: currentWindow.endsAt,
+        tasks: [],
+      },
+    ],
+  };
+  const semanticHash = createHash("sha256")
+    .update(JSON.stringify(candidate), "utf8")
+    .digest("hex");
+  const { error } = await admin.rpc("publish_initial_weekly_plan", {
+    p_class_id: classId,
+    p_actor_id: actorId,
+    p_staff_assignment_id: staffAssignmentId,
+    p_week_start_date: plan.weekStartDate,
+    p_timezone_name: "Europe/Oslo",
+    p_expected_lock_version: 0,
+    p_request_id: `${keyPrefix}3000000-0000-4000-8000-000000000001`,
+    p_semantic_hash: semanticHash,
+    p_candidate: candidate,
+  });
+  if (error) throw error;
+}
+
+async function openCurrentHelpQueue({
+  classId,
+  actorId,
+  staffAssignmentId,
+  keyPrefix,
+  studentId,
+}) {
+  const now = new Date().toISOString();
+  const { data: session, error: sessionError } = await admin
+    .from("plan_revision_sessions")
+    .select("id")
+    .eq("class_id", classId)
+    .lte("starts_at", now)
+    .gt("ends_at", now)
+    .order("starts_at")
+    .limit(1)
+    .single();
+  if (sessionError || !session) {
+    throw sessionError ?? new Error("Aktuell E2E-økt mangler.");
+  }
+  const { data: queue, error: queueError } = await admin.rpc(
+    "open_help_queue_session",
+    {
+      p_class_id: classId,
+      p_revision_session_id: session.id,
+      p_actor_id: actorId,
+      p_staff_assignment_id: staffAssignmentId,
+      p_request_id: `${keyPrefix}4000000-0000-4000-8000-000000000001`,
+    },
+  );
+  if (queueError || !queue || typeof queue.queue_session_id !== "string") {
+    throw queueError ?? new Error("E2E-hjelpekøen ble ikke åpnet.");
+  }
+  if (!studentId) return null;
+  const { data: request, error: requestError } = await admin.rpc(
+    "request_student_help_v2",
+    {
+      p_queue_session_id: queue.queue_session_id,
+      p_student_id: studentId,
+      p_request_id: `${keyPrefix}5000000-0000-4000-8000-000000000001`,
+      p_task_assignment_id: null,
+    },
+  );
+  if (requestError || !request || typeof request.request_id !== "string") {
+    throw requestError ?? new Error("E2E-hjelpeforespørselen mangler.");
+  }
+  return request.request_id;
+}
+
 await Promise.all([
   createUser({ id: IDS.owner, ...credentials.owner, displayName: "Testeier" }),
   createUser({ id: IDS.student, ...credentials.student, displayName: "Testelev" }),
@@ -295,6 +395,17 @@ await Promise.all([
     ...credentials.returnStudent,
     displayName: "Returelev",
   }),
+  createUser({
+    id: IDS.helpStudent,
+    ...credentials.helpStudent,
+    displayName: "Hjelpeelev",
+  }),
+  createUser({
+    id: IDS.lifecycleHelpStudent,
+    email: "lifecycle-help-student@e2e.klar.invalid",
+    password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+    displayName: "Livsløpselev",
+  }),
 ]);
 
 await insert("organizations", [
@@ -322,6 +433,8 @@ await insert("memberships", [
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualOwner, role: "owner", created_by: IDS.visualOwner },
   { organization_id: IDS.visualControlOrganization, user_id: IDS.visualAssignee, role: "teacher", created_by: IDS.visualOwner },
   { organization_id: IDS.organization, user_id: IDS.returnStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.helpStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.lifecycleHelpStudent, role: "student", created_by: IDS.owner },
 ]);
 await insert("classes", [
   {
@@ -352,11 +465,19 @@ await insert("classes", [
     academic_year: "2026/2027",
     created_by: IDS.visualOwner,
   },
+  {
+    id: IDS.helpClass,
+    organization_id: IDS.organization,
+    name: "Hjelpekøklasse 5D",
+    academic_year: "2026/2027",
+    created_by: IDS.owner,
+  },
 ]);
 await insert("class_memberships", [
   { class_id: IDS.class, organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
   { class_id: IDS.visualClass, organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
   { class_id: IDS.otherClass, organization_id: IDS.otherOrganization, user_id: IDS.otherStudent, role: "student", created_by: IDS.otherOwner },
+  { class_id: IDS.helpClass, organization_id: IDS.organization, user_id: IDS.helpStudent, role: "student", created_by: IDS.owner },
 ]);
 
 const { data: visualOperationalClass, error: visualOperationalClassError } =
@@ -393,6 +514,14 @@ const otherStaffAssignment = await createAssignment({
   classId: IDS.otherClass,
   jobLabel: "substitute",
   key: "60000000-0000-4000-8000-000000000003",
+});
+const helpOwnerStaffAssignment = await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.owner,
+  classId: IDS.helpClass,
+  jobLabel: "contact_teacher",
+  key: "60000000-0000-4000-8000-000000000008",
 });
 await createAssignment({
   organizationId: IDS.visualControlOrganization,
@@ -471,6 +600,40 @@ const visualWeeklyPlan = await publishWeeklyPlanFixture({
   keyPrefix: "b",
   titlePrefix: "Visuell",
 });
+const helpWeeklyPlan = await publishWeeklyPlanFixture({
+  classId: IDS.helpClass,
+  actorId: IDS.owner,
+  staffAssignmentId: helpOwnerStaffAssignment,
+  keyPrefix: "d",
+  titlePrefix: "Hjelp",
+});
+await publishQueueOnlyPlan({
+  classId: IDS.otherClass,
+  actorId: IDS.otherStaff,
+  staffAssignmentId: otherStaffAssignment,
+  keyPrefix: "c",
+});
+await Promise.all([
+  openCurrentHelpQueue({
+    classId: IDS.class,
+    actorId: IDS.owner,
+    staffAssignmentId: ownerStaffAssignment,
+    keyPrefix: "a",
+  }),
+  openCurrentHelpQueue({
+    classId: IDS.visualClass,
+    actorId: IDS.visualStaff,
+    staffAssignmentId: visualStaffAssignment,
+    keyPrefix: "b",
+  }),
+  openCurrentHelpQueue({
+    classId: IDS.otherClass,
+    actorId: IDS.otherStaff,
+    staffAssignmentId: otherStaffAssignment,
+    keyPrefix: "c",
+    studentId: IDS.otherStudent,
+  }),
+]);
 
 await publishTask({
   classId: IDS.class,
@@ -571,6 +734,20 @@ await insert("class_memberships", [
     role: "student",
     created_by: IDS.owner,
   },
+  {
+    class_id: IDS.class,
+    organization_id: IDS.organization,
+    user_id: IDS.lifecycleHelpStudent,
+    role: "student",
+    created_by: IDS.owner,
+  },
+  {
+    class_id: IDS.helpClass,
+    organization_id: IDS.organization,
+    user_id: IDS.lifecycleHelpStudent,
+    role: "student",
+    created_by: IDS.owner,
+  },
 ]);
 const returnTask = await publishTask({
   classId: IDS.class,
@@ -627,16 +804,12 @@ await insert("student_experience_settings", [
     progress_enabled: true,
     updated_by: IDS.owner,
   },
-]);
-
-await insert("help_requests", [
   {
-    id: IDS.otherHelp,
-    organization_id: IDS.otherOrganization,
-    class_id: IDS.otherClass,
-    student_id: IDS.otherStudent,
-    requested_at: "2026-01-01T08:00:00.000Z",
-    expires_at: "2099-01-01T08:00:00.000Z",
+    organization_id: IDS.organization,
+    student_id: IDS.helpStudent,
+    support_level: 2,
+    progress_enabled: false,
+    updated_by: IDS.owner,
   },
 ]);
 
@@ -694,11 +867,19 @@ const ledgerBalance = ledgerResult.data.reduce(
   0,
 );
 const plannedAssignmentCount =
-  primaryWeeklyPlan.taskCount + visualWeeklyPlan.taskCount;
+  primaryWeeklyPlan.taskCount + visualWeeklyPlan.taskCount + helpWeeklyPlan.taskCount;
+// Five task definitions are published while their classes have one student.
+// The final return fixture is intentionally class-wide after two more students
+// have joined the primary class, so that publication creates three assignments.
+const manuallyPublishedAssignmentCount = 5 + 3;
+const completedFixtureCount = 3;
+const expectedAssignedCount =
+  plannedAssignmentCount + manuallyPublishedAssignmentCount - completedFixtureCount;
 if (
-  statesResult.data.length !== 7 + plannedAssignmentCount ||
-  assignedStates !== 4 + plannedAssignmentCount ||
-  completedStates !== 3 ||
+  statesResult.data.length !==
+    manuallyPublishedAssignmentCount + plannedAssignmentCount ||
+  assignedStates !== expectedAssignedCount ||
+  completedStates !== completedFixtureCount ||
   attemptsResult.data.length !== 1 ||
   transitionsResult.data.length !== 1 ||
   transitionsResult.data[0]?.command !== "complete" ||
@@ -711,7 +892,20 @@ if (
   receiptsResult.data.length !== 1 ||
   receiptsResult.data[0]?.command !== "complete"
 ) {
-  throw new Error("B1-fixturen besto ikke konsistenskontrollen.");
+  throw new Error(
+    `B1-fixturen besto ikke konsistenskontrollen: ${JSON.stringify({
+      totalStates: statesResult.data.length,
+      assignedStates,
+      completedStates,
+      plannedAssignmentCount,
+      attempts: attemptsResult.data.length,
+      transitions: transitionsResult.data,
+      ledger: ledgerResult.data,
+      ledgerBalance,
+      progress: progressResult.data,
+      receipts: receiptsResult.data,
+    })}`,
+  );
 }
 
-console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual- og other-org-data.");
+console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual-, help-queue- og other-org-data.");

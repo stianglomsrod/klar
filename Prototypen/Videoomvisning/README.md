@@ -58,3 +58,7 @@ Bevar informasjonsarkitektur, flyt, gjenkjennelige symboler og rolig tone.
 Ikke porter direkte Supabase-klientmutasjoner, offentlig elevmedia, gammel RLS,
 kønummer for eleven, drag-only-interaksjon, klientberegnet XP eller gjentakbar
 level-up-belønning fra legacy-implementasjonen.
+
+Nåværende implementeringsbevis føres separat: den øktbundne køflyten fra
+fortellerstemmen og bildene 00:33, 07:06 og 07:14 spores i
+[`docs/qa/CONTROL_POINT_E1.md`](../../docs/qa/CONTROL_POINT_E1.md).

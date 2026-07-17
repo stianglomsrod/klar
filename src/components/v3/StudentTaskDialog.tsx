@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import type { StudentTodayTask } from "@/server/tasks/task-service";
 import type { StudentExperience } from "@/server/students/experience-service";
+import type { StudentHelpState } from "@/server/help/help-service";
 import { restoreDialogFocus, trapDialogFocus } from "./dialog-focus";
 import { StudentReadAloudButton } from "./StudentReadAloudButton";
+import { StudentHelpControl } from "./StudentHelpControl";
 
 export type StudentTaskDialogMode = "task" | "checkpoint";
 
@@ -24,6 +26,8 @@ export function StudentTaskDialog({
   isUpdating,
   hasPendingMutation,
   error,
+  helpState,
+  showHelpControl,
   onClose,
   onShowCheckpoint,
   onCancelCheckpoint,
@@ -37,6 +41,8 @@ export function StudentTaskDialog({
   isUpdating: boolean;
   hasPendingMutation: boolean;
   error: string | null;
+  helpState: StudentHelpState;
+  showHelpControl: boolean;
   onClose: () => void;
   onShowCheckpoint: () => void;
   onCancelCheckpoint: () => void;
@@ -70,7 +76,10 @@ export function StudentTaskDialog({
     }
     if (!dialog?.open) return;
 
-    if (mode === "checkpoint") {
+    if (
+      mode === "checkpoint" &&
+      previousModeRef.current !== "checkpoint"
+    ) {
       checkpointTitleRef.current?.focus();
     } else if (previousModeRef.current === "checkpoint") {
       completeButtonRef.current?.focus();
@@ -117,7 +126,7 @@ export function StudentTaskDialog({
               <h2
                 id="student-task-dialog-title"
                 ref={checkpointTitleRef}
-                tabIndex={mode === "checkpoint" ? -1 : undefined}
+                tabIndex={-1}
                 className="mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
               >
                 {mode === "checkpoint" ? "Er du ferdig?" : task.title}
@@ -186,7 +195,14 @@ export function StudentTaskDialog({
                 )}
               </div>
 
-              <footer className="student-task-dialog__footer flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-7">
+              <footer className="student-task-dialog__footer flex flex-col gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+                {showHelpControl && (
+                  <StudentHelpControl
+                    state={helpState}
+                    taskAssignmentId={task.assignmentId}
+                    cancelPresentation="inline"
+                  />
+                )}
                 {task.status === "completed" ? (
                   <button
                     type="button"

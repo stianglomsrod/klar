@@ -34,13 +34,23 @@ const modeArgument = process.argv.find((argument) => argument.startsWith("--mode
 const browserArgument = process.argv.find((argument) =>
   argument.startsWith("--browser="),
 );
+const specArgument = process.argv.find((argument) =>
+  argument.startsWith("--spec="),
+);
 const mode = modeArgument?.split("=")[1] ?? "smoke";
 const browser = browserArgument?.split("=")[1] ?? "chromium";
+const spec = specArgument?.slice("--spec=".length).replaceAll("\\", "/") ?? null;
 if (!["smoke", "staff", "visual", "full", "manual"].includes(mode)) {
   throw new Error("E2E-modus må være smoke, staff, visual, full eller manual.");
 }
 if (!["chromium", "webkit"].includes(browser)) {
   throw new Error("E2E-browser må være chromium eller webkit.");
+}
+if (
+  spec !== null &&
+  (!/^tests\/e2e\/[a-z0-9_./-]+\.spec\.ts$/i.test(spec) || spec.includes(".."))
+) {
+  throw new Error("Målrettet E2E-spec må ligge under tests/e2e og ende på .spec.ts.");
 }
 
 function isPortOpen(host, port) {
@@ -185,7 +195,9 @@ const testEnvironment = {
 
 run(process.execPath, ["scripts/e2e/seed-local.mjs"], { env: testEnvironment });
 run(process.execPath, [npm, "run", "build"], { env: testEnvironment });
-run(process.execPath, [playwright, "test"], { env: testEnvironment });
+run(process.execPath, [playwright, "test", ...(spec ? [spec] : [])], {
+  env: testEnvironment,
+});
 
 if (mode === "manual") {
   console.log(

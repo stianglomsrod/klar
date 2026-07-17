@@ -17,6 +17,7 @@ const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const classId = "30000000-0000-4000-8000-000000000001";
 const organizationId = "20000000-0000-4000-8000-000000000001";
 const studentId = "10000000-0000-4000-8000-000000000002";
+const lifecycleHelpStudentId = "10000000-0000-4000-8000-000000000013";
 const substituteId = "10000000-0000-4000-8000-000000000003";
 
 function state(name: string) {
@@ -57,8 +58,34 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const admin = createClient(apiUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const activeHelpId = randomUUID();
-  const staleHelpId = randomUUID();
+  async function requestStudentHelp() {
+    const { data: queue, error: queueError } = await admin
+      .from("help_queue_sessions")
+      .select("id")
+      .eq("organization_id", organizationId)
+      .eq("class_id", classId)
+      .eq("status", "open")
+      .single();
+    if (queueError || !queue) {
+      throw queueError ?? new Error("Den åpne E2E-hjelpekøen mangler.");
+    }
+    const { data: request, error: requestError } = await admin.rpc(
+      "request_student_help_v2",
+      {
+        p_queue_session_id: queue.id,
+        p_student_id: lifecycleHelpStudentId,
+        p_request_id: randomUUID(),
+        p_task_assignment_id: null,
+      },
+    );
+    if (requestError || !request || typeof request.request_id !== "string") {
+      throw (
+        requestError ??
+        new Error("Den øktbundne E2E-hjelpeforespørselen mangler.")
+      );
+    }
+    return request.request_id;
+  }
   const importToken = randomUUID().slice(0, 8);
   const weeklyPlanDocx = await createSyntheticWeeklyPlanDocx();
 
@@ -175,17 +202,14 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
       .getByText("Testelev", { exact: true }),
   ).toBeVisible();
 
-  const { error: activeHelpError } = await admin.from("help_requests").insert({
-    id: activeHelpId,
-    organization_id: organizationId,
-    class_id: classId,
-    student_id: studentId,
-  });
-  if (activeHelpError) throw activeHelpError;
-  await substitutePage.reload();
-  await substitutePage.getByRole("button", { name: "Jeg tar denne" }).click();
+  await requestStudentHelp();
+  await substitutePage
+    .getByRole("button", {
+      name: "Jeg tar denne – Livsløpselev",
+    })
+    .click();
   const resolveHelpButton = substitutePage.getByRole("button", {
-    name: "Ferdig hjulpet",
+    name: "Ferdig hjulpet – Livsløpselev",
   });
   await expect(resolveHelpButton).toBeVisible();
   await resolveHelpButton.click();
@@ -338,17 +362,13 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   await expectNoHorizontalOverflow(substitutePage);
   await expectNoAxeViolations(substitutePage);
 
-  const { error: staleHelpError } = await admin.from("help_requests").insert({
-    id: staleHelpId,
-    organization_id: organizationId,
-    class_id: classId,
-    student_id: studentId,
-  });
-  if (staleHelpError) throw staleHelpError;
+  const staleHelpId = await requestStudentHelp();
 
   const staleHelpPage = await substitute.newPage();
   await staleHelpPage.goto(`/v3/teacher/classes/${classId}`);
-  const staleHelpButton = staleHelpPage.getByRole("button", { name: "Jeg tar denne" });
+  const staleHelpButton = staleHelpPage.getByRole("button", {
+    name: "Jeg tar denne – Livsløpselev",
+  });
   await expect(staleHelpButton).toBeVisible();
 
   const staleSupportPage = await substitute.newPage();
@@ -500,7 +520,6 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
     }),
   ).toBeFocused();
 
-  await substitutePage.reload();
   await expect(
     substitutePage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
   ).toBeVisible();

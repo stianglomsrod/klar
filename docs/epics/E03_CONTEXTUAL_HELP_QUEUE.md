@@ -1,6 +1,6 @@
 # E03 – Kontekstuell hjelpekø
 
-**Status:** Planlagt
+**Status:** Pågår – E1s øktbundne kjernekø er lokalt verifisert
 
 **Kontrakt:** [§ 8 Hjelpekø](../product/DOMAIN_CONTRACT.md#8-hjelpekø)
 
@@ -14,9 +14,11 @@ eleven i kø; kontrollen viser kort «Står i kø». Et nytt trykk gir en kompak
 kryss-av-handling. Eleven trenger ikke lese forklaringer eller velge grunn.
 
 Ansatte ser og styrer den faktiske køen. Eleven ser aldri køplass eller stille
-omprioritering. Nåværende v3 har deler av forespørselslivsløpet og valgfri
-oppgave-FK, men mangler aktiv øktkø, elevens oppgavekobling og reviderbar
-prioritering.
+omprioritering. E1 har levert en aktiv kø for eksakt
+`plan_revision_session`, generell og oppgaveknyttet elevhånd, avmelding, FIFO,
+claim/resolve, sikker realtime-invalidering og deterministisk
+`open → closing → closed`. Reviderbar manuell omprioritering og de utvidede
+ansatthandlingene gjenstår.
 
 ## Omfang
 
@@ -31,6 +33,34 @@ prioritering.
 
 Epicen omfatter ikke elevchat, krav om begrunnelse, synlig kønummer,
 ventetidsløfte eller eksponering av andre elever.
+
+## Levert i kontrollpunkt E1
+
+- klasse- og øktbundet kø med status, versjoner, audit og idempotente
+  serverkommandoer;
+- hånd i elevfooter og åpen oppgave, med valgfri assignment-kontekst uten ny
+  køplass eller endret `requested_at`;
+- én aktiv forespørsel, kompakt «Står i kø», tilgjengelig avmelding og
+  fokusretur;
+- intern FIFO, ventetid, claim-race med én vinner og resolve;
+- `closing` ved eksplisitt stenging eller naturlig øktslutt, med automatisk
+  `closed` når siste aktive forespørsel er terminal;
+- autoritativ refetch ved realtime/reconnect og privat, tombstone-basert
+  signaltabell uten elevlesbar prioritet;
+- negative scope-, rolle-, medlemskaps-, oppdrags- og samtidighetstester.
+
+## Gjenstår i E03
+
+- atomisk, reviderbar manuell reorder med tastatur- og touchalternativ;
+- release og transfer mellom autoriserte ansatte;
+- versjonssjekket første Realtime-synkronisering eller eksplisitt
+  draftbevaring før flere livepaneler deler en staff-side;
+- kompositt-FK for signalets økt, organisasjon og klasse før en eventuell ny
+  intern skriver introduseres; dagens runtime-writes er revokert og de
+  autoriserte skriverne bevarer allerede dette scopet;
+- gruppekø og forhåndsåpning;
+- global livewidget/klassefilter for ansatte;
+- fysisk E1-retest av touch, safe-area og skjermleser på reell enhet.
 
 ## Elevens interaksjonskontrakt
 
@@ -94,18 +124,18 @@ eksplisitt kansellert. Først da blir køen `lukket`.
 
 ## Akseptansekriterier
 
-- [ ] Hånden vises bare for elever i riktig målgruppe mens riktig kø er åpen.
-- [ ] Ett trykk oppretter én forespørsel og viser «Står i kø».
-- [ ] Nytt trykk gjør avmelding mulig med et kompakt kryss.
-- [ ] Footerforespørsel fungerer uten oppgave; oppgaveforespørsel får kontekst.
-- [ ] Oppgavekontekst kan legges til uten ny forespørsel eller nullstilt tid.
-- [ ] Eleven ser aldri køplass, andre elever eller omprioritering.
-- [ ] To ansatte kan ikke overta samme forespørsel samtidig.
+- [x] Hånden vises bare for elever i riktig målgruppe mens riktig kø er åpen.
+- [x] Ett trykk oppretter én forespørsel og viser «Står i kø».
+- [x] Nytt trykk gjør avmelding mulig med et kompakt kryss.
+- [x] Footerforespørsel fungerer uten oppgave; oppgaveforespørsel får kontekst.
+- [x] Oppgavekontekst kan legges til uten ny forespørsel eller nullstilt tid.
+- [x] Eleven ser aldri køplass, andre elever eller omprioritering.
+- [x] To ansatte kan ikke overta samme forespørsel samtidig.
 - [ ] Reorder er atomisk, reviderbart og har tastatur-/touch-alternativ.
-- [ ] Stenging bruker en eksplisitt `stenger`-tilstand og etterlater ingen
+- [x] Stenging bruker en eksplisitt `stenger`-tilstand og etterlater ingen
   usynlig aktiv forespørsel.
-- [ ] Reconnect, dobbeltrykk og retry gir semantisk stabil status.
-- [ ] Handling utenfor aktiv klasse/økt/ansattoppdrag avvises.
+- [x] Reconnect, dobbeltrykk og retry gir semantisk stabil status.
+- [x] Handling utenfor aktiv klasse/økt/ansattoppdrag avvises.
 - [ ] Flyten fungerer på mobil, iPad og PC ved 200 % zoom og med skjermleser.
 
 ## Tester og ferdigbevis
@@ -117,3 +147,17 @@ realtime reconnect, elevavmelding og alle responsive kontrollmodi.
 Epicen er ferdig når køen kan brukes gjennom en hel simulert undervisningsøkt
 med minst to ansatte og flere elever uten duplikat, strandet forespørsel eller
 lekkasje av prioritet, og når audit og tilgjengelighet er verifisert.
+
+Automatisert og visuelt delbevis finnes i
+[Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md). Det samlede kriteriet for fysisk
+skjermleser/touch står åpent selv om Chromium, WebKit, axe, tastatur og
+viewportmatrisen er grønne.
+
+Realtime er bare et invalideringslag. Klienten ber om Supabases eksplisitte
+`replication_ready`-signal før første autoritative gjenlesing. Bare en
+vellykket readiness-hendelse fullfører startbarrieren; en feil utløser en
+gjenlesing uten å avvæpne den avgrensede femsekundersfallbacken. Både den
+dokumenterte `system`-varianten og `postgres_changes`-varianten observert i den
+lokale serveren støttes. Dermed kan ikke en køåpning i gapet mellom
+WebSocket-tilkobling og ferdig Postgres-replikasjon bli stående skjult fram til
+neste periodiske gjenlesing.

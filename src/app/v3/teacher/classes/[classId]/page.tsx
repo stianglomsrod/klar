@@ -17,7 +17,7 @@ async function loadClassPage(classId: string) {
   try {
     const workspace = await getTeacherClassWorkspace(classId);
     const canManageHelp = workspace.capabilities.includes("help_queue.manage");
-    const helpQueue = canManageHelp ? await getTeacherHelpQueue(classId) : [];
+    const helpQueue = canManageHelp ? await getTeacherHelpQueue(classId) : null;
     const publishedPlans = workspace.capabilities.includes("plan.publish")
       ? await getPublishedWeeklyPlanSummaries(classId)
       : [];
@@ -65,6 +65,7 @@ export default async function TeacherClassPage({
     workspace.capabilities.includes("student_progress.read");
   const canReturnTask =
     canReadProgress && workspace.capabilities.includes("task.return");
+  const initialNow = new Date().toISOString();
 
   return (
     <main id="main-content" tabIndex={-1} className="focus:outline-none">
@@ -86,6 +87,14 @@ export default async function TeacherClassPage({
             <p className="mt-2 text-slate-600">{workspace.academicYear}</p>
           )}
         </div>
+
+        {canManageHelp && helpQueue && (
+          <TeacherHelpQueue
+            classId={workspace.id}
+            initialNow={initialNow}
+            state={helpQueue}
+          />
+        )}
 
         {canPublishPlan && (
           <div className="mt-8">
@@ -207,10 +216,6 @@ export default async function TeacherClassPage({
             )}
           </section>
         </div>
-
-        {canManageHelp && (
-          <TeacherHelpQueue classId={workspace.id} requests={helpQueue} />
-        )}
       </div>
     </main>
   );

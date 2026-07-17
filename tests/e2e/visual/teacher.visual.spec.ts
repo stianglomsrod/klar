@@ -20,6 +20,18 @@ test("lagrer assignment-avgrenset ansattflate som QA-artefakt", async ({ page },
     await applyTextSpacingOverride(page);
   }
   await expect(page.getByRole("heading", { name: "Visuell klasse 4B" })).toBeVisible();
+  const helpQueue = page.getByRole("region", { name: "Hjelpekø" });
+  await expect(helpQueue).toBeVisible();
+  await expect(helpQueue.getByText("Åpen", { exact: true })).toBeVisible();
+  await expect(
+    helpQueue.getByText("Visuell arbeidsøkt", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    helpQueue.getByText("Ingen venter på hjelp.", { exact: true }),
+  ).toBeVisible();
+  await expectMinimumTargetSize(
+    helpQueue.getByRole("button", { name: "Steng kø" }),
+  );
   await expect(
     page
       .getByRole("region", { name: "Elever" })

@@ -11,6 +11,7 @@ const states = {
   student: path.join(authDirectory, "student.json"),
   visualStudent: path.join(authDirectory, "visual-student.json"),
   returnStudent: path.join(authDirectory, "return-student.json"),
+  helpStudent: path.join(authDirectory, "help-student.json"),
   ownerAal1: path.join(authDirectory, "owner-aal1.json"),
   ownerAal2: path.join(authDirectory, "owner-aal2.json"),
   substituteAal1: path.join(authDirectory, "substitute-aal1.json"),
@@ -121,6 +122,17 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
   await expect(returnStudentPage).toHaveURL(/\/v3\/student$/);
   await returnStudentContext.storageState({ path: states.returnStudent });
   await returnStudentContext.close();
+
+  const helpStudentContext = await browser.newContext({ baseURL });
+  const helpStudentPage = await helpStudentContext.newPage();
+  await fillLogin(
+    helpStudentPage,
+    credentials.helpStudentEmail,
+    credentials.helpStudentPassword,
+  );
+  await expect(helpStudentPage).toHaveURL(/\/v3\/student$/);
+  await helpStudentContext.storageState({ path: states.helpStudent });
+  await helpStudentContext.close();
 
   await createAdultStates({
     browser,

@@ -12,6 +12,10 @@ beskriver tekniske utviklings- og driftsgrep, ikke en produksjonsutrulling.
 - En ansatt kan manuelt kontrollere og publisere den første strukturerte
   klasseuken med tidsfestede økter og oppgaver. Senere planrevisjoner er ikke
   implementert.
+- En AAL2-ansatt med aktivt klasseoppdrag kan åpne og stenge en hjelpekø for
+  den aktuelle undervisningsøkten, ta og løse forespørsler. Eleven får hånd
+  bare i riktig økt og kan bruke generell eller oppgaveknyttet hjelp.
+  Reorder, release/transfer, gruppekø og global køwidget er ikke implementert.
 - Pushvarsler, innleveringer, fritekst om eleven og konkurrerende spillelementer
   er ikke del av første pilot.
 - Elevkontoer bruker korte visningsnavn, tilfeldig intern e-post, elevkode og
@@ -67,7 +71,9 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    piloten.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: nåværende elevliste → strukturert klasseuke →
-   forrige/aktuell/neste økt → fullføring/angre/ansattretur → hjelpekø.
+   forrige/aktuell/neste økt → fullføring/angre/ansattretur → åpne hjelpekø →
+   generell og oppgaveknyttet hånd → avmelding → claim/resolve →
+   `closing`/`closed` → reconnect.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
 
 ## Minimumskontroll før hver testøkt
@@ -89,6 +95,15 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
   kommer fra samme aktive planrevisjon og Europe/Oslo-klokke.
 - DOCX-forslag og manuell klasseuke er to ulike flyter. DOCX-forslag som
   publiseres nå er løse oppgaver og skal ikke omtales som en planrevisjon.
+- Hånden er skjult før aktuell øktkø åpnes og etter at den lukkes. Under
+  `closing` beholder bare elever med aktiv forespørsel «Står i kø» og
+  avmeldingsmuligheten.
+- Footerhånden lager generell forespørsel; hånden i åpen oppgave bruker akkurat
+  elevens assignment uten å endre FIFO-tid. Eleven ser aldri køplass, andre
+  elever, ventetid eller om forespørselen er tatt.
+- To samtidige ansatte kan ikke eie samme forespørsel. Reconnect og retry skal
+  gi samme autoritative status uten duplikat, og rolle-, medlemskaps- eller
+  oppdragstap skal fjerne tilgangen og terminalisere berørt køtilstand.
 - Innlogging, elevens dagsflate og lærerens klasseflate kan brukes med tastatur
   ved 200 % zoom og med redusert bevegelse aktivert.
 - Elevkode og engangspassord er overlevert uten at de ligger igjen i e-post,
@@ -130,8 +145,20 @@ ugyldige oppdragsinput, forfalskede kontrollhandlinger, redusert
 kapabilitetsprofil, positiv regelbasert forhåndsvisning og publisering av løse
 DOCX-forslag,
 utløpsreconcile, stale handlinger, første strukturerte klasseukepublisering og
-den øktstyrte elevdagen samt responsive/tilgjengelige QA-proxyer.
+den øktstyrte elevdagen samt responsive/tilgjengelige QA-proxyer. E1-pakken
+verifiserer i tillegg øktbundet kølivsløp, elevprivacy, RLS/grants,
+idempotens/rollback, claim-race, request-vs-memberskaps-/rollerace og en
+publisert signaltabell uten runtime-sletting eller cascade. Realtime brukes
+bare som invalidering før autoritativ serverlesing.
 Testene bruker bare syntetiske data og lokal Supabase.
+
+## Manuell E1-port som gjenstår
+
+Før E03s samlede enhetskriterium kan lukkes, skal elevhånd, «Står i kø»,
+avmelding, oppgavekontekst, lærerens claim/resolve og reconnect prøves på en
+reell touch-enhet med skjermleser. Kontroller safe-area, virtuelt tastatur,
+live-regioner og fokusretur. A1-iPad-runden under er nyttig skallbevis, men er
+ikke et fysisk E1-bevis fordi den ikke gjennomførte denne køflyten.
 
 ## Manuelle enhetsporter før Kontrollpunkt A kan lukkes
 

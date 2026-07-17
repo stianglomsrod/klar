@@ -109,6 +109,15 @@ if (authenticated) {
         },
       },
       {
+        name: "help-queue",
+        testMatch: /authenticated\/help-queue\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        use: {
+          browserName: authBrowser,
+          viewport: { width: 1024, height: 768 },
+        },
+      },
+      {
         name: "staff-control-actions",
         testMatch: /authenticated\/staff-control-actions\.spec\.ts/,
         dependencies: ["auth-setup"],
@@ -238,7 +247,13 @@ export default defineConfig({
   respectGitIgnore: false,
   outputDir: path.join("./test-results", outputNamespace),
   fullyParallel: !authenticated,
-  workers: authenticated ? (mode === "manual" ? 1 : 4) : undefined,
+  workers: authenticated
+    ? mode === "manual"
+      ? 1
+      : mode === "full"
+        ? 3
+        : 4
+    : undefined,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",

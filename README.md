@@ -26,7 +26,8 @@ En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
   kontrollere innholdet og publisere én uforanderlig revisjon atomisk;
 - importere en DOCX til redigerbare oppgaveforslag. DOCX-flyten bevarer ennå
   ikke økter eller ukeplanrevisjon og publiserer eventuelt løse oppgaver;
-- følge oppgavefremdrift og en sikker, sanntidsoppdatert hjelpekø;
+- følge oppgavefremdrift, åpne og stenge hjelpekø for den aktuelle økten og ta
+  eller løse elevforespørsler innenfor sitt klasseoppdrag;
 - angi hvor mye struktur den enkelte eleven skal få se.
 
 Vanlige ansatte kan ikke opprette kontoer eller klasser eller forvalte
@@ -40,7 +41,8 @@ Eleven kan:
   oppgaver i en sekundær seksjon;
 - åpne oppgaven uten «I gang»-status, fullføre uten vedlegg, angre og se en
   ikke-straffende beskjed når en ansatt åpner oppgaven igjen;
-- be om hjelp, følge køstatus og trekke forespørselen;
+- få en hånd bare når den aktuelle øktkøen er åpen, be om generell eller
+  oppgaveknyttet hjelp og melde seg av uten å se køplass eller andre elever;
 - velge kort, vanlig eller mer detaljert visning;
 - velge en rolig fremdriftsvisning uten poeng, rangering eller sammenligning.
 
@@ -59,6 +61,9 @@ hvert som behovet blir mindre.
   stubs i runtime.
 - Innlevering av bilder, lyd eller fritekst om elever er ikke del av kjernen.
 - Motivasjonsvisningen er frivillig og ikke-konkurrerende.
+- Hjelpekøen bruker foreløpig FIFO, claim/resolve og øktbundet stenging.
+  Manuell reorder, release/transfer, gruppekø og en global køwidget er ikke
+  implementert.
 
 ## Avklart målbilde
 
@@ -149,6 +154,12 @@ representativt oppgraderingsscenario.
 Første strukturerte klasseuke og den øktstyrte elevdagen er dokumentert med
 akseptansekriterier, avvik, retester og syntetiske fem-viewport-bilder i
 [`docs/qa/CONTROL_POINT_C1.md`](./docs/qa/CONTROL_POINT_C1.md).
+
+Den øktbundne hjelpekøen, elevhånden, oppgavekontekst, privacy, samtidighet og
+reconnect er dokumentert i
+[`docs/qa/CONTROL_POINT_E1.md`](./docs/qa/CONTROL_POINT_E1.md). Chromium,
+WebKit, databaseportene og syntetisk visuell QA er automatisert; fysisk
+E1-touch og skjermleser er fortsatt en manuell produktport.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

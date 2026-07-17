@@ -117,9 +117,10 @@ lærerendringer.
 
 ### Kontrollpunkt D – elevens dag og oppgave
 
-**Status:** Pågår delvis – C1 projiserer forrige/aktuell/neste økt, og B1 gir
-fullføring uten vedlegg, angre og ansattretur. Medier, kontekstuell hånd,
-flytt/send ut på nytt, offlineflyt og fysisk målenhetsmatrise gjenstår.
+**Status:** Pågår delvis – C1 projiserer forrige/aktuell/neste økt, B1 gir
+fullføring uten vedlegg, angre og ansattretur, og E1 leverer kontekstuell hånd
+i footer og oppgave. Medier, flytt/send ut på nytt, offlineflyt og fysisk
+målenhetsmatrise gjenstår.
 
 Bygg E01 på de stabile sesjons- og progresjonsmodellene:
 
@@ -133,6 +134,10 @@ Bygg E01 på de stabile sesjons- og progresjonsmodellene:
 symboler, korte handlingsord og opplesing, på mobil, iPad og PC.
 
 ### Kontrollpunkt E – aktiv hjelpekø
+
+**Status:** Pågår – E1 leverer det øktbundne livsløpet, elevhånden, FIFO,
+claim/resolve, privacy og reconnect. Manuell reorder, release/transfer,
+grupper, globalt livepanel og fysisk enhetsport gjenstår.
 
 Koble E03 til aktive timer/sesjoner:
 

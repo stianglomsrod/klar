@@ -1,6 +1,6 @@
 # E01 – Elevens dag og oppgaveflyt
 
-**Status:** Pågår – B1/C1-flyten er delvis verifisert
+**Status:** Pågår – B1/C1/E1-flyten er delvis verifisert
 
 **Kontrakt:** [§ 6 Elevens dagsflate](../product/DOMAIN_CONTRACT.md#6-elevens-dagsflate)
 
@@ -19,10 +19,9 @@ ned og lukket, neste er kompakt, og historiske løse oppgaver ligger sekundært.
 Oppgaven åpnes uten «I gang», og det eksisterende sjekkpunktet kan fullføres
 uten vedlegg med atomisk XP, elevangre og ansattretur fra B1.
 
-Tekst, lyd og bilde, oppgaveknyttet hånd, flytt/send ut på nytt, offlineflyt og
-hele den fysiske enhetsmatrisen gjenstår. Den eksisterende tekstlige
-hjelpekontrollen er en E03-mellomtilstand og er ikke den avtalte ikonbaserte
-footer-hånden.
+Tekst, lyd og bilde, flytt/send ut på nytt, offlineflyt og hele den fysiske
+enhetsmatrisen gjenstår. E1 har erstattet den tekstlige mellomtilstanden med
+den avtalte ikonbaserte footer-hånden og samme oppgaveknyttede køflyt.
 
 ## Omfang
 
@@ -107,7 +106,7 @@ oppbevaring og sletting være dokumentert.
 - [x] XP gis først etter `✓ Ferdig` og nøyaktig én gang per gyldig overgang.
 - [x] Avbryt fra sjekkpunktet etterlater ingen fullføring eller XP.
 - [ ] Vedleggsfeil kan prøves på nytt eller fjernes uten skjult deltilstand.
-- [ ] Oppgaveknyttet hånd oppretter samme køtype som footer-hånden.
+- [x] Oppgaveknyttet hånd oppretter samme køtype som footer-hånden.
 - [x] Elevangre og ansattretur viser riktig, ikke-straffende status.
 - [ ] Flytt bevarer iterasjons-ID/XP; send ut på nytt oppretter ny ID/XP.
 - [x] Ingen uferdig oppgave flyttes eller kopieres automatisk.
@@ -127,4 +126,5 @@ pilotgrensen.
 
 Delbevis for øktprojeksjon og den første klasseuken finnes i
 [Kontrollpunkt C1](../qa/CONTROL_POINT_C1.md). Fullførings-/XP-beviset finnes i
-[Kontrollpunkt B1](../qa/CONTROL_POINT_B1.md).
+[Kontrollpunkt B1](../qa/CONTROL_POINT_B1.md), og den oppgaveknyttede hånden i
+[Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md).

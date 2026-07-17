@@ -24,6 +24,7 @@ export type HelpRequestStatus =
   | "resolved"
   | "cancelled"
   | "expired";
+export type HelpQueueSessionStatus = "open" | "closing" | "closed";
 export type StaffJobLabel =
   | "contact_teacher"
   | "subject_teacher"
@@ -142,6 +143,21 @@ type WeeklyPlanRow = {
   updated_at: string;
 };
 
+type PlanRevisionSessionRow = {
+  id: string;
+  revision_id: string;
+  weekly_plan_id: string;
+  organization_id: string;
+  class_id: string;
+  teaching_session_id: string;
+  title: string;
+  subject: string | null;
+  starts_at: string;
+  ends_at: string;
+  position: number;
+  created_at: string;
+};
+
 type StudentTaskStateRow = {
   assignment_id: string;
   organization_id: string;
@@ -162,6 +178,7 @@ type HelpRequestRow = {
   organization_id: string;
   class_id: string;
   student_id: string;
+  queue_session_id: string | null;
   task_assignment_id: string | null;
   status: HelpRequestStatus;
   claimed_by: string | null;
@@ -170,6 +187,37 @@ type HelpRequestRow = {
   resolved_at: string | null;
   expires_at: string;
   updated_at: string;
+};
+
+type HelpQueueSessionRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  revision_session_id: string;
+  status: HelpQueueSessionStatus;
+  lock_version: number;
+  activity_version: number;
+  opened_at: string;
+  closing_started_at: string | null;
+  closed_at: string | null;
+  updated_at: string;
+};
+
+type HelpQueueCommandReceiptRow = {
+  organization_id: string;
+  actor_id: string;
+  request_id: string;
+  command:
+    | "open_queue"
+    | "close_queue"
+    | "request_help"
+    | "cancel_help"
+    | "claim_help"
+    | "resolve_help";
+  request_fingerprint: string;
+  queue_session_id: string;
+  result: Json;
+  created_at: string;
 };
 
 type AuditEventRow = {
@@ -439,6 +487,23 @@ export type Database = {
           updated_at?: string;
         }
       >;
+      plan_revision_sessions: TableDefinition<
+        PlanRevisionSessionRow,
+        {
+          id?: string;
+          revision_id: string;
+          weekly_plan_id: string;
+          organization_id: string;
+          class_id: string;
+          teaching_session_id: string;
+          title: string;
+          subject?: string | null;
+          starts_at: string;
+          ends_at: string;
+          position: number;
+          created_at?: string;
+        }
+      >;
       student_task_state: TableDefinition<
         StudentTaskStateRow,
         {
@@ -463,6 +528,7 @@ export type Database = {
           organization_id: string;
           class_id: string;
           student_id: string;
+          queue_session_id?: string | null;
           task_assignment_id?: string | null;
           status?: HelpRequestStatus;
           claimed_by?: string | null;
@@ -471,6 +537,35 @@ export type Database = {
           resolved_at?: string | null;
           expires_at?: string;
           updated_at?: string;
+        }
+      >;
+      help_queue_sessions: TableDefinition<
+        HelpQueueSessionRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          revision_session_id: string;
+          status?: HelpQueueSessionStatus;
+          lock_version?: number;
+          activity_version?: number;
+          opened_at?: string;
+          closing_started_at?: string | null;
+          closed_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+      help_queue_command_receipts: TableDefinition<
+        HelpQueueCommandReceiptRow,
+        {
+          organization_id: string;
+          actor_id: string;
+          request_id: string;
+          command: HelpQueueCommandReceiptRow["command"];
+          request_fingerprint: string;
+          queue_session_id: string;
+          result: Json;
+          created_at?: string;
         }
       >;
       audit_events: TableDefinition<
@@ -783,6 +878,65 @@ export type Database = {
           p_staff_assignment_id: string;
         };
         Returns: HelpRequestRow;
+      };
+      reconcile_help_queue_sessions: {
+        Args: { p_class_id?: string | null };
+        Returns: number;
+      };
+      open_help_queue_session: {
+        Args: {
+          p_class_id: string;
+          p_revision_session_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      begin_close_help_queue_session: {
+        Args: {
+          p_queue_session_id: string;
+          p_expected_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      request_student_help_v2: {
+        Args: {
+          p_queue_session_id: string;
+          p_student_id: string;
+          p_request_id: string;
+          p_task_assignment_id?: string | null;
+        };
+        Returns: Json;
+      };
+      cancel_student_help_v2: {
+        Args: {
+          p_request_id: string;
+          p_student_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      claim_student_help_v2: {
+        Args: {
+          p_request_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      resolve_student_help_v2: {
+        Args: {
+          p_request_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
       };
       publish_plan_to_class: {
         Args: {

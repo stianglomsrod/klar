@@ -25,6 +25,13 @@ motion, axe A/AA, runtime- og overflow-sjekker. Hele produktmatrisen og de
 fysiske zoom-, skjermleser-, touch-, safe-area-, tastatur- og
 orienteringsportene gjenstår.
 
+E1 er et nytt delbevis for elevens faste footer, oppgavedialog og lærerens
+aktive kø. Flyten er kontrollert ved fem målviewports samt 720 × 450
+reflow-proxy, med 44 × 44-krav, synlig tastaturfokus og fokusretur, axe A/AA,
+overflow, reduced motion, tekstspacing, simulert safe-area og
+offline/reconnect. Dette lukker ikke E06s samlede produktmatrise eller den
+fysiske E1-porten for touch og skjermleser.
+
 ## Designregler
 
 ### Elev
@@ -123,3 +130,7 @@ skal pares med fysisk VoiceOver-/TalkBack-retest på rettingscommiten.
 E06 er ikke «ferdig én gang». Hver epic må lenke til sine E06-bevis. Status kan
 settes til «Pågår» når skall/primitives og matrise finnes, men kan først settes
 til «Ferdig» når samlet pilotkandidat har bestått alle kjerneflytene.
+
+Se [Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md) for automatisert og visuelt
+delbevis for hjelpekøen. De globale akseptansekriteriene over står åpne til
+hele produktet og de manuelle enhetsportene er kontrollert.

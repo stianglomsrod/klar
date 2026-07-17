@@ -30,7 +30,6 @@ const classId = "30000000-0000-4000-8000-000000000003";
 const wrongClassId = "30000000-0000-4000-8000-000000000001";
 const staffId = "10000000-0000-4000-8000-000000000005";
 const studentId = "10000000-0000-4000-8000-000000000010";
-const helpRequestId = "70000000-0000-4000-8000-000000000004";
 const retainedCapabilities = [
   "class.workspace.read",
   "plan.preview",
@@ -267,7 +266,7 @@ test.use({
   storageState: path.join(authDirectory, "other-org-staff-aal2.json"),
 });
 
-test.setTimeout(90_000);
+test.setTimeout(120_000);
 
 test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   context,
@@ -284,6 +283,21 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   const admin = createClient(apiUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  const { data: seededHelpRequest, error: seededHelpRequestError } = await admin
+    .from("help_requests")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("class_id", classId)
+    .eq("student_id", studentId)
+    .eq("status", "waiting")
+    .single();
+  if (seededHelpRequestError || !seededHelpRequest) {
+    throw (
+      seededHelpRequestError ??
+      new Error("Den øktbundne E2E-hjelpeforespørselen mangler.")
+    );
+  }
+  const helpRequestId = seededHelpRequest.id;
   const token = randomUUID().slice(0, 8);
   const deniedTaskTitle = `Avvist oppgave ${token}`;
   const deniedPlanTitles = [
@@ -404,7 +418,11 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
 
     await page.goto(`/v3/teacher/classes/${classId}`);
     await expect(page.getByRole("heading", { name: "Annen skole 5C" })).toBeVisible();
-    await expect(page.getByText("Elev ved annen skole", { exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Elever" })
+        .getByText("Elev ved annen skole", { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText("Oppgave ved annen skole", { exact: true })).toBeVisible();
     await page.locator("#task-title").fill(deniedTaskTitle);
 
@@ -461,7 +479,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     const helpPage = await context.newPage();
     await helpPage.goto(`/v3/teacher/classes/${classId}`);
     const staleHelpClaim = helpPage.getByRole("button", {
-      name: "Jeg tar denne",
+      name: "Jeg tar denne – Elev ved annen skole",
     });
     await expect(staleHelpClaim).toBeVisible();
 
@@ -480,8 +498,8 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     const baseline = await readProtectedState();
     expect(baseline).toMatchObject({
       task_count: 1,
-      weekly_plan_count: 0,
-      weekly_plan_audits: 0,
+      weekly_plan_count: 1,
+      weekly_plan_audits: 1,
       help_status: "waiting",
       claimed_by: null,
       support_level: 2,
@@ -587,7 +605,9 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       reducedPage.getByRole("heading", { name: "Annen skole 5C" }),
     ).toBeVisible();
     await expect(
-      reducedPage.getByText("Elev ved annen skole", { exact: true }),
+      reducedPage
+        .getByRole("region", { name: "Elever" })
+        .getByText("Elev ved annen skole", { exact: true }),
     ).toBeVisible();
     await expect(
       reducedPage.getByText("Oppgave ved annen skole", { exact: true }),
@@ -717,10 +737,11 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
             ],
           },
         }),
-        admin.rpc("claim_student_help", {
+        admin.rpc("claim_student_help_v2", {
           p_request_id: helpRequestId,
-          p_teacher_id: staffId,
+          p_actor_id: staffId,
           p_staff_assignment_id: assignmentId,
+          p_command_request_id: randomUUID(),
         }),
         admin.rpc("update_student_experience_for_staff", {
           p_organization_id: organizationId,
@@ -791,7 +812,22 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
 
     await restoreCapabilityProfile(database, assignmentId);
     const stalePreviewPage = await context.newPage();
+    const initialQueueSync = stalePreviewPage.waitForResponse(
+      (response) => {
+        const request = response.request();
+        return (
+          request.method() === "GET" &&
+          new URL(response.url()).pathname ===
+            `/v3/teacher/classes/${classId}` &&
+          request.headers().rsc === "1" &&
+          (response.headers()["content-type"] ?? "").includes(
+            "text/x-component",
+          )
+        );
+      },
+    );
     await stalePreviewPage.goto(`/v3/teacher/classes/${classId}`);
+    await initialQueueSync;
     const stalePreviewPanel = stalePreviewPage.getByRole("region", {
       name: "Importer oppgaveforslag",
     });
@@ -823,7 +859,9 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       withoutPreviewPage.getByRole("heading", { name: "Annen skole 5C" }),
     ).toBeVisible();
     await expect(
-      withoutPreviewPage.getByText("Elev ved annen skole", { exact: true }),
+      withoutPreviewPage
+        .getByRole("region", { name: "Elever" })
+        .getByText("Elev ved annen skole", { exact: true }),
     ).toBeVisible();
     await expect(
       withoutPreviewPage.getByText("Oppgave ved annen skole", { exact: true }),

@@ -288,8 +288,8 @@ begin
     raise exception 'Student task isolation failed: %', visible_tasks;
   end if;
 
-  if (select count(*) from public.help_requests) <> 1 then
-    raise exception 'Student should only see their own help request';
+  if has_table_privilege('authenticated', 'public.help_requests', 'SELECT') then
+    raise exception 'Student browser role must not read internal help request state';
   end if;
 
   if (select count(*) from public.student_experience_settings) <> 1 then
@@ -328,8 +328,8 @@ begin
     raise exception 'Teacher task isolation failed: %', visible_tasks;
   end if;
 
-  if (select count(*) from public.help_requests) <> 1 then
-    raise exception 'Teacher should only see help requests in their class';
+  if has_table_privilege('authenticated', 'public.help_requests', 'SELECT') then
+    raise exception 'Staff browser role must use the authorized server projection for help requests';
   end if;
 
   if (select count(*) from public.student_experience_settings) <> 1 then
@@ -349,8 +349,6 @@ declare
   published_plan_ids uuid[];
   published_assignment_id uuid;
   progress_result jsonb;
-  initial_help_id uuid;
-  queue_request public.help_requests;
   experience_settings public.student_experience_settings;
   staff_assignment_id uuid;
   owner_assignment_id uuid;
@@ -494,52 +492,6 @@ begin
     raise exception 'Student experience RPC did not persist preferences';
   end if;
 
-  select id
-  into initial_help_id
-  from public.help_requests
-  where student_id = '33333333-3333-3333-3333-333333333333'
-    and status = 'waiting';
-
-  queue_request := public.request_student_help(
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    '33333333-3333-3333-3333-333333333333',
-    '10000000-0000-0000-0000-000000000001'
-  );
-
-  if queue_request.id <> initial_help_id then
-    raise exception 'Repeated help request was not idempotent';
-  end if;
-
-  queue_request := public.claim_student_help(
-    initial_help_id,
-    '22222222-2222-2222-2222-222222222222',
-    staff_assignment_id
-  );
-  if queue_request.status <> 'claimed' then
-    raise exception 'Teacher could not claim the help request';
-  end if;
-
-  queue_request := public.resolve_student_help(
-    initial_help_id,
-    '22222222-2222-2222-2222-222222222222',
-    staff_assignment_id
-  );
-  if queue_request.status <> 'resolved' then
-    raise exception 'Teacher could not resolve the help request';
-  end if;
-
-  queue_request := public.request_student_help(
-    'cccccccc-cccc-cccc-cccc-cccccccccccc',
-    '33333333-3333-3333-3333-333333333333',
-    null
-  );
-  queue_request := public.cancel_student_help(
-    queue_request.id,
-    '33333333-3333-3333-3333-333333333333'
-  );
-  if queue_request.status <> 'cancelled' then
-    raise exception 'Student could not cancel their help request';
-  end if;
 end;
 $$;
 

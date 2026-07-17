@@ -7,6 +7,7 @@ import type {
 } from "@/server/tasks/task-service";
 import type { StudentExperience } from "@/server/students/experience-service";
 import type { StudentSessionDay } from "@/server/plans/student-day-service";
+import type { StudentHelpState } from "@/server/help/help-service";
 import { StudentExperienceControls } from "./StudentExperienceControls";
 import { StudentTaskList, type StudentTaskSection } from "./StudentTaskList";
 
@@ -15,11 +16,13 @@ export function StudentTodayPanel({
   initialProgress,
   initialExperience,
   sessionDay,
+  helpState,
 }: {
   tasks: StudentTodayTask[];
   initialProgress: StudentProgressSummary;
   initialExperience: StudentExperience;
   sessionDay: StudentSessionDay;
+  helpState: StudentHelpState;
 }) {
   const [experience, setExperience] = useState(initialExperience);
   const plannedTasks = sessionDay.sessions.flatMap((session) => session.tasks);
@@ -62,6 +65,7 @@ export function StudentTodayPanel({
           initialTasks={allTasks}
           initialProgress={initialProgress}
           experience={experience}
+          helpState={helpState}
           sections={sections}
         />
       </div>
