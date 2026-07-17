@@ -5,11 +5,28 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { createServerClient } from "@supabase/ssr";
+import { getManualTestScenario } from "../../../scripts/e2e/manual-test-scenarios.mjs";
+import {
+  markManualTestCacheDirty,
+  refreshManualTestCacheStateHashes,
+  writeManualTestStorageState,
+} from "../../../scripts/e2e/manual-test-cache.mjs";
 
-const authDirectory = path.join(process.cwd(), "playwright", ".auth");
+type ScenarioSession = {
+  label: string;
+  route: string;
+  state: string;
+  heading: string;
+  actorId?: string;
+};
+
+const canonicalAuthDirectory = path.join(process.cwd(), "playwright", ".auth");
+const labAuthDirectory = path.join(canonicalAuthDirectory, "lab");
 const roleDev = process.env.KLAR_ROLE_DEV === "1";
+const labCheck = process.env.KLAR_LAB_CHECK === "1";
 
-const allSessions = [
+const formalQaSessions = [
   {
     label: "Eier – tilgangskontroll",
     route: "/v3/teacher/access",
@@ -30,33 +47,98 @@ const allSessions = [
   },
 ] as const;
 
-test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
+async function persistLabContexts(
+  opened: Array<{ context: BrowserContext; session: ScenarioSession }>,
+  cleanClose: boolean,
+) {
+  if (!roleDev || opened.length === 0) return;
+  for (const { context, session } of opened) {
+    writeManualTestStorageState(
+      process.cwd(),
+      session.state,
+      await context.storageState(),
+    );
+  }
+  refreshManualTestCacheStateHashes(process.cwd(), cleanClose);
+}
+
+async function assertExpectedLabIdentity(
+  context: BrowserContext,
+  session: ScenarioSession,
+  baseURL: string,
+) {
+  if (!roleDev || !session.actorId) return;
+  const apiUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!apiUrl || !anonKey) {
+    throw new Error("Lokal Supabase-konfigurasjon mangler for rollekontroll.");
+  }
+  const contextCookies = await context.cookies(baseURL);
+  const supabase = createServerClient(apiUrl, anonKey, {
+    cookies: {
+      getAll: () =>
+        contextCookies.map(({ name, value }) => ({ name, value })),
+      // Navigation through the app has already refreshed the browser cookie.
+      // Identity verification must not create a second, unpersisted rotation.
+      setAll: () => undefined,
+    },
+  });
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || user?.id !== session.actorId) {
+    throw new Error(
+      `Den aktive lokale økten matcher ikke den syntetiske rollen «${session.label}». Kjør \`npm run lab:reset\`.`,
+    );
+  }
+  if (session.state.endsWith("-aal2.json")) {
+    const { data, error } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error || data.currentLevel !== "aal2") {
+      throw new Error(
+        `Den aktive lokale voksenøkten «${session.label}» mangler AAL2. Kjør \`npm run lab:reset\`.`,
+      );
+    }
+  }
+}
+
+async function assertExpectedLabIdentities(
+  opened: Array<{ context: BrowserContext; session: ScenarioSession }>,
+  baseURL: string,
+) {
+  for (const { context, session } of opened) {
+    await assertExpectedLabIdentity(context, session, baseURL);
+  }
+}
+
+test("åpner isolerte vinduer for lokal utforsking eller manuell desktop-QA", async ({
   browser,
   baseURL,
 }) => {
   test.setTimeout(0);
-  const sessions = roleDev
-    ? allSessions.filter((session) => session.state !== "owner-aal2.json")
-    : allSessions;
   if (process.env.KLAR_MANUAL_QA !== "1") {
     throw new Error(
-      "Denne testen kan bare startes med npm run qa:a1:desktop eller npm run dev:roles.",
+      "Denne starteren kan bare brukes via de dokumenterte lokale npm-kommandoene.",
     );
   }
   if (baseURL !== "http://127.0.0.1:3100") {
-    throw new Error(
-      roleDev
-        ? "Lokal rolleutvikling krever fast loopback-origin."
-        : "Manuell A1-desktop-QA krever fast loopback-origin.",
-    );
+    throw new Error("Lokal utforsking og manuell QA krever fast loopback-origin.");
   }
 
+  const scenario = roleDev
+    ? getManualTestScenario(process.env.KLAR_MANUAL_SCENARIO ?? "day")
+    : null;
+  const sessions = scenario?.sessions ?? formalQaSessions;
+  const authDirectory = roleDev ? labAuthDirectory : canonicalAuthDirectory;
   const opened: Array<{
     context: BrowserContext;
     page: Page;
+    session: ScenarioSession;
   }> = [];
 
   try {
+    if (roleDev) markManualTestCacheDirty(process.cwd());
     for (const session of sessions) {
       const context = await browser.newContext({
         baseURL,
@@ -68,21 +150,29 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
         serviceWorkers: "block",
       });
       const page = await context.newPage();
+      opened.push({ context, page, session });
       await page.goto(session.route, {
         waitUntil: roleDev ? "domcontentloaded" : "networkidle",
       });
       await expect(page).toHaveURL(new URL(session.route, baseURL).toString());
-      await expect(
-        page.getByRole("heading", { name: session.heading, exact: true }),
-      ).toBeVisible();
-      opened.push({ context, page });
+      if (!roleDev || labCheck) {
+        await expect(
+          page.getByRole("heading", { name: session.heading, exact: true }),
+        ).toBeVisible();
+      }
+      await assertExpectedLabIdentity(context, session, baseURL);
       console.log(`${session.label}: ${new URL(session.route, baseURL)}`);
     }
 
+    await persistLabContexts(opened, false);
     await opened[0]?.page.bringToFront();
+    if (labCheck) {
+      await persistLabContexts(opened, true);
+      return;
+    }
     console.log(
       roleDev
-        ? "To isolerte syntetiske vinduer er åpne med hot reload: lærer og elev. Lukk begge for en ryddig avslutning; Ctrl+C er nødavslutning."
+        ? `Scenario «${scenario?.label}» er åpnet med ekte, isolerte lokale økter. Endringer blir stående til eksplisitt nullstilling. Lukk alle vinduene for å gå tilbake til scenariomenyen.`
         : "Tre isolerte syntetiske rolle-vinduer er åpne. Lukk alle tre for en ryddig avslutning; Ctrl+C er bare nødavslutning.",
     );
     await Promise.all(
@@ -90,10 +180,12 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
         page.isClosed() ? Promise.resolve() : page.waitForEvent("close"),
       ),
     );
+    await assertExpectedLabIdentities(opened, baseURL);
+    await persistLabContexts(opened, true);
     test.skip(
       true,
       roleDev
-        ? "Utviklerstarteren registrerer ikke et QA-resultat."
+        ? "Utforskingsverkstedet registrerer ikke et QA-resultat."
         : "Desktopstarteren registrerer ikke utfallet av den manuelle kontrollen.",
     );
   } finally {

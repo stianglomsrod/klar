@@ -1,12 +1,34 @@
-import { mkdir } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
+import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { expect, test as setup, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  test as setup,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
+import { ensureManualTestCacheDirectory } from "../../scripts/e2e/manual-test-cache.mjs";
 import { getE2ECredentials } from "./support/env";
 import { generateFreshTotp } from "./support/totp";
 
 setup.setTimeout(120_000);
 
-const authDirectory = path.join(process.cwd(), "playwright", ".auth");
+const canonicalAuthDirectory = path.join(process.cwd(), "playwright", ".auth");
+const labAuthDirectory = path.join(canonicalAuthDirectory, "lab");
+const requestedAuthDirectory = process.env.KLAR_AUTH_DIRECTORY;
+const authDirectory = requestedAuthDirectory
+  ? path.resolve(requestedAuthDirectory)
+  : canonicalAuthDirectory;
+if (
+  requestedAuthDirectory &&
+  (process.env.KLAR_ROLE_DEV !== "1" ||
+    authDirectory !== path.resolve(labAuthDirectory))
+) {
+  throw new Error(
+    "Alternativ auth-mappe er bare tillatt for den faste lokale lab-mappen.",
+  );
+}
 const states = {
   student: path.join(authDirectory, "student.json"),
   visualStudent: path.join(authDirectory, "visual-student.json"),
@@ -26,6 +48,22 @@ const states = {
   otherStaffAal2: path.join(authDirectory, "other-org-staff-aal2.json"),
 };
 
+async function saveStorageState(context: BrowserContext, file: string) {
+  const temporary = `${file}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
+  try {
+    await writeFile(temporary, JSON.stringify(await context.storageState()), {
+      encoding: "utf8",
+      mode: 0o600,
+      flag: "wx",
+    });
+    await rename(temporary, file);
+    await chmod(file, 0o600);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
 async function fillLogin(page: Page, identifier: string, password: string) {
   // Login is a client component. Waiting past script loading prevents WebKit
   // from submitting the server-rendered form before React has attached onSubmit.
@@ -35,12 +73,13 @@ async function fillLogin(page: Page, identifier: string, password: string) {
   await passwordInput.fill(password);
   try {
     await page.getByRole("button", { name: "Logg inn" }).click();
+    const loginTimeout = process.env.KLAR_ROLE_DEV === "1" ? 45_000 : 15_000;
     const loginError = page
       .getByRole("region", { name: "Logg inn" })
       .getByRole("alert");
     await Promise.race([
-      page.waitForURL(/\/v3\//, { timeout: 15_000 }),
-      loginError.waitFor({ state: "visible", timeout: 15_000 }),
+      page.waitForURL(/\/v3\//, { timeout: loginTimeout }),
+      loginError.waitFor({ state: "visible", timeout: loginTimeout }),
     ]);
   } finally {
     await page
@@ -76,7 +115,7 @@ async function createAdultStates(input: {
   await expect(page).toHaveURL(/\/v3\/teacher$/);
 
   if (!input.aal1Path) {
-    await context.storageState({ path: input.aal2Path });
+    await saveStorageState(context, input.aal2Path);
     await context.close();
     return;
   }
@@ -85,25 +124,30 @@ async function createAdultStates(input: {
   await expect(page).toHaveURL(/\/login$/);
   await fillLogin(page, input.email, input.password);
   await expect(page).toHaveURL(/\/v3\/mfa\/challenge$/);
-  await context.storageState({ path: input.aal1Path });
+  await saveStorageState(context, input.aal1Path);
 
   await page.getByLabel("Sekssifret kode").fill(await generateFreshTotp(secret));
   await page.getByRole("button", { name: "Bekreft og fortsett" }).click();
   await expect(page).toHaveURL(/\/v3\/teacher$/);
-  await context.storageState({ path: input.aal2Path });
+  await saveStorageState(context, input.aal2Path);
   await context.close();
 }
 
 setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, baseURL }) => {
   if (!baseURL) throw new Error("Playwright baseURL mangler.");
-  await mkdir(authDirectory, { recursive: true });
+  if (requestedAuthDirectory) {
+    ensureManualTestCacheDirectory(process.cwd());
+  } else {
+    await mkdir(authDirectory, { recursive: true, mode: 0o700 });
+    await chmod(authDirectory, 0o700);
+  }
   const credentials = getE2ECredentials();
 
   const studentContext = await browser.newContext({ baseURL });
   const studentPage = await studentContext.newPage();
   await fillLogin(studentPage, credentials.studentCode, credentials.studentPassword);
   await expect(studentPage).toHaveURL(/\/v3\/student$/);
-  await studentContext.storageState({ path: states.student });
+  await saveStorageState(studentContext, states.student);
   await studentContext.close();
 
   const visualStudentContext = await browser.newContext({ baseURL });
@@ -114,7 +158,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.visualStudentPassword,
   );
   await expect(visualStudentPage).toHaveURL(/\/v3\/student$/);
-  await visualStudentContext.storageState({ path: states.visualStudent });
+  await saveStorageState(visualStudentContext, states.visualStudent);
   await visualStudentContext.close();
 
   const rewardStudentContext = await browser.newContext({ baseURL });
@@ -125,7 +169,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.rewardStudentPassword,
   );
   await expect(rewardStudentPage).toHaveURL(/\/v3\/student$/);
-  await rewardStudentContext.storageState({ path: states.rewardStudent });
+  await saveStorageState(rewardStudentContext, states.rewardStudent);
   await rewardStudentContext.close();
 
   const rewardVisualStudentContext = await browser.newContext({ baseURL });
@@ -136,9 +180,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.rewardVisualStudentPassword,
   );
   await expect(rewardVisualStudentPage).toHaveURL(/\/v3\/student$/);
-  await rewardVisualStudentContext.storageState({
-    path: states.rewardVisualStudent,
-  });
+  await saveStorageState(rewardVisualStudentContext, states.rewardVisualStudent);
   await rewardVisualStudentContext.close();
 
   const progressVisualStudentContext = await browser.newContext({ baseURL });
@@ -149,9 +191,10 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.progressVisualStudentPassword,
   );
   await expect(progressVisualStudentPage).toHaveURL(/\/v3\/student$/);
-  await progressVisualStudentContext.storageState({
-    path: states.progressVisualStudent,
-  });
+  await saveStorageState(
+    progressVisualStudentContext,
+    states.progressVisualStudent,
+  );
   await progressVisualStudentContext.close();
 
   const d2StudentContext = await browser.newContext({ baseURL });
@@ -162,7 +205,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.d2StudentPassword,
   );
   await expect(d2StudentPage).toHaveURL(/\/v3\/student$/);
-  await d2StudentContext.storageState({ path: states.d2Student });
+  await saveStorageState(d2StudentContext, states.d2Student);
   await d2StudentContext.close();
 
   const returnStudentContext = await browser.newContext({ baseURL });
@@ -173,7 +216,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.returnStudentPassword,
   );
   await expect(returnStudentPage).toHaveURL(/\/v3\/student$/);
-  await returnStudentContext.storageState({ path: states.returnStudent });
+  await saveStorageState(returnStudentContext, states.returnStudent);
   await returnStudentContext.close();
 
   const helpStudentContext = await browser.newContext({ baseURL });
@@ -184,7 +227,7 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     credentials.helpStudentPassword,
   );
   await expect(helpStudentPage).toHaveURL(/\/v3\/student$/);
-  await helpStudentContext.storageState({ path: states.helpStudent });
+  await saveStorageState(helpStudentContext, states.helpStudent);
   await helpStudentContext.close();
 
   await createAdultStates({

@@ -130,27 +130,48 @@ Fyll alle påkrevde verdier i `.env.local`. Kjør SQL-filene i
 database. [`supabase/config.toml`](./supabase/config.toml) inneholder lokale
 Auth-standarder for prototypen.
 
-### Test lærer og elev samtidig
+### Lokalt utforskingsverksted
 
-Når Docker Desktop kjører og port 3100 er ledig, kan én interaktiv kommando
-opprette en fersk, syntetisk testverden og starte Next med hot reload:
+Dette er standardinngangen når du vil prøve lærer-, elev- og eierflyter uten å
+gjennomføre en formell QA-protokoll. Første gang, etter fixtureendringer eller
+når du vil tilbake til grunnstillingen, oppretter du eksplisitt en ny lokal,
+syntetisk testverden:
 
 ```bash
+npm run lab:reset
+```
+
+Resetkommandoen nullstiller **bare lokal Supabase**, seeder syntetiske
+scenarioer, gjennomfører ekte lokale Auth-/MFA-oppsett og åpner en norsk
+scenariomeny. Senere starter du raskt med de samme dataene og de oppdaterte,
+isolerte browserøktene:
+
+```bash
+npm run lab
+# Eldre kommandonavn:
 npm run dev:roles
 ```
 
-Kommandoen nullstiller **bare lokal Supabase**, oppretter ekte lokale Auth-
-sesjoner og fullfører lærerens MFA-oppsett uten å skrive passord, elevkode eller
-TOTP-hemmelighet til terminalen. Deretter åpnes to synlige Chromium-vinduer på
-samme `http://127.0.0.1:3100`-origin: lærerens klasseflate og elevens dagsflate.
-Vinduene bruker separate browser-contexts og cookies, tilsvarende vanlig vindu
-og inkognito, men er allerede innlogget som syntetiske brukere i samme klasse.
+Velg blant dags-/fagflyt, hjelpekø, retur, blomsterhage og poeng,
+oppgaveiterasjoner, tilgang/vikar og visuelle elevforhåndsvisninger. Lærer og
+elev åpnes på samme `http://127.0.0.1:3100`-origin i separate Chromium-contexts,
+tilsvarende vanlig vindu og inkognito. Lukk alle vinduene i et scenario for å
+gå tilbake til menyen; scenarioets devserver stoppes, men syntetiske data og
+Auth-økter beholdes. Et nytt valg starter devserveren raskt igjen. `Q` avslutter
+labprosessen, mens lokal Supabase kan gjenbrukes senere.
 
-Lukk begge vinduene for å stoppe devserveren ryddig. Lokal Supabase kjører
-videre slik at den kan gjenbrukes, og stoppes eksplisitt med
-`npx supabase stop`. Supabase-tilkoblingen har ingen fallback til `.env.local`,
-et linket prosjekt eller pilotdatabasen. Starteren er utviklerverktøy og
-registrerer ikke en manuell QA-port som bestått.
+```bash
+npm run lab:list
+npm run lab -- --scenario=rewards
+```
+
+Gjenbruk gjør aldri en skjult reset. Ugyldig/utløpt cache, en avbrutt økt eller
+en endret fixture stopper med beskjed om `npm run lab:reset`. Tilkoblingen har
+ingen fallback til `.env.local`, et linket prosjekt eller pilotdatabasen.
+Verkstedet er uformell utforsking og registrerer ikke QA som bestått. Når et
+formelt manuelt kontrollpunkt ønskes, brukes fortsatt den separate
+`npm run qa:a1:desktop` og tilhørende bevisprotokoll. Se
+[`docs/qa/LOCAL_EXPLORATION_LAB.md`](./docs/qa/LOCAL_EXPLORATION_LAB.md).
 
 ## Verifikasjon
 

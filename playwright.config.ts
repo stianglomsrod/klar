@@ -15,12 +15,20 @@ if (authenticated) {
 }
 const mode = process.env.KLAR_E2E_MODE ?? "smoke";
 const roleDev = process.env.KLAR_ROLE_DEV === "1";
+const manualReuse = process.env.KLAR_MANUAL_REUSE === "1";
+const labCheck = process.env.KLAR_LAB_CHECK === "1";
 const authBrowser: "chromium" | "webkit" =
   process.env.KLAR_E2E_BROWSER === "webkit" ? "webkit" : "chromium";
 if (roleDev && (!authenticated || mode !== "manual" || authBrowser !== "chromium")) {
   throw new Error(
     "Lokal rolleutvikling krever autentisert manuell Chromium-modus.",
   );
+}
+if (manualReuse && !roleDev) {
+  throw new Error("Gjenbruk av lokale rolleøkter krever lokal rolleutvikling.");
+}
+if (labCheck && !roleDev) {
+  throw new Error("Automatisk labkontroll krever lokal rolleutvikling.");
 }
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const outputNamespace = authenticated ? `${authBrowser}-${mode}` : "public";
@@ -49,28 +57,30 @@ if (!authenticated || mode === "smoke" || mode === "full") {
 }
 
 if (authenticated) {
-  projects.push({
-    name: "auth-setup",
-    testMatch: /auth\.setup\.ts/,
-    use: {
-      browserName: authBrowser,
-      headless: true,
-      screenshot: "off",
-      trace: "off",
-      video: "off",
-    },
-  });
+  if (!(roleDev && manualReuse)) {
+    projects.push({
+      name: "auth-setup",
+      testMatch: /auth\.setup\.ts/,
+      use: {
+        browserName: authBrowser,
+        headless: true,
+        screenshot: "off",
+        trace: "off",
+        video: "off",
+      },
+    });
+  }
 
   if (mode === "manual") {
     projects.push({
       name: "manual-a1-desktop",
       testMatch: /manual\/a1-desktop\.manual\.spec\.ts/,
-      dependencies: ["auth-setup"],
+      dependencies: manualReuse ? [] : ["auth-setup"],
       use: {
         browserName: "chromium",
-        headless: false,
-        viewport: null,
-        launchOptions: { args: ["--start-maximized"] },
+        headless: labCheck,
+        viewport: labCheck ? { width: 1440, height: 900 } : null,
+        launchOptions: labCheck ? undefined : { args: ["--start-maximized"] },
         trace: "off",
         screenshot: "off",
         video: "off",

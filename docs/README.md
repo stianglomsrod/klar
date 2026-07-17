@@ -41,6 +41,8 @@ tilgjengelighetsfeil.
   kontrollpunkt for responsive, tilgjengelige elev- og ansattflater.
 - [Kontrollpunkt 0](./qa/CONTROL_POINT_0.md) – arbeidsloop, lokal testharness,
   verifikasjonsstatus og gjenværende porter.
+- [Lokalt utforskingsverksted](./qa/LOCAL_EXPLORATION_LAB.md) – stateful
+  scenario-/rolleutforsking, cachegrenser og skillet mot formell manuell QA.
 - [Visuell QA for kontrollpunkt 0](./qa/CONTROL_POINT_0_VISUAL_QA.md) – utfylt
   matrise, semantisk vurdering og kjente produktgap.
 - [Kontrollpunkt A1](./qa/CONTROL_POINT_A1.md) – implementert

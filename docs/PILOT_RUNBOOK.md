@@ -41,12 +41,16 @@ en norsk eller EØS-lokasjon hos begge leverandører, og dokumenter den valgte
 regionen sammen med pilotens konfigurasjon. Ikke kopier elevdata tilbake til
 utviklingsmiljøet.
 
-For samtidig lokal utvikling som lærer og elev kan `npm run dev:roles` brukes.
-Starteren krever Docker og en interaktiv terminal, nullstiller bare lokal
-Supabase, binder appen til `127.0.0.1:3100` og åpner to forhåndsautentiserte,
-isolerte Chromium-contexts med syntetiske brukere. Den henter lokale nøkler fra
-`supabase status`, ikke fra pilotens `.env.local`, og avviser alle ikke-
-loopback mål. Kommandoen er ikke en pilotbootstrap eller et manuelt QA-bevis.
+For lokal utforsking brukes `npm run lab:reset` én gang for en eksplisitt
+nullstilling og deretter `npm run lab` eller aliaset `npm run dev:roles` for
+rask gjenbruk. En norsk meny åpner ferdige lærer-, elev-, eier- og vikarflyter
+i separate Chromium-contexts på `127.0.0.1:3100`. Endringer i de syntetiske
+dataene beholdes mellom scenarioer og starter; gjenbruk gjør aldri en skjult
+reset. Starteren henter lokale nøkler fra `supabase status`, ikke fra pilotens
+`.env.local`, og avviser alle ikke-loopback mål. Dette er ikke en
+pilotbootstrap eller et manuelt QA-bevis. Formell desktop-QA startes eksplisitt
+med `npm run qa:a1:desktop` og følger den separate protokollen i
+[`qa/CONTROL_POINT_A1_MANUAL_QA.md`](./qa/CONTROL_POINT_A1_MANUAL_QA.md).
 
 Pilotmiljøet starter med [`PILOT_ENABLED=false`](../.env.pilot.example). Denne
 verdien sender innlogging og alle 3.0-ruter til en nøytral stengt-side. Endre

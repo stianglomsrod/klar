@@ -13,6 +13,10 @@ describe("local E2E runner options", () => {
       browser: "chromium",
       spec: null,
       roleDev: true,
+      reuse: false,
+      listScenarios: false,
+      labCheck: false,
+      scenario: null,
     });
     assert.throws(() => parseLocalRunnerOptions(["--mode=smoke", "--dev"]));
     assert.throws(() =>
@@ -39,11 +43,62 @@ describe("local E2E runner options", () => {
   test("overrides stale ambient mode selectors for every runner invocation", () => {
     assert.deepEqual(
       createLocalRunnerSelectors({ mode: "manual", roleDev: false }),
-      { KLAR_MANUAL_QA: "1", KLAR_ROLE_DEV: "0" },
+      {
+        KLAR_MANUAL_QA: "1",
+        KLAR_ROLE_DEV: "0",
+        KLAR_MANUAL_REUSE: "0",
+      },
     );
     assert.deepEqual(
       createLocalRunnerSelectors({ mode: "smoke", roleDev: false }),
-      { KLAR_MANUAL_QA: "0", KLAR_ROLE_DEV: "0" },
+      {
+        KLAR_MANUAL_QA: "0",
+        KLAR_ROLE_DEV: "0",
+        KLAR_MANUAL_REUSE: "0",
+      },
+    );
+  });
+
+  test("accepts only allowlisted local exploration scenarios and explicit reuse", () => {
+    assert.deepEqual(
+      parseLocalRunnerOptions([
+        "--mode=manual",
+        "--dev",
+        "--reuse",
+        "--scenario=help",
+      ]),
+      {
+        mode: "manual",
+        browser: "chromium",
+        spec: null,
+        roleDev: true,
+        reuse: true,
+        listScenarios: false,
+        labCheck: false,
+        scenario: "help",
+      },
+    );
+    assert.throws(() =>
+      parseLocalRunnerOptions([
+        "--mode=manual",
+        "--dev",
+        "--scenario=unknown",
+      ]),
+    );
+    assert.throws(() =>
+      parseLocalRunnerOptions(["--mode=manual", "--reuse"]),
+    );
+    assert.throws(() =>
+      parseLocalRunnerOptions(["--mode=manual", "--dev", "--mystery"]),
+    );
+    assert.equal(
+      parseLocalRunnerOptions([
+        "--mode=manual",
+        "--dev",
+        "--lab-check",
+        "--scenario=day",
+      ]).labCheck,
+      true,
     );
   });
 

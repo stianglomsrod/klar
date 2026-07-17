@@ -19,9 +19,9 @@ globalt avslått og negativt testet.
 - låst Supabase CLI som utviklingsavhengighet;
 - lokal-only runner som krever Docker, bruker `db reset --local` og avviser
   ikke-loopback Supabase;
-- separat `npm run dev:roles` som gjenbruker samme sikkerhetsgrense, starter
-  loopback-bundet Next-utviklerserver med hot reload og åpner isolerte lærer-
-  og elevvinduer uten auth-bypass;
+- separat lokalt utforskingsverksted som gjenbruker samme sikkerhetsgrense,
+  starter loopback-bundet Next-utviklerserver med hot reload og åpner valgte,
+  isolerte lærer-, elev-, eier- og vikarvinduer uten auth-bypass;
 - syntetisk fixture med eier/AAL2-oppsett, elev, klasse og oppgaver;
 - separate Playwright storage states for lærer og elev;
 - offentlig smoke, autentisert smoke og visuell matrise ved 360×640, 640×360,
@@ -36,7 +36,9 @@ globalt avslått og negativt testet.
 - Både produksjons-QA-serveren og utviklerserveren bindes eksplisitt til
   `127.0.0.1:3100`; Nexts bredere standardbinding brukes ikke.
 - Eksternt/linket Supabase-prosjekt har ingen fallback eller override.
-- Testpassord, pepper og TOTP-hemmelighet opprettes per kjøring og logges ikke.
+- Testpassord og TOTP-hemmelighet opprettes per reset og logges ikke. Labens
+  pepper gjenbrukes fra en separat ignorert runtime-fil så lenge den stateful
+  lokale databasen beholdes.
 - Auth-oppsettet har trace, video og screenshot avslått slik at TOTP-hemmelighet
   ikke havner i artefakter.
 - Browsertilstander ligger under ignorert `playwright/.auth/`.
@@ -52,7 +54,9 @@ globalt avslått og negativt testet.
 
 | Kommando | Formål |
 | --- | --- |
-| `npm run dev:roles` | Fersk lokal, syntetisk lærer-/elevøkt i to isolerte Chromium-vinduer med hot reload |
+| `npm run lab:reset` | Eksplisitt fersk lokal syntetisk fixture, Auth/MFA-cache og scenariomeny |
+| `npm run lab` / `npm run dev:roles` | Gjenbruk syntetiske data og åpne valgte isolerte Chromium-roller med hot reload |
+| `npm run lab:list` | List scenarioene uten Docker, database eller reset |
 | `npm run test:e2e` | Rask offentlig Chromium-smoke uten lokal Supabase |
 | `npm run test:e2e:auth` | Lokal autentisert elev-/lærer-smoke |
 | `npm run test:e2e:visual` | Ti screenshot-/axe-kjøringer på fem målviewports |
@@ -86,22 +90,32 @@ Den autentiserte Docker-suiten er foreløpig lokal kontrollpunktport. En egen
 cachet CI-jobb vurderes separat fordi full Supabase-stack er vesentlig tyngre
 enn dagens offentlige E2E- og PostgreSQL/RLS-jobber.
 
-## Lokal rolleutvikling
+## Lokal rolleutvikling og utforsking
 
-`npm run dev:roles` er en utviklerinngang, ikke et nytt produktendepunkt. Den
-bruker den samme lokale resetten, syntetiske seeden, negative signup-kontrollen,
-ekte elevinnloggingen og ekte MFA/AAL2-oppsettet som den autentiserte E2E-
-suiten. I utviklermodus hoppes bare produksjonsbygget over, og Playwright
-starter i stedet `next dev` med Webpack og eksakt loopback-binding. Den
-formelle `npm run qa:a1:desktop` beholder sitt tidligere produksjonsnære
-trevindusoppsett og sin egen manuelle bevisprotokoll.
+`npm run lab` og aliaset `npm run dev:roles` er utviklerinnganger, ikke nye
+produktendepunkter eller QA-bevis. En eksplisitt `npm run lab:reset` bruker den
+samme lokale resetten, syntetiske seeden, negative signup-kontrollen, ekte
+elevinnloggingen og ekte MFA/AAL2-oppsettet som den autentiserte E2E-suiten.
+Deretter kan laben gjenbruke data og oppdaterte Auth-sesjoner uten ny reset,
+seed eller MFA. I utviklermodus hoppes produksjonsbygget over, og Playwright
+starter `next dev` med Webpack og eksakt loopback-binding.
 
-Utviklerøkten åpner bare den syntetiske læreren og eleven i samme klasse. De
-har separate ignorerte storage states under `playwright/.auth`, men bruker
-samme origin; logging ut eller navigering i ett vindu endrer ikke den andres
-cookie-sesjon. Tilfeldige credentials opprettes på nytt for hver reset og
-vises aldri. Å lukke vinduene stopper appserveren, mens lokal Supabase må
-stoppes eksplisitt når den ikke lenger skal brukes.
+Scenariomenyen dekker dags-/fagflyt, hjelpekø, retur, belønning/progresjon,
+oppgaveiterasjoner og tilgang/vikar. Rollene har separate ignorerte storage
+states under `playwright/.auth/lab`, men bruker samme origin. Manuelle
+dataendringer beholdes til eksplisitt reset. Browsertilstandene lagres etter
+vellykket navigasjon og ryddig lukking fordi lokal Auth roterer refresh-token.
+En avbrutt økt eller mismatch i fixture, databasegenerasjon eller state stopper
+gjenbruk. En utløpt tidsfixture avviser bare det valgte scenariet i menyen,
+mens direkte modus stopper med resetveiledning. Starteren nullstiller aldri i
+skjul. Før en labøkt presenteres eller lagres som ryddig avsluttet, må den
+faktiske lokale Supabase-brukeren matche scenarioets syntetiske aktør, og alle
+voksen-states merket `aal2` må fortsatt ha AAL2.
+
+Den formelle `npm run qa:a1:desktop` er fortsatt en separat opt-in med fersk
+fixture, produksjonsbuild, fast trevindusoppsett og egen bevisprotokoll. Se
+[`LOCAL_EXPLORATION_LAB.md`](./LOCAL_EXPLORATION_LAB.md) for scenarioer,
+cachegrenser og den overførbare arbeidsmodellen.
 
 ### Verifikasjon av rolleutviklingsstarteren 17. juli 2026
 
@@ -134,6 +148,24 @@ stoppes eksplisitt når den ikke lenger skal brukes.
 Den synlige to-vindusøkten forblir en brukerinitiert, interaktiv handling. Den
 automatiske kontrollen beviser starterbanen og isolasjonen, men registrerer
 ikke produktets manuelle UI/UX som bestått.
+
+### Stateful scenarioverksted 17. juli 2026
+
+Den opprinnelige to-vindusinngangen er videreført som et statefult,
+cachevalidert scenarioverksted. Fresh- og reuse-prosjektgraf, ekte lokal
+reset/seed/Auth/MFA, rask gjenbruk, 1–3 samtidige roller og alle ti
+startscenarioer,
+refresh-state-lagring, eksklusiv runnerlås, bevart databasesentinel og
+fail-closed avvisning av en avbrutt cache er integrasjonstestet. Den raske
+reuse-banen brukte 11–25 sekunder per kontrollert scenario og kjørte verken
+database-reset, seed eller auth-setup. Detaljert bevis og arbeidsvalg ligger i
+[`LOCAL_EXPLORATION_LAB.md`](./LOCAL_EXPLORATION_LAB.md).
+
+Den endelige herdede porten bestod med 77 av 77 enhetstester, produksjonsbuild,
+4 av 4 offentlige Playwright-tester og 14 av 14 autentiserte regresjonstester.
+Format-2-labcachen ble deretter bygget på nytt fra tom lokal database og
+retestet i reuse-modus, slik at `npm run lab` er klar uten ny reset ved
+overlevering.
 
 ## Publiseringsport for prototypebilder
 
