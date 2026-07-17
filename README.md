@@ -130,6 +130,28 @@ Fyll alle påkrevde verdier i `.env.local`. Kjør SQL-filene i
 database. [`supabase/config.toml`](./supabase/config.toml) inneholder lokale
 Auth-standarder for prototypen.
 
+### Test lærer og elev samtidig
+
+Når Docker Desktop kjører og port 3100 er ledig, kan én interaktiv kommando
+opprette en fersk, syntetisk testverden og starte Next med hot reload:
+
+```bash
+npm run dev:roles
+```
+
+Kommandoen nullstiller **bare lokal Supabase**, oppretter ekte lokale Auth-
+sesjoner og fullfører lærerens MFA-oppsett uten å skrive passord, elevkode eller
+TOTP-hemmelighet til terminalen. Deretter åpnes to synlige Chromium-vinduer på
+samme `http://127.0.0.1:3100`-origin: lærerens klasseflate og elevens dagsflate.
+Vinduene bruker separate browser-contexts og cookies, tilsvarende vanlig vindu
+og inkognito, men er allerede innlogget som syntetiske brukere i samme klasse.
+
+Lukk begge vinduene for å stoppe devserveren ryddig. Lokal Supabase kjører
+videre slik at den kan gjenbrukes, og stoppes eksplisitt med
+`npx supabase stop`. Supabase-tilkoblingen har ingen fallback til `.env.local`,
+et linket prosjekt eller pilotdatabasen. Starteren er utviklerverktøy og
+registrerer ikke en manuell QA-port som bestått.
+
 ## Verifikasjon
 
 ```bash

@@ -5,6 +5,7 @@ import {
   type PlaywrightTestConfig,
 } from "@playwright/test";
 import { assertLocalSupabaseUrl } from "./scripts/e2e/local-safety.mjs";
+import { createLocalWebServerCommand } from "./scripts/e2e/local-runner-options.mjs";
 
 const port = 3100;
 const baseURL = `http://127.0.0.1:${port}`;
@@ -13,8 +14,14 @@ if (authenticated) {
   assertLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
 }
 const mode = process.env.KLAR_E2E_MODE ?? "smoke";
+const roleDev = process.env.KLAR_ROLE_DEV === "1";
 const authBrowser: "chromium" | "webkit" =
   process.env.KLAR_E2E_BROWSER === "webkit" ? "webkit" : "chromium";
+if (roleDev && (!authenticated || mode !== "manual" || authBrowser !== "chromium")) {
+  throw new Error(
+    "Lokal rolleutvikling krever autentisert manuell Chromium-modus.",
+  );
+}
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const outputNamespace = authenticated ? `${authBrowser}-${mode}` : "public";
 
@@ -326,7 +333,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: `npm run start -- -p ${port}`,
+    command: createLocalWebServerCommand({ roleDev, port }),
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,

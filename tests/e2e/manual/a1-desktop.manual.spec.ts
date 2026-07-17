@@ -7,8 +7,9 @@ import {
 } from "@playwright/test";
 
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
+const roleDev = process.env.KLAR_ROLE_DEV === "1";
 
-const sessions = [
+const allSessions = [
   {
     label: "Eier – tilgangskontroll",
     route: "/v3/teacher/access",
@@ -34,11 +35,20 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
   baseURL,
 }) => {
   test.setTimeout(0);
+  const sessions = roleDev
+    ? allSessions.filter((session) => session.state !== "owner-aal2.json")
+    : allSessions;
   if (process.env.KLAR_MANUAL_QA !== "1") {
-    throw new Error("Denne testen kan bare startes med npm run qa:a1:desktop.");
+    throw new Error(
+      "Denne testen kan bare startes med npm run qa:a1:desktop eller npm run dev:roles.",
+    );
   }
   if (baseURL !== "http://127.0.0.1:3100") {
-    throw new Error("Manuell A1-desktop-QA krever fast loopback-origin.");
+    throw new Error(
+      roleDev
+        ? "Lokal rolleutvikling krever fast loopback-origin."
+        : "Manuell A1-desktop-QA krever fast loopback-origin.",
+    );
   }
 
   const opened: Array<{
@@ -58,7 +68,9 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
         serviceWorkers: "block",
       });
       const page = await context.newPage();
-      await page.goto(session.route, { waitUntil: "networkidle" });
+      await page.goto(session.route, {
+        waitUntil: roleDev ? "domcontentloaded" : "networkidle",
+      });
       await expect(page).toHaveURL(new URL(session.route, baseURL).toString());
       await expect(
         page.getByRole("heading", { name: session.heading, exact: true }),
@@ -69,7 +81,9 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
 
     await opened[0]?.page.bringToFront();
     console.log(
-      "Tre isolerte syntetiske rolle-vinduer er åpne. Lukk alle tre for en ryddig avslutning; Ctrl+C er bare nødavslutning.",
+      roleDev
+        ? "To isolerte syntetiske vinduer er åpne med hot reload: lærer og elev. Lukk begge for en ryddig avslutning; Ctrl+C er nødavslutning."
+        : "Tre isolerte syntetiske rolle-vinduer er åpne. Lukk alle tre for en ryddig avslutning; Ctrl+C er bare nødavslutning.",
     );
     await Promise.all(
       opened.map(({ page }) =>
@@ -78,7 +92,9 @@ test("åpner isolerte A1-vinduer for manuell desktop-QA", async ({
     );
     test.skip(
       true,
-      "Desktopstarteren registrerer ikke utfallet av den manuelle kontrollen.",
+      roleDev
+        ? "Utviklerstarteren registrerer ikke et QA-resultat."
+        : "Desktopstarteren registrerer ikke utfallet av den manuelle kontrollen.",
     );
   } finally {
     await Promise.all(

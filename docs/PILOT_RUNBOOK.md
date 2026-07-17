@@ -41,6 +41,13 @@ en norsk eller EØS-lokasjon hos begge leverandører, og dokumenter den valgte
 regionen sammen med pilotens konfigurasjon. Ikke kopier elevdata tilbake til
 utviklingsmiljøet.
 
+For samtidig lokal utvikling som lærer og elev kan `npm run dev:roles` brukes.
+Starteren krever Docker og en interaktiv terminal, nullstiller bare lokal
+Supabase, binder appen til `127.0.0.1:3100` og åpner to forhåndsautentiserte,
+isolerte Chromium-contexts med syntetiske brukere. Den henter lokale nøkler fra
+`supabase status`, ikke fra pilotens `.env.local`, og avviser alle ikke-
+loopback mål. Kommandoen er ikke en pilotbootstrap eller et manuelt QA-bevis.
+
 Pilotmiljøet starter med [`PILOT_ENABLED=false`](../.env.pilot.example). Denne
 verdien sender innlogging og alle 3.0-ruter til en nøytral stengt-side. Endre
 til `true` først etter teknisk kontroll. `/api/health` svarer 200 når appen er

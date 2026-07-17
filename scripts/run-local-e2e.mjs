@@ -9,6 +9,10 @@ import {
   assertLocalSupabaseUrl,
   parseSupabaseEnv,
 } from "./e2e/local-safety.mjs";
+import {
+  createLocalRunnerSelectors,
+  parseLocalRunnerOptions,
+} from "./e2e/local-runner-options.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const supabase = path.join(root, "node_modules", "supabase", "dist", "supabase.js");
@@ -30,28 +34,9 @@ function getLocalContainer(service) {
   return `supabase_${service}_${projectId}`;
 }
 
-const modeArgument = process.argv.find((argument) => argument.startsWith("--mode="));
-const browserArgument = process.argv.find((argument) =>
-  argument.startsWith("--browser="),
+const { mode, browser, spec, roleDev } = parseLocalRunnerOptions(
+  process.argv.slice(2),
 );
-const specArgument = process.argv.find((argument) =>
-  argument.startsWith("--spec="),
-);
-const mode = modeArgument?.split("=")[1] ?? "smoke";
-const browser = browserArgument?.split("=")[1] ?? "chromium";
-const spec = specArgument?.slice("--spec=".length).replaceAll("\\", "/") ?? null;
-if (!["smoke", "staff", "visual", "full", "manual"].includes(mode)) {
-  throw new Error("E2E-modus må være smoke, staff, visual, full eller manual.");
-}
-if (!["chromium", "webkit"].includes(browser)) {
-  throw new Error("E2E-browser må være chromium eller webkit.");
-}
-if (
-  spec !== null &&
-  (!/^tests\/e2e\/[a-z0-9_./-]+\.spec\.ts$/i.test(spec) || spec.includes(".."))
-) {
-  throw new Error("Målrettet E2E-spec må ligge under tests/e2e og ende på .spec.ts.");
-}
 
 function isPortOpen(host, port) {
   return new Promise((resolve) => {
@@ -68,17 +53,14 @@ function isPortOpen(host, port) {
 }
 
 if (mode === "manual") {
-  if (browser !== "chromium") {
-    throw new Error("Manuell A1-desktop-QA støtter bare Chromium.");
-  }
   if (process.env.CI || !process.stdin.isTTY || !process.stdout.isTTY) {
     throw new Error(
-      "Manuell A1-desktop-QA må startes av en person i en interaktiv terminal.",
+      "Manuell A1-desktop-QA og lokal rolleutvikling må startes av en person i en interaktiv terminal.",
     );
   }
   if (await isPortOpen("127.0.0.1", 3100)) {
     throw new Error(
-      "Port 3100 er i bruk. Stopp den eksisterende Klar-serveren før manuell A1-desktop-QA; den blir ikke gjenbrukt fordi miljøet ikke kan verifiseres sikkert.",
+      "Port 3100 er i bruk. Stopp den eksisterende Klar-serveren før manuell QA eller lokal rolleutvikling; den blir ikke gjenbrukt fordi miljøet ikke kan verifiseres sikkert.",
     );
   }
 }
@@ -169,7 +151,7 @@ const testEnvironment = {
   KLAR_E2E_AUTH: "1",
   KLAR_E2E_MODE: mode,
   KLAR_E2E_BROWSER: browser,
-  ...(mode === "manual" ? { KLAR_MANUAL_QA: "1" } : {}),
+  ...createLocalRunnerSelectors({ mode, roleDev }),
   KLAR_E2E_DB_URL: databaseUrl,
   KLAR_E2E_OWNER_EMAIL: "owner@e2e.klar.invalid",
   KLAR_E2E_OWNER_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
@@ -202,12 +184,18 @@ const testEnvironment = {
 };
 
 run(process.execPath, ["scripts/e2e/seed-local.mjs"], { env: testEnvironment });
-run(process.execPath, [npm, "run", "build"], { env: testEnvironment });
+if (!roleDev) {
+  run(process.execPath, [npm, "run", "build"], { env: testEnvironment });
+}
 run(process.execPath, [playwright, "test", ...(spec ? [spec] : [])], {
   env: testEnvironment,
 });
 
-if (mode === "manual") {
+if (roleDev) {
+  console.log(
+    "Den lokale lærer-/elevøkten er avsluttet. Supabase kjører videre til du stopper den eksplisitt.",
+  );
+} else if (mode === "manual") {
   console.log(
     "Manuell A1-desktopøkt er avsluttet. Før faktiske resultater i QA-protokollen; økten er ikke automatisk beståttbevis.",
   );
