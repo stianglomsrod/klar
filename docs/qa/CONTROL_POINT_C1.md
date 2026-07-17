@@ -25,6 +25,9 @@ oppgaver».
 
 - Produksjonsreglene følger domenekontrakten og E01/E04, ikke legacy-koden.
 - Produkteierens egen fortellerstemme i videoen er primær intensjonskilde.
+  [03:05 – oppgave, økt og iterasjon](../../Prototypen/Videoomvisning/00-03-05-task-session-iteration.png)
+  underbygger at en oppgave knyttes til konkrete undervisningsøkter og kan
+  gi én samlet eller én ny fullføring per økt.
   [06:10 – elevens dag](../../Prototypen/Videoomvisning/00-06-10-student-home.png)
   underbygger fisheye-hierarkiet, og
   [09:41 – tolket plan](../../Prototypen/Videoomvisning/00-09-41-parsed-plan.png)

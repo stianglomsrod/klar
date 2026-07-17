@@ -154,7 +154,8 @@ bevisst midlertidig faggruppering.
 viser varig belønning og lett tilgjengelig angre. Den tidskodede
 [videoomvisningen](../../Prototypen/Videoomvisning/README.md) viser samme
 sekvens i bruk: oppgaveåpning uten «Start», et frivillig mediesjekkpunkt,
-poengkreditering, nivåvalg og senere angre med poengreversering.
+poengkreditering, nivåvalg og senere
+[angre med poengreversering](../../Prototypen/Videoomvisning/00-08-16-task-undo.png).
 
 B1 implementerer de autoritative garantiene og en første, fungerende UI-bro
 for åpning, opplesing, fullføringssjekkpunkt uten vedlegg og angre. Faktisk
