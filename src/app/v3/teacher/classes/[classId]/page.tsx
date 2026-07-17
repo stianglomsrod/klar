@@ -7,11 +7,13 @@ import { SmartImportPanel } from "@/components/v3/SmartImportPanel";
 import { TeacherHelpQueue } from "@/components/v3/TeacherHelpQueue";
 import { TeacherStudentExperienceEditor } from "@/components/v3/TeacherStudentExperienceEditor";
 import { TeacherTaskReopenControl } from "@/components/v3/TeacherTaskReopenControl";
+import { TeacherTaskIterationPanel } from "@/components/v3/TeacherTaskIterationPanel";
 import { WeeklyPlanBuilder } from "@/components/v3/WeeklyPlanBuilder";
 import { isAuthorizationError } from "@/server/auth/errors";
 import { getTeacherClassWorkspace } from "@/server/classes/class-service";
 import { getTeacherHelpQueue } from "@/server/help/help-service";
 import { getPublishedWeeklyPlanSummaries } from "@/server/plans/weekly-plan-service";
+import { getTeacherTaskIterationWorkspace } from "@/server/tasks/task-iteration-service";
 
 async function loadClassPage(classId: string) {
   try {
@@ -21,7 +23,21 @@ async function loadClassPage(classId: string) {
     const publishedPlans = workspace.capabilities.includes("plan.publish")
       ? await getPublishedWeeklyPlanSummaries(classId)
       : [];
-    return { status: "ready" as const, workspace, helpQueue, publishedPlans };
+    const canScheduleIterations =
+      workspace.progressAvailable &&
+      workspace.capabilities.includes("student_progress.read") &&
+      workspace.capabilities.includes("task.publish") &&
+      workspace.capabilities.includes("plan.publish");
+    const taskIterations = canScheduleIterations
+      ? await getTeacherTaskIterationWorkspace(classId)
+      : null;
+    return {
+      status: "ready" as const,
+      workspace,
+      helpQueue,
+      publishedPlans,
+      taskIterations,
+    };
   } catch (error) {
     if (isAuthorizationError(error) && error.code === "STAFF_ACCESS_ENDED") {
       return { status: "access-ended" as const };
@@ -52,7 +68,7 @@ export default async function TeacherClassPage({
     );
   }
 
-  const { workspace, helpQueue, publishedPlans } = page;
+  const { workspace, helpQueue, publishedPlans, taskIterations } = page;
   const canPublishTask = workspace.capabilities.includes("task.publish");
   const canPreviewPlan = workspace.capabilities.includes("plan.preview");
   const canPublishPlan = workspace.capabilities.includes("plan.publish");
@@ -118,6 +134,13 @@ export default async function TeacherClassPage({
           canPublish={canPublishPlan}
         />
 
+        {taskIterations && (
+          <TeacherTaskIterationPanel
+            classId={workspace.id}
+            workspace={taskIterations}
+          />
+        )}
+
         <div className="mt-8 grid gap-6 xl:grid-cols-2">
           <section
             aria-labelledby="students-heading"
@@ -160,10 +183,12 @@ export default async function TeacherClassPage({
             className="rounded-2xl border border-slate-200 bg-white p-5"
           >
             <h2 id="tasks-heading" className="text-xl font-bold">
-              Publiserte oppgaver
+              Andre publiserte oppgaver
             </h2>
             {workspace.tasks.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-600">Ingen oppgaver ennå.</p>
+              <p className="mt-3 text-sm text-slate-600">
+                Ingen andre oppgaver ennå.
+              </p>
             ) : (
               <ul className="mt-4 divide-y divide-slate-200">
                 {workspace.tasks.map((task) => (

@@ -29,6 +29,8 @@ export type StudentTodayTask = {
   supportLevel: number;
   pointsValue: number;
   status: StudentTaskStatus;
+  stateVersion: number;
+  scheduleVersion: number;
   reopenMessage: string | null;
   dueAt: string | null;
 };
@@ -50,6 +52,7 @@ export type TaskProgressResult = StudentProgressSummary & {
   assignmentId: string;
   status: StudentTaskStatus;
   stateVersion: number;
+  scheduleVersion: number;
   changed: boolean;
   completionAttemptId: string | null;
   ledgerEntryId: string | null;
@@ -79,6 +82,7 @@ function parseTaskProgressResult(
   value: Json,
   expectedAssignmentId: string,
   expectedRequestId: string,
+  scheduleVersionFallback?: number,
 ): TaskProgressResult {
   if (!isRecord(value)) throw new PrototypeDataError();
 
@@ -86,6 +90,7 @@ function parseTaskProgressResult(
   const newMilestoneLevels = parseLevelArray(value.new_milestone_levels);
   const reactivatedLevels = parseLevelArray(value.reactivated_levels);
   const pendingLevels = parseLevelArray(value.pending_levels);
+  const scheduleVersion = value.schedule_version ?? scheduleVersionFallback;
   if (
     value.assignment_id !== expectedAssignmentId ||
     value.request_id !== expectedRequestId ||
@@ -93,6 +98,8 @@ function parseTaskProgressResult(
     typeof value.changed !== "boolean" ||
     !isInteger(value.state_version) ||
     value.state_version < 1 ||
+    !isInteger(scheduleVersion) ||
+    scheduleVersion < 1 ||
     !isInteger(value.xp_delta) ||
     !isInteger(value.xp_balance) ||
     value.xp_balance < 0 ||
@@ -118,6 +125,7 @@ function parseTaskProgressResult(
     assignmentId: expectedAssignmentId,
     status: status as StudentTaskStatus,
     stateVersion: value.state_version,
+    scheduleVersion,
     changed: value.changed,
     completionAttemptId: value.completion_attempt_id,
     ledgerEntryId: value.ledger_entry_id,
@@ -138,6 +146,18 @@ function assertCommandIds(assignmentId: string, requestId: string): void {
   }
   if (!isUuid(requestId)) {
     throw new PrototypeDataError("Ugyldig forespørsels-ID.");
+  }
+}
+
+function assertExpectedVersions(
+  stateVersion: number,
+  scheduleVersion: number,
+): void {
+  if (!isInteger(stateVersion) || stateVersion < 1) {
+    throw new PrototypeDataError("Oppgaven må åpnes på nytt.");
+  }
+  if (!isInteger(scheduleVersion) || scheduleVersion < 1) {
+    throw new PrototypeDataError("Oppgaven må åpnes på nytt.");
   }
 }
 
@@ -256,7 +276,7 @@ export async function getStudentToday(): Promise<StudentToday> {
   const { data: assignments, error: assignmentError } = await admin
     .from("task_assignments")
     .select(
-      "id, task_definition_id, points_value_snapshot, due_at, visible_from",
+      "id, task_definition_id, points_value_snapshot, due_at, visible_from, schedule_version",
     )
     .eq("organization_id", actor.organizationId)
     .eq("student_id", actor.userId)
@@ -286,7 +306,7 @@ export async function getStudentToday(): Promise<StudentToday> {
         .eq("publication_status", "published"),
       admin
         .from("student_task_state")
-        .select("assignment_id, status, last_transition_id")
+        .select("assignment_id, status, state_version, last_transition_id")
         .in("assignment_id", assignmentIds),
     ]);
   if (taskError || stateError) throw new PrototypeDataError();
@@ -294,6 +314,9 @@ export async function getStudentToday(): Promise<StudentToday> {
   const taskById = new Map(tasks.map((task) => [task.id, task]));
   const stateByAssignment = new Map(
     states.map((state) => [state.assignment_id, state.status]),
+  );
+  const stateVersionByAssignment = new Map(
+    states.map((state) => [state.assignment_id, state.state_version]),
   );
   const reopenTransitionIds = states.flatMap((state) =>
     state.status === "reopened" && state.last_transition_id
@@ -335,6 +358,8 @@ export async function getStudentToday(): Promise<StudentToday> {
           supportLevel: task.support_level,
           pointsValue: assignment.points_value_snapshot,
           status: stateByAssignment.get(assignment.id) ?? "assigned",
+          stateVersion: stateVersionByAssignment.get(assignment.id) ?? 1,
+          scheduleVersion: assignment.schedule_version,
           reopenMessage:
             reopenMessageByTransition.get(
               transitionByAssignment.get(assignment.id) ?? "",
@@ -354,6 +379,8 @@ export async function getStudentToday(): Promise<StudentToday> {
         supportLevel: task.supportLevel,
         pointsValue: task.pointsValue,
         status: task.status,
+        stateVersion: task.stateVersion,
+        scheduleVersion: task.scheduleVersion,
         reopenMessage: task.reopenMessage,
         dueAt: task.dueAt,
       })),
@@ -361,41 +388,62 @@ export async function getStudentToday(): Promise<StudentToday> {
   };
 }
 
-async function runOwnTaskCommand(
-  command: "complete_student_task" | "undo_student_task_completion",
+export async function completeOwnTask(
   assignmentId: string,
   requestId: string,
+  expectedStateVersion: number,
+  expectedScheduleVersion: number,
 ): Promise<TaskProgressResult> {
   assertCommandIds(assignmentId, requestId);
+  assertExpectedVersions(expectedStateVersion, expectedScheduleVersion);
   const actor = await requireAnyStudentActor();
   const admin = getSupabaseAdminClient();
-  const { data, error } = await admin.rpc(command, {
+  const { data, error } = await admin.rpc("complete_student_task_v2", {
+    p_organization_id: actor.organizationId,
     p_assignment_id: assignmentId,
     p_student_id: actor.userId,
     p_request_id: requestId,
+    p_expected_state_version: expectedStateVersion,
+    p_expected_schedule_version: expectedScheduleVersion,
   });
   if (error || data === null) {
+    if (error?.message.includes("changed after it was opened")) {
+      throw new PrototypeDataError(
+        "Oppgaven er flyttet eller oppdatert. Lukk den og åpne den på nytt.",
+      );
+    }
     throw new PrototypeDataError("Kunne ikke oppdatere oppgaven.");
   }
   return parseTaskProgressResult(data, assignmentId, requestId);
 }
 
-export async function completeOwnTask(
-  assignmentId: string,
-  requestId: string,
-): Promise<TaskProgressResult> {
-  return runOwnTaskCommand("complete_student_task", assignmentId, requestId);
-}
-
 export async function undoOwnTaskCompletion(
   assignmentId: string,
   requestId: string,
+  expectedStateVersion: number,
+  expectedScheduleVersion: number,
 ): Promise<TaskProgressResult> {
-  return runOwnTaskCommand(
-    "undo_student_task_completion",
-    assignmentId,
-    requestId,
-  );
+  assertCommandIds(assignmentId, requestId);
+  assertExpectedVersions(expectedStateVersion, expectedScheduleVersion);
+  const actor = await requireAnyStudentActor();
+  const admin = getSupabaseAdminClient();
+  const { data, error } = await admin.rpc("undo_student_task_completion_v2", {
+    p_organization_id: actor.organizationId,
+    p_assignment_id: assignmentId,
+    p_student_id: actor.userId,
+    p_request_id: requestId,
+    p_expected_state_version: expectedStateVersion,
+    p_expected_schedule_version: expectedScheduleVersion,
+  });
+  if (error || data === null) {
+    if (error?.message.includes("changed after it was opened")) {
+      throw new PrototypeDataError(
+        "Oppgaven er flyttet eller oppdatert. Lukk den og åpne den på nytt.",
+      );
+    }
+    throw new PrototypeDataError("Kunne ikke oppdatere oppgaven.");
+  }
+  return parseTaskProgressResult(data, assignmentId, requestId);
 }
 
 export async function reopenStudentTaskForStaff(input: {
@@ -441,5 +489,17 @@ export async function reopenStudentTaskForStaff(input: {
     await requireStaffCapability(input.classId, "task.return");
     throw new PrototypeDataError("Kunne ikke åpne oppgaven igjen.");
   }
-  return parseTaskProgressResult(data, input.assignmentId, input.requestId);
+  const { data: assignment, error: assignmentError } = await admin
+    .from("task_assignments")
+    .select("schedule_version")
+    .eq("id", input.assignmentId)
+    .single();
+  if (assignmentError || !assignment) throw new PrototypeDataError();
+  const scheduleVersion = assignment.schedule_version;
+  return parseTaskProgressResult(
+    data,
+    input.assignmentId,
+    input.requestId,
+    scheduleVersion,
+  );
 }

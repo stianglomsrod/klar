@@ -24,6 +24,10 @@ En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
 - publisere løse oppgaver til alle nåværende elever i en klasse;
 - bygge den første strukturerte klasseuken med tidsfestede økter og oppgaver,
   kontrollere innholdet og publisere én uforanderlig revisjon atomisk;
+- velge en konkret utsending fra klasseuken og enten flytte valgte
+  `assigned`/`reopened`-mottakere til en senere publisert økt eller sende samme
+  oppgavedefinisjon ut som en ny, lenket utsending. Fullførte mottakere kan
+  ikke flyttes, men kan velges ved ny utsending;
 - importere en DOCX til redigerbare oppgaveforslag. DOCX-flyten bevarer ennå
   ikke økter eller ukeplanrevisjon og publiserer eventuelt løse oppgaver;
 - følge oppgavefremdrift, åpne og stenge hjelpekø for den aktuelle økten og ta
@@ -66,6 +70,8 @@ hvert som behovet blir mindre.
 - Hjelpekøen bruker øktbundet stenging, privat og atomisk rekkefølge,
   claim/resolve og release/transfer. Gruppekø og en global køwidget er ikke
   implementert.
+- Ingen oppgave flyttes eller gjentas automatisk. Ukentlig gjentakelse og én
+  felles fullføring på tvers av flere undervisningsøkter er ikke implementert.
 
 ## Avklart målbilde
 
@@ -167,6 +173,14 @@ Privat, reviderbar ansattprioritering, release/transfer og atomisk staff-
 snapshot er dokumentert i
 [`docs/qa/CONTROL_POINT_E2.md`](./docs/qa/CONTROL_POINT_E2.md). Den samlede
 fysiske touch-/skjermleserporten for E03 står fortsatt åpen.
+
+Eksplisitt flytt av samme uferdige oppgave og ny, lenket utsending er
+dokumentert i
+[`docs/qa/CONTROL_POINT_D2.md`](./docs/qa/CONTROL_POINT_D2.md). Tom database,
+representativ oppgradering, målrettet D2-E2E, de fulle autentiserte suitene og
+den responsive Chromium-/WebKit-matrisen er grønne. Fysisk
+D2-iPad-/VoiceOver-port er ikke gjennomført og omtales ikke som automatisk
+bevis.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

@@ -1,6 +1,6 @@
 # E01 – Elevens dag og oppgaveflyt
 
-**Status:** Pågår – B1/C1/E1-flyten er delvis verifisert
+**Status:** Pågår – B1/C1/D2/E1-flyten er delvis verifisert
 
 **Kontrakt:** [§ 6 Elevens dagsflate](../product/DOMAIN_CONTRACT.md#6-elevens-dagsflate)
 
@@ -19,8 +19,9 @@ ned og lukket, neste er kompakt, og historiske løse oppgaver ligger sekundært.
 Oppgaven åpnes uten «I gang», og det eksisterende sjekkpunktet kan fullføres
 uten vedlegg med atomisk XP, elevangre og ansattretur fra B1.
 
-Tekst, lyd og bilde, flytt/send ut på nytt, offlineflyt og hele den fysiske
-enhetsmatrisen gjenstår. E1 har erstattet den tekstlige mellomtilstanden med
+Tekst, lyd og bilde, offlineflyt og hele den fysiske enhetsmatrisen gjenstår.
+D2 har levert eksplisitt flytt eller ny lenket utsending. E1 har erstattet den
+tekstlige mellomtilstanden med
 den avtalte ikonbaserte footer-hånden og samme oppgaveknyttede køflyt.
 
 ## Omfang
@@ -38,6 +39,13 @@ Epicen omfatter:
 
 Epicen omfatter ikke vurdering, karaktersetting, obligatorisk dokumentasjon,
 automatisk etter-skoletid-prioritering eller automatisk flytting til neste dag.
+
+Produkteierens talespor beskriver i tillegg flersesjons-fullføring og en
+eksplisitt ukegjentakelse. Om én fullføring kan dekke flere økter er et åpent
+produktvalg. Ukegjentakelse er en utsatt retning, ikke en implementert regel.
+D2 flytter eller sender ut én konkret iterasjon til én senere publisert økt og
+avgjør ingen av delene. Elevens komplette «alle oppgaver»- og
+ukeoversiktsflater er også senere E01-slicer.
 
 ## Elevflyt
 
@@ -108,7 +116,7 @@ oppbevaring og sletting være dokumentert.
 - [ ] Vedleggsfeil kan prøves på nytt eller fjernes uten skjult deltilstand.
 - [x] Oppgaveknyttet hånd oppretter samme køtype som footer-hånden.
 - [x] Elevangre og ansattretur viser riktig, ikke-straffende status.
-- [ ] Flytt bevarer iterasjons-ID/XP; send ut på nytt oppretter ny ID/XP.
+- [x] Flytt bevarer iterasjons-ID/XP; send ut på nytt oppretter ny ID/XP.
 - [x] Ingen uferdig oppgave flyttes eller kopieres automatisk.
 - [ ] Hele flyten består målmatrisen for mobil, iPad, PC og tilgjengelighet.
 
@@ -123,6 +131,10 @@ Epicen kan markeres ferdig først når migrasjoner kan bygges fra tom database,
 testene er grønne, representative skjermbilder fra alle tre enhetsklassene er
 lagret i kontrollpunktet, og README/runbook beskriver den faktisk aktiverte
 pilotgrensen.
+
+Delbeviset for flytt og ny utsending finnes i
+[Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md). Det lukker ikke medier,
+offlineflyt eller hele den fysiske enhetsmatrisen.
 
 Delbevis for øktprojeksjon og den første klasseuken finnes i
 [Kontrollpunkt C1](../qa/CONTROL_POINT_C1.md). Fullførings-/XP-beviset finnes i

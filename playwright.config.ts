@@ -94,6 +94,20 @@ if (authenticated) {
           viewport: { width: 1440, height: 900 },
         },
       },
+      {
+        name: "task-iteration",
+        testMatch: /authenticated\/task-iteration\.spec\.ts/,
+        dependencies: ["auth-setup"],
+        // The spec proves durable database effects. Retrying inside one seeded
+        // run would reuse an already-mutated graph and could hide a real race.
+        retries: 0,
+        use: {
+          browserName: authBrowser,
+          storageState: path.join(authDirectory, "visual-staff-aal2.json"),
+          viewport: { width: 1024, height: 768 },
+          hasTouch: true,
+        },
+      },
     );
   }
 

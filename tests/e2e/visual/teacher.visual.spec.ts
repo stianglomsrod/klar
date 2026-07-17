@@ -37,6 +37,163 @@ test("lagrer assignment-avgrenset ansattflate som QA-artefakt", async ({ page },
       .getByRole("region", { name: "Elever" })
       .getByText("Visuell elev", { exact: true }),
   ).toBeVisible();
+
+  const publishedTasks = page.getByRole("region", {
+    name: "Publiserte oppgaver",
+  });
+  const scheduledTask = publishedTasks.getByRole("article", {
+    name: "Visuell øktoppgave, utsending 1",
+  }).last();
+  const scheduleTrigger = scheduledTask.getByRole("button", {
+    name: "Flytt eller send ut på nytt",
+  });
+  await expectMinimumTargetSize(scheduleTrigger);
+  await scheduleTrigger.focus();
+  await page.keyboard.press("Enter");
+
+  const scheduleDialog = page.getByRole("dialog", {
+    name: "Flytt eller send ut på nytt Visuell øktoppgave",
+  });
+  const scheduleDialogElement = page.locator(
+    "dialog.staff-dialog--task-iteration",
+  );
+  await expect(scheduleDialog).toBeVisible();
+  const moveChoice = scheduleDialog.getByRole("radio", {
+    name: "Flytt samme oppgave",
+    exact: false,
+  });
+  const reissueChoice = scheduleDialog.getByRole("radio", {
+    name: "Send ut på nytt",
+    exact: false,
+  });
+  const targetSession = scheduleDialog.getByLabel("Ny undervisningsøkt");
+  const visualStudent = scheduleDialog.getByRole("checkbox", {
+    name: "Visuell elev",
+    exact: false,
+  });
+  const closeScheduleDialog = scheduleDialog.getByRole("button", {
+    name: "Lukk",
+  });
+  const cancelScheduleDialog = scheduleDialog.getByRole("button", {
+    name: "Avbryt",
+  });
+  await expect(moveChoice).toBeFocused();
+  expect(
+    await moveChoice.evaluate((element) => element.matches(":focus-visible")),
+  ).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  await expect(closeScheduleDialog).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(cancelScheduleDialog).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(closeScheduleDialog).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(scheduleDialogElement).not.toBeVisible();
+  await expect(scheduleTrigger).toBeFocused();
+  await scheduleTrigger.click();
+  await expect(scheduleDialog).toBeVisible();
+  await expect(moveChoice).not.toBeChecked();
+  await expect(reissueChoice).not.toBeChecked();
+  await expect(visualStudent).not.toBeChecked();
+  const choiceScreenshot = testInfo.outputPath(
+    "task-iteration-dialog-choice-viewport.png",
+  );
+  await page.screenshot({
+    path: choiceScreenshot,
+    fullPage: false,
+    animations: "disabled",
+  });
+  await testInfo.attach("task-iteration-dialog-choice-viewport", {
+    path: choiceScreenshot,
+    contentType: "image/png",
+  });
+  await expectMinimumTargetSize(moveChoice.locator(".."));
+  await expectMinimumTargetSize(reissueChoice.locator(".."));
+
+  await reissueChoice.check();
+  const targetOptionCount = await targetSession.locator("option").count();
+  expect(targetOptionCount).toBeGreaterThan(1);
+  await targetSession.selectOption({ index: targetOptionCount - 1 });
+  await expect(visualStudent).toBeEnabled();
+  await expectMinimumTargetSize(visualStudent.locator(".."));
+  await visualStudent.check();
+  const reviewSummary = scheduleDialog.getByRole("heading", {
+    name: "Kontroller valget",
+  });
+  await expect(reviewSummary).toBeVisible();
+  await expect(reviewSummary).toBeInViewport();
+  await expect(
+    scheduleDialog.getByText("Lager en ny oppgave. Eleven kan få poeng på nytt.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+
+  await moveChoice.check();
+  await expect(visualStudent).not.toBeChecked();
+  await expect(targetSession).toHaveValue("");
+  await targetSession.selectOption({ index: targetOptionCount - 1 });
+  await visualStudent.check();
+  await expect(reviewSummary).toBeInViewport();
+  await expect(
+    scheduleDialog.getByText("Beholder status og poenghistorikk. Ingen ny poengmulighet.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expectMinimumTargetSize(
+    scheduleDialog.getByRole("button", { name: "Flytt oppgaven" }),
+  );
+  await expectMinimumTargetSize(
+    scheduleDialog.getByRole("button", { name: "Avbryt" }),
+  );
+  await expectNoHorizontalOverflow(page);
+  await expectNoAxeViolations(page);
+
+  const dialogBox = await scheduleDialog.boundingBox();
+  const dialogViewport = page.viewportSize();
+  expect(dialogBox, "D2-dialogen skal ha målbar geometri").not.toBeNull();
+  if (dialogBox && dialogViewport) {
+    if (
+      dialogViewport.width < 768 ||
+      (dialogViewport.width === 768 && dialogViewport.height > dialogViewport.width)
+    ) {
+      expect(dialogBox.x).toBeLessThanOrEqual(1);
+      expect(dialogBox.y).toBeLessThanOrEqual(1);
+      expect(dialogBox.width).toBeGreaterThanOrEqual(dialogViewport.width - 2);
+      expect(dialogBox.height).toBeGreaterThanOrEqual(dialogViewport.height - 2);
+    } else if (
+      dialogViewport.width >= 768 &&
+      dialogViewport.width <= 1180 &&
+      dialogViewport.width > dialogViewport.height
+    ) {
+      expect(dialogBox.x + dialogBox.width).toBeGreaterThanOrEqual(
+        dialogViewport.width - 1,
+      );
+      expect(dialogBox.height).toBeGreaterThanOrEqual(dialogViewport.height - 2);
+      expect(dialogBox.width).toBeLessThan(dialogViewport.width);
+    } else {
+      expect(dialogBox.x).toBeGreaterThan(0);
+      expect(dialogBox.y).toBeGreaterThan(0);
+      expect(dialogBox.width).toBeLessThan(dialogViewport.width);
+      expect(dialogBox.height).toBeLessThan(dialogViewport.height);
+    }
+  }
+
+  const scheduleScreenshot = testInfo.outputPath(
+    "task-iteration-dialog-review-viewport.png",
+  );
+  await page.screenshot({
+    path: scheduleScreenshot,
+    fullPage: false,
+    animations: "disabled",
+  });
+  await testInfo.attach("task-iteration-dialog-review-viewport", {
+    path: scheduleScreenshot,
+    contentType: "image/png",
+  });
+  await cancelScheduleDialog.click();
+  await expect(scheduleDialogElement).not.toBeVisible();
+  await expect(scheduleTrigger).toBeFocused();
+
   const planBuilder = page.getByRole("region", {
     name: "Planlegg undervisningsøktene",
   });
@@ -92,8 +249,8 @@ test("lagrer assignment-avgrenset ansattflate som QA-artefakt", async ({ page },
   await expectMinimumTargetSize(
     page.getByRole("button", { name: "Publiser løs oppgave" }),
   );
-  const taskSection = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Publiserte oppgaver" }),
+  const taskSection = page.getByRole("region", {
+    name: "Andre publiserte oppgaver",
   });
   const returnTask = taskSection
     .locator(":scope > ul > li")

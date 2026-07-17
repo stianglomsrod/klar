@@ -33,7 +33,8 @@ Ved motstrid gjelder følgende rekkefølge:
 
 1. eksplisitte produktbeslutninger som er innarbeidet i denne kontrakten;
 2. de fem designprinsippene og funnene fra evalueringen i masteroppgaven;
-3. de utvalgte Klar-skjermene og den dokumenterte oppgaveflyten;
+3. produkteierens tidskodede fortellerstemme i videoomvisningen, de utvalgte
+   Klar-skjermene og den dokumenterte oppgaveflyten;
 4. øvrig UI og kode fra Klar 2.x som designhistorikk;
 5. løse idéer, skisser og tidlige konsepter.
 
@@ -46,6 +47,11 @@ Hvis denne målkontrakten og den kjørbare piloten avviker, er
 `README.md`, `PILOT_RUNBOOK.md`, migrasjonene og testene sannheten om hva som
 kan brukes **nå**. Avviket skal håndteres som planlagt arbeid, ikke skjules i
 UI eller dokumentasjon.
+
+Den muntlige produktintensjonen er kuratert og klassifisert i
+[`NARRATED_PROTOTYPE_INTENT.md`](./NARRATED_PROTOTYPE_INTENT.md). Talesporet
+kan forklare hensikten bak en historisk kontroll, men et åpent alternativ blir
+ikke bindende før det er avgjort og innarbeidet i denne kontrakten.
 
 ## 3. Førende designprinsipper
 
@@ -581,6 +587,22 @@ Følgende er ikke en del av den bindende målkontrakten nå:
 - push- og smartklokkevarsler;
 - generell statistikk utover det som trengs for pedagogisk oppfølging;
 - valg av ekstern KI-tjeneste for dokumenttolking.
+
+Produkteierens fortellerstemme dokumenterer også ønskede eller alternative
+historiske flyter som ennå ikke er normative valg:
+
+- om én fullføring kan dekke flere valgte undervisningsøkter, eller om hver
+  økt alltid skal ha en selvstendig oppgaveiterasjon og fullføring;
+- hvordan en eksplisitt ukentlig gjentakelsesregel eventuelt skal opprette,
+  forhåndsvise, endre og stoppe framtidige iterasjoner;
+- personvern-, modererings- og oppbevaringsregler for reaksjon og kommentar på
+  frivillig elevmedia; og
+- det eksakte livsløpet for innløsning og retting av en valgt kupong, utover
+  garantien om én unik belønningstildeling og claim per nivåmilepæl.
+
+Disse alternativene skal ikke implementeres ved gjetning. De er forskjellige
+fra, og endrer ikke, forbudet mot automatisk flytting eller kopiering av
+uferdige oppgaver etter skoletid.
 
 Før medieinnlevering kan aktiveres i en reell skolepilot, må lagringsregion,
 filskanning, størrelsesgrenser, format, tilgang, oppbevaring, elevsletting og

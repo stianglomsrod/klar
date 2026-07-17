@@ -979,7 +979,7 @@ select set_config(
 do $$
 begin
   if (select count(distinct queue_session_id) from public.help_queue_signals) <> 1
-    or (select count(*) from public.help_queue_signals) <> 2
+    or (select count(*) from public.help_queue_signals) <> 3
   then
     raise exception 'AAL2 help manager could not read the queue signal';
   end if;

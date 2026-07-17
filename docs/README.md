@@ -29,6 +29,9 @@ tilgjengelighetsfeil.
   begreper, tilstander, regler og UX-invarianter.
 - [UI/UX-referanse](./product/UI_UX_REFERENCE.md) – kuratert visuell og
   interaksjonsmessig retning fra oppgaven, skjermbildene og 2.x-erfaringene.
+- [Fortalt produktintensjon](./product/NARRATED_PROTOTYPE_INTENT.md) –
+  tidskodet sporing av produkteierens forklaring i videoen, med tydelig skille
+  mellom innarbeidet retning, utsatt arbeid, åpne valg og antimønstre.
 - [Implementeringsplan](./IMPLEMENTATION_ROADMAP.md) – avhengigheter,
   kontrollpunkter og anbefalt rekkefølge.
 - [Epic-oversikt](./epics/README.md) – sporbare arbeidsområder og status.
@@ -47,6 +50,9 @@ tilgjengelighetsfeil.
   oppgaveovergang, XP, elevangre og ansattretur.
 - [Kontrollpunkt C1](./qa/CONTROL_POINT_C1.md) – første strukturerte
   klasseukerevisjon, øktstyrt elevdag og lagrede responsive QA-artefakter.
+- [Kontrollpunkt D2](./qa/CONTROL_POINT_D2.md) – eksplisitt flytt av samme
+  uferdige oppgave eller ny, lenket utsending med bevart historikk og
+  responsive QA-bevis.
 - [Kontrollpunkt E1](./qa/CONTROL_POINT_E1.md) – øktbundet hjelpekø,
   elevhånd, privacy, samtidighet, reconnect og responsive QA-artefakter.
 

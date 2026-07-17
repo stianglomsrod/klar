@@ -36,6 +36,7 @@ const postA1Migrations = [
   "20260717000000_session_help_queues.sql",
 ];
 const e2Migration = "20260717000001_help_queue_staff_controls.sql";
+const d2Migration = "20260717000002_task_iteration_scheduling.sql";
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -201,6 +202,10 @@ function applyPostA1(containerName) {
 
 function applyE2(containerName) {
   runSql(containerName, `supabase/migrations/${e2Migration}`);
+}
+
+function applyD2(containerName) {
+  runSql(containerName, `supabase/migrations/${d2Migration}`);
 }
 
 function applyA1Followups(containerName) {
@@ -512,40 +517,90 @@ async function runConcurrency(config) {
 }
 
 async function runProgressConcurrency(config) {
+  const organizationId = "b0000000-0000-4000-8000-000000000001";
   const studentId = "a0000000-0000-4000-8000-000000000006";
   const staffId = "a0000000-0000-4000-8000-000000000002";
   const classId = "c0000000-0000-4000-8000-000000000001";
   const completeSql =
-    "select public.complete_student_task($1,$2,$3) as result";
+    `select public.complete_student_task_v2(
+      $1,$2,$3,$4,$5,$6
+    ) as result`;
+
+  async function readTaskVersions(assignmentId) {
+    return withClient(
+      config,
+      `klar-b1-versions-${assignmentId.slice(-4)}`,
+      async (client) => {
+        const result = await client.query(
+          `select state.state_version::integer as state_version,
+             assignment.schedule_version::integer as schedule_version
+           from public.task_assignments as assignment
+           join public.student_task_state as state
+             on state.assignment_id = assignment.id
+           where assignment.id = $1`,
+          [assignmentId],
+        );
+        assert.equal(result.rowCount, 1);
+        return result.rows[0];
+      },
+    );
+  }
+
+  const distinctVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000001",
+  );
 
   const distinctRequestResults = await synchronizedPair(
     config,
     "progress-distinct-requests",
     (client) =>
       client.query(completeSql, [
+        organizationId,
         "f2000000-0000-4000-8000-000000000001",
         studentId,
         "f3000000-0000-4000-8000-000000000001",
+        distinctVersions.state_version,
+        distinctVersions.schedule_version,
       ]),
     (client) =>
       client.query(completeSql, [
+        organizationId,
         "f2000000-0000-4000-8000-000000000001",
         studentId,
         "f3000000-0000-4000-8000-000000000002",
+        distinctVersions.state_version,
+        distinctVersions.schedule_version,
       ]),
   );
-  assert(distinctRequestResults.every((result) => result.status === "fulfilled"));
-  assert.deepEqual(
-    distinctRequestResults
-      .map((result) => result.value.rows[0].result.changed)
-      .sort(),
-    [false, true],
+  assert.equal(
+    distinctRequestResults.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    distinctRequestResults.filter((result) => result.status === "rejected").length,
+    1,
+  );
+  assert.equal(
+    distinctRequestResults.find((result) => result.status === "fulfilled")
+      .value.rows[0].result.changed,
+    true,
+  );
+  assert.match(
+    distinctRequestResults.find((result) => result.status === "rejected")
+      .reason.message,
+    /changed after it was opened/i,
   );
 
+  const sameRequestVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000005",
+  );
   const sameRequestPayload = [
+    organizationId,
     "f2000000-0000-4000-8000-000000000005",
     studentId,
     "f3000000-0000-4000-8000-000000000003",
+    sameRequestVersions.state_version,
+    sameRequestVersions.schedule_version,
   ];
   const sameRequestResults = await synchronizedPair(
     config,
@@ -559,20 +614,30 @@ async function runProgressConcurrency(config) {
     sameRequestResults[1].value.rows[0].result,
   );
 
+  const [parallelFirstVersions, parallelSecondVersions] = await Promise.all([
+    readTaskVersions("f2000000-0000-4000-8000-000000000002"),
+    readTaskVersions("f2000000-0000-4000-8000-000000000003"),
+  ]);
   const parallelAssignments = await synchronizedPair(
     config,
     "progress-parallel-assignments",
     (client) =>
       client.query(completeSql, [
+        organizationId,
         "f2000000-0000-4000-8000-000000000002",
         studentId,
         "f3000000-0000-4000-8000-000000000004",
+        parallelFirstVersions.state_version,
+        parallelFirstVersions.schedule_version,
       ]),
     (client) =>
       client.query(completeSql, [
+        organizationId,
         "f2000000-0000-4000-8000-000000000003",
         studentId,
         "f3000000-0000-4000-8000-000000000005",
+        parallelSecondVersions.state_version,
+        parallelSecondVersions.schedule_version,
       ]),
   );
   assert(parallelAssignments.every((result) => result.status === "fulfilled"));
@@ -604,25 +669,40 @@ async function runProgressConcurrency(config) {
     },
   );
 
+  const reversalVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000004",
+  );
   await withClient(config, "klar-b1-prime-reversal-race", async (client) => {
     const result = await client.query(completeSql, [
+      organizationId,
       "f2000000-0000-4000-8000-000000000004",
       studentId,
       "f3000000-0000-4000-8000-000000000006",
+      reversalVersions.state_version,
+      reversalVersions.schedule_version,
     ]);
     assert.equal(result.rows[0].result.changed, true);
   });
+
+  const completedReversalVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000004",
+  );
 
   const reversalRace = await synchronizedPair(
     config,
     "progress-undo-reopen",
     (client) =>
       client.query(
-        "select public.undo_student_task_completion($1,$2,$3) as result",
+        `select public.undo_student_task_completion_v2(
+          $1,$2,$3,$4,$5,$6
+        ) as result`,
         [
+          organizationId,
           "f2000000-0000-4000-8000-000000000004",
           studentId,
           "f3000000-0000-4000-8000-000000000007",
+          completedReversalVersions.state_version,
+          completedReversalVersions.schedule_version,
         ],
       ),
     (client) =>
@@ -640,11 +720,24 @@ async function runProgressConcurrency(config) {
         ],
       ),
   );
-  assert(reversalRace.every((result) => result.status === "fulfilled"));
-  assert.deepEqual(
-    reversalRace.map((result) => result.value.rows[0].result.changed).sort(),
-    [false, true],
+  const fulfilledReversals = reversalRace.filter(
+    (result) => result.status === "fulfilled",
   );
+  assert.equal(
+    fulfilledReversals.filter((result) => result.value.rows[0].result.changed).length,
+    1,
+  );
+  const rejectedReversal = reversalRace.find(
+    (result) => result.status === "rejected",
+  );
+  if (rejectedReversal) {
+    assert.match(rejectedReversal.reason.message, /changed after it was opened/i);
+  } else {
+    assert.deepEqual(
+      fulfilledReversals.map((result) => result.value.rows[0].result.changed).sort(),
+      [false, true],
+    );
+  }
 
   await withClient(config, "klar-b1-assert-progress-races", async (client) => {
     const result = await client.query(
@@ -694,7 +787,7 @@ async function runProgressConcurrency(config) {
         ? result.rows[0].raced_status
         : "unexpected",
       distinct_attempts: 1,
-      distinct_receipts: 2,
+      distinct_receipts: 1,
       same_attempts: 1,
       same_receipts: 1,
       raced_reversals: 1,
@@ -723,10 +816,22 @@ async function runProgressConcurrency(config) {
       before insert on public.audit_events
       for each row execute function public.b1_force_progress_audit_failure()`);
 
+    const retryVersions = await client.query(
+      `select state.state_version::integer as state_version,
+         assignment.schedule_version::integer as schedule_version
+       from public.task_assignments as assignment
+       join public.student_task_state as state
+         on state.assignment_id = assignment.id
+       where assignment.id = $1`,
+      ["f2000000-0000-4000-8000-000000000006"],
+    );
     const retryPayload = [
+      organizationId,
       "f2000000-0000-4000-8000-000000000006",
       studentId,
       "f3000000-0000-4000-8000-000000000009",
+      retryVersions.rows[0].state_version,
+      retryVersions.rows[0].schedule_version,
     ];
     await assert.rejects(client.query(completeSql, retryPayload), /forced B1 audit failure/);
 
@@ -737,7 +842,7 @@ async function runProgressConcurrency(config) {
         (select count(*)::integer from public.student_xp_ledger where assignment_id = $1) as ledger,
         (select count(*)::integer from public.progress_command_receipts where assignment_id = $1) as receipts,
         (select status::text from public.student_task_state where assignment_id = $1) as status`,
-      [retryPayload[0]],
+      [retryPayload[1]],
     );
     assert.deepEqual(beforeRetry.rows[0], {
       attempts: 0,
@@ -752,6 +857,99 @@ async function runProgressConcurrency(config) {
     const retry = await client.query(completeSql, retryPayload);
     assert.equal(retry.rows[0].result.changed, true);
     assert.equal(retry.rows[0].result.xp_balance, 50);
+  });
+
+  const undoSql = `select public.undo_student_task_completion_v2(
+    $1,$2,$3,$4,$5,$6
+  ) as result`;
+  const completedRetryVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000006",
+  );
+  const sameUndoPayload = [
+    organizationId,
+    "f2000000-0000-4000-8000-000000000006",
+    studentId,
+    "f3000000-0000-4000-8000-000000000010",
+    completedRetryVersions.state_version,
+    completedRetryVersions.schedule_version,
+  ];
+  const sameUndoResults = await synchronizedPair(
+    config,
+    "progress-same-undo-request",
+    (client) => client.query(undoSql, sameUndoPayload),
+    (client) => client.query(undoSql, sameUndoPayload),
+  );
+  assert(sameUndoResults.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    sameUndoResults[0].value.rows[0].result,
+    sameUndoResults[1].value.rows[0].result,
+  );
+
+  const recompleteVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000006",
+  );
+  await withClient(config, "klar-b1-recomplete-for-undo-race", (client) =>
+    client.query(completeSql, [
+      organizationId,
+      "f2000000-0000-4000-8000-000000000006",
+      studentId,
+      "f3000000-0000-4000-8000-000000000011",
+      recompleteVersions.state_version,
+      recompleteVersions.schedule_version,
+    ]),
+  );
+  const distinctUndoVersions = await readTaskVersions(
+    "f2000000-0000-4000-8000-000000000006",
+  );
+  const distinctUndoArguments = (requestId) => [
+    organizationId,
+    "f2000000-0000-4000-8000-000000000006",
+    studentId,
+    requestId,
+    distinctUndoVersions.state_version,
+    distinctUndoVersions.schedule_version,
+  ];
+  const distinctUndoResults = await synchronizedPair(
+    config,
+    "progress-distinct-undo-requests",
+    (client) =>
+      client.query(
+        undoSql,
+        distinctUndoArguments("f3000000-0000-4000-8000-000000000012"),
+      ),
+    (client) =>
+      client.query(
+        undoSql,
+        distinctUndoArguments("f3000000-0000-4000-8000-000000000013"),
+      ),
+  );
+  assert.equal(
+    distinctUndoResults.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.match(
+    distinctUndoResults.find((result) => result.status === "rejected").reason.message,
+    /changed after it was opened/i,
+  );
+  await withClient(config, "klar-b1-assert-undo-cas", async (client) => {
+    const proof = await client.query(
+      `select
+         state.status::text,
+         state.state_version::integer,
+         (select count(*)::integer from public.task_undo_v2_receipts
+          where assignment_id = state.assignment_id) as receipts,
+         (select count(*)::integer from public.student_xp_ledger
+          where assignment_id = state.assignment_id and entry_kind = 'reversal') as reversals
+       from public.student_task_state as state
+       where state.assignment_id = $1`,
+      ["f2000000-0000-4000-8000-000000000006"],
+    );
+    assert.deepEqual(proof.rows[0], {
+      status: "assigned",
+      state_version: distinctUndoVersions.state_version + 1,
+      receipts: 2,
+      reversals: 2,
+    });
   });
 }
 
@@ -776,6 +974,502 @@ function weeklyCandidate(prefix, title, date, taskCount = 1) {
       },
     ],
   };
+}
+
+async function runTaskScheduleConcurrency(config) {
+  const organizationId = "b0000000-0000-4000-8000-000000000001";
+  const classId = "c0000000-0000-4000-8000-000000000001";
+  const actorId = "a0000000-0000-4000-8000-000000000004";
+  const primaryStudentId = "a0000000-0000-4000-8000-000000000006";
+  const planWeek = "2099-07-13";
+  const fixture = await withClient(
+    config,
+    "klar-d2-load-concurrency-fixture",
+    async (client) => {
+      const [staff, plan, sessions, assignments] = await Promise.all([
+        client.query(
+          `select assignment.id::text
+           from public.staff_assignments as assignment
+           join public.staff_assignment_class_scopes as scope
+             on scope.assignment_id = assignment.id
+            and scope.organization_id = assignment.organization_id
+           where assignment.user_id = $1
+             and scope.class_id = $2
+             and assignment.revoked_at is null
+             and assignment.starts_at <= transaction_timestamp()
+             and transaction_timestamp() < assignment.ends_at
+           order by assignment.starts_at desc, assignment.id
+           limit 1`,
+          [actorId, classId],
+        ),
+        client.query(
+          `select plan.id::text, plan.lock_version::integer
+           from public.weekly_plans as plan
+           where plan.class_id = $1 and plan.week_start_date = $2::date`,
+          [classId, planWeek],
+        ),
+        client.query(
+          `select session.id::text,
+             session.teaching_session_id::text,
+             session.position::integer
+           from public.plan_revision_sessions as session
+           join public.weekly_plans as plan on plan.id = session.weekly_plan_id
+           where plan.class_id = $1 and plan.week_start_date = $2::date
+           order by session.position`,
+          [classId, planWeek],
+        ),
+        client.query(
+          `select assignment.id::text as assignment_id,
+             assignment.student_id::text,
+             assignment.iteration_id::text,
+             assignment.schedule_version::integer,
+             state.state_version::integer,
+             iteration.management_version::integer,
+             revision_session.position::integer as session_position
+           from public.task_assignments as assignment
+           join public.student_task_state as state
+             on state.assignment_id = assignment.id
+           join public.task_iterations as iteration
+             on iteration.id = assignment.iteration_id
+           join public.plan_revision_tasks as revision_task
+             on revision_task.id = assignment.source_plan_revision_task_id
+           join public.plan_revision_sessions as revision_session
+             on revision_session.id = revision_task.revision_session_id
+           join public.weekly_plans as plan
+             on plan.id = revision_task.weekly_plan_id
+           where plan.class_id = $1 and plan.week_start_date = $2::date
+           order by revision_session.position, assignment.student_id`,
+          [classId, planWeek],
+        ),
+      ]);
+      assert.equal(staff.rowCount, 1);
+      assert.equal(plan.rowCount, 1);
+      assert.equal(sessions.rowCount, 4);
+      assert.equal(assignments.rowCount, 6);
+      return {
+        staffAssignmentId: staff.rows[0].id,
+        planLockVersion: plan.rows[0].lock_version,
+        sessions: sessions.rows,
+        assignments: assignments.rows,
+      };
+    },
+  );
+
+  const sourceFor = (sessionPosition, studentId = primaryStudentId) => {
+    const source = fixture.assignments.find(
+      (assignment) =>
+        assignment.session_position === sessionPosition &&
+        assignment.student_id === studentId,
+    );
+    assert(source, `D2-kilden for økt ${sessionPosition} mangler.`);
+    return source;
+  };
+  const targetFor = (position) => {
+    const target = fixture.sessions.find((session) => session.position === position);
+    assert(target, `D2-måløkten ${position} mangler.`);
+    return target;
+  };
+  const moveSql =
+    `select public.move_task_iteration_v1(
+       $1,$2,$3::uuid[],$4::integer[],$5::integer[],$6,$7,$8,$9,$10,$11
+     ) as result`;
+  const reissueSql =
+    `select public.reissue_task_iteration_v1(
+       $1,$2,$3::uuid[],$4::integer[],$5::integer[],$6,$7,$8,$9,$10,$11
+     ) as result`;
+  const commandArguments = (source, target, requestId) => [
+    classId,
+    source.iteration_id,
+    [source.assignment_id],
+    [source.state_version],
+    [source.schedule_version],
+    target.id,
+    source.management_version,
+    fixture.planLockVersion,
+    actorId,
+    fixture.staffAssignmentId,
+    requestId,
+  ];
+
+  const moveSource = sourceFor(0);
+  const moveTargets = [targetFor(1), targetFor(2)];
+  const moveRequestIds = [
+    "d2100000-0000-4000-8000-000000000001",
+    "d2100000-0000-4000-8000-000000000002",
+  ];
+  const competingMoves = await synchronizedPair(
+    config,
+    "d2-competing-moves",
+    (client) =>
+      client.query(
+        moveSql,
+        commandArguments(moveSource, moveTargets[0], moveRequestIds[0]),
+      ),
+    (client) =>
+      client.query(
+        moveSql,
+        commandArguments(moveSource, moveTargets[1], moveRequestIds[1]),
+      ),
+  );
+  assert.equal(
+    competingMoves.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    competingMoves.filter((result) => result.status === "rejected").length,
+    1,
+  );
+  assert.match(
+    competingMoves.find((result) => result.status === "rejected").reason.message,
+    /Task iteration changed after preview/i,
+  );
+  const moveWinner = competingMoves.find(
+    (result) => result.status === "fulfilled",
+  ).value.rows[0].result;
+  assert(moveRequestIds.includes(moveWinner.request_id));
+  assert(
+    moveTargets.some(
+      (target) => target.teaching_session_id === moveWinner.target_teaching_session_id,
+    ),
+  );
+  await withClient(config, "klar-d2-assert-competing-moves", async (client) => {
+    const proof = await client.query(
+      `select iteration.management_version::integer,
+         assignment.schedule_version::integer,
+         assignment.scheduled_teaching_session_id::text,
+         state.state_version::integer,
+         state.status::text,
+         (select count(*)::integer from public.task_schedule_events
+          where source_assignment_id = assignment.id and command = 'move') as events,
+         (select count(*)::integer from public.task_schedule_command_receipts
+          where request_id = any($2::uuid[])) as receipts,
+         (select count(*)::integer from public.audit_events
+          where event_name = 'task.iteration_moved'
+            and metadata ->> 'request_id' = $3) as audits
+       from public.task_assignments as assignment
+       join public.task_iterations as iteration on iteration.id = assignment.iteration_id
+       join public.student_task_state as state on state.assignment_id = assignment.id
+       where assignment.id = $1`,
+      [moveSource.assignment_id, moveRequestIds, moveWinner.request_id],
+    );
+    assert.deepEqual(proof.rows[0], {
+      management_version: moveSource.management_version + 1,
+      schedule_version: moveSource.schedule_version + 1,
+      scheduled_teaching_session_id: moveWinner.target_teaching_session_id,
+      state_version: moveSource.state_version,
+      status: "assigned",
+      events: 1,
+      receipts: 1,
+      audits: 1,
+    });
+  });
+
+  const reissueSource = sourceFor(1);
+  const reissueTargets = [targetFor(2), targetFor(3)];
+  const reissueRequestIds = [
+    "d2100000-0000-4000-8000-000000000003",
+    "d2100000-0000-4000-8000-000000000004",
+  ];
+  const competingReissues = await synchronizedPair(
+    config,
+    "d2-competing-reissues",
+    (client) =>
+      client.query(
+        reissueSql,
+        commandArguments(reissueSource, reissueTargets[0], reissueRequestIds[0]),
+      ),
+    (client) =>
+      client.query(
+        reissueSql,
+        commandArguments(reissueSource, reissueTargets[1], reissueRequestIds[1]),
+      ),
+  );
+  assert.equal(
+    competingReissues.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    competingReissues.filter((result) => result.status === "rejected").length,
+    1,
+  );
+  assert.match(
+    competingReissues.find((result) => result.status === "rejected").reason.message,
+    /Task iteration changed after preview/i,
+  );
+  const reissueWinner = competingReissues.find(
+    (result) => result.status === "fulfilled",
+  ).value.rows[0].result;
+  assert(reissueRequestIds.includes(reissueWinner.request_id));
+  assert.notEqual(reissueWinner.result_iteration_id, reissueSource.iteration_id);
+  await withClient(config, "klar-d2-assert-competing-reissues", async (client) => {
+    const proof = await client.query(
+      `select source_iteration.management_version::integer,
+         source_assignment.schedule_version::integer as source_schedule_version,
+         source_state.state_version::integer as source_state_version,
+         source_state.status::text as source_status,
+         result_iteration.reissued_from_iteration_id::text,
+         result_iteration.management_version::integer as result_management_version,
+         result_assignment.schedule_version::integer as result_schedule_version,
+         result_state.state_version::integer as result_state_version,
+         result_state.status::text as result_status,
+         (select count(*)::integer from public.task_schedule_events
+          where source_assignment_id = source_assignment.id and command = 'reissue') as events,
+         (select count(*)::integer from public.task_schedule_command_receipts
+          where request_id = any($3::uuid[])) as receipts,
+         (select count(*)::integer from public.audit_events
+          where event_name = 'task.iteration_reissued'
+            and metadata ->> 'request_id' = $4) as audits
+       from public.task_assignments as source_assignment
+       join public.task_iterations as source_iteration
+         on source_iteration.id = source_assignment.iteration_id
+       join public.student_task_state as source_state
+         on source_state.assignment_id = source_assignment.id
+       join public.task_assignments as result_assignment
+         on result_assignment.id = $2
+       join public.task_iterations as result_iteration
+         on result_iteration.id = result_assignment.iteration_id
+       join public.student_task_state as result_state
+         on result_state.assignment_id = result_assignment.id
+       where source_assignment.id = $1`,
+      [
+        reissueSource.assignment_id,
+        reissueWinner.assignments[0].assignment_id,
+        reissueRequestIds,
+        reissueWinner.request_id,
+      ],
+    );
+    assert.deepEqual(proof.rows[0], {
+      management_version: reissueSource.management_version + 1,
+      source_schedule_version: reissueSource.schedule_version,
+      source_state_version: reissueSource.state_version,
+      source_status: "assigned",
+      reissued_from_iteration_id: reissueSource.iteration_id,
+      result_management_version: 1,
+      result_schedule_version: 1,
+      result_state_version: 1,
+      result_status: "assigned",
+      events: 1,
+      receipts: 1,
+      audits: 1,
+    });
+  });
+
+  const retrySource = sourceFor(2);
+  const retryTarget = targetFor(3);
+  const retryRequestId = "d2100000-0000-4000-8000-000000000005";
+  const retryArguments = commandArguments(retrySource, retryTarget, retryRequestId);
+  const sameRequest = await synchronizedPair(
+    config,
+    "d2-same-reissue-request",
+    (client) => client.query(reissueSql, retryArguments),
+    (client) => client.query(reissueSql, retryArguments),
+  );
+  assert(sameRequest.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    sameRequest[0].value.rows[0].result,
+    sameRequest[1].value.rows[0].result,
+  );
+  const retryResult = sameRequest[0].value.rows[0].result;
+  await withClient(config, "klar-d2-assert-same-reissue", async (client) => {
+    const proof = await client.query(
+      `select
+         (select count(*)::integer from public.task_iterations
+          where reissued_from_iteration_id = $1) as iterations,
+         (select count(*)::integer from public.task_assignments
+          where id = $2) as assignments,
+         (select count(*)::integer from public.task_schedule_events
+          where request_id = $3) as events,
+         (select count(*)::integer from public.task_schedule_command_receipts
+          where request_id = $3) as receipts,
+         (select count(*)::integer from public.audit_events
+          where event_name = 'task.iteration_reissued'
+            and metadata ->> 'request_id' = $3::text) as audits`,
+      [
+        retrySource.iteration_id,
+        retryResult.assignments[0].assignment_id,
+        retryRequestId,
+      ],
+    );
+    assert.deepEqual(proof.rows[0], {
+      iterations: 1,
+      assignments: 1,
+      events: 1,
+      receipts: 1,
+      audits: 1,
+    });
+  });
+
+  const completionRace = await withClient(
+    config,
+    "klar-d2-load-completion-race",
+    async (client) => {
+      const result = await client.query(
+        `select assignment.id::text as assignment_id,
+           assignment.iteration_id::text,
+           assignment.scheduled_teaching_session_id::text as source_teaching_session_id,
+           assignment.schedule_version::integer,
+           state.state_version::integer,
+           iteration.management_version::integer,
+           target_session.id::text as target_revision_session_id,
+           target_session.teaching_session_id::text as target_teaching_session_id,
+           target_session.starts_at::text as target_starts_at,
+           (target_session.starts_at > transaction_timestamp()) as target_is_future,
+           transaction_timestamp()::text as database_now,
+           target_plan.lock_version::integer as target_plan_lock_version
+         from public.task_assignments as assignment
+         join public.task_definitions as definition
+           on definition.id = assignment.task_definition_id
+         join public.student_task_state as state
+           on state.assignment_id = assignment.id
+         join public.task_iterations as iteration
+           on iteration.id = assignment.iteration_id
+         join public.plan_revision_tasks as source_task
+           on source_task.id = assignment.source_plan_revision_task_id
+         join public.weekly_plans as source_plan
+           on source_plan.id = source_task.weekly_plan_id
+         join public.weekly_plans as target_plan
+           on target_plan.organization_id = assignment.organization_id
+          and target_plan.class_id = assignment.class_id
+          and target_plan.week_start_date > source_plan.week_start_date
+          and target_plan.active_revision_id is not null
+         join public.plan_revision_sessions as target_session
+           on target_session.weekly_plan_id = target_plan.id
+          and target_session.revision_id = target_plan.active_revision_id
+         where assignment.student_id = $1
+           and definition.title = 'D2 current completion race'
+           and target_session.title = 'D2 framtidig måløkt'
+         order by target_session.starts_at
+         limit 1`,
+        ["a0000000-0000-4000-8000-000000000015"],
+      );
+      assert.equal(result.rowCount, 1);
+      assert.equal(
+        result.rows[0].target_is_future,
+        true,
+        `D2 race target is not future: ${JSON.stringify(result.rows[0])}`,
+      );
+      return result.rows[0];
+    },
+  );
+  const completionMoveRequestId = "d2f00000-0000-4000-8000-000000000001";
+  const completionRequestId = "d2f00000-0000-4000-8000-000000000002";
+  const moveCompletionRace = await synchronizedPair(
+    config,
+    "d2-move-versus-completion",
+    (client) =>
+      client.query(moveSql, [
+        classId,
+        completionRace.iteration_id,
+        [completionRace.assignment_id],
+        [completionRace.state_version],
+        [completionRace.schedule_version],
+        completionRace.target_revision_session_id,
+        completionRace.management_version,
+        completionRace.target_plan_lock_version,
+        actorId,
+        fixture.staffAssignmentId,
+        completionMoveRequestId,
+      ]),
+    (client) =>
+      client.query(
+        `select public.complete_student_task_v2(
+          $1,$2,$3,$4,$5,$6
+        ) as result`,
+        [
+          organizationId,
+          completionRace.assignment_id,
+          "a0000000-0000-4000-8000-000000000015",
+          completionRequestId,
+          completionRace.state_version,
+          completionRace.schedule_version,
+        ],
+      ),
+  );
+  assert.equal(
+    moveCompletionRace.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  assert.equal(
+    moveCompletionRace.filter((result) => result.status === "rejected").length,
+    1,
+  );
+  const completionWon =
+    moveCompletionRace[1].status === "fulfilled";
+  assert.match(
+    moveCompletionRace.find((result) => result.status === "rejected").reason.message,
+    completionWon
+      ? /Task assignment changed after preview/i
+      : /Task assignment changed after it was opened/i,
+  );
+  await withClient(config, "klar-d2-assert-move-completion-race", async (client) => {
+    const proof = await client.query(
+      `select iteration.management_version::integer,
+         assignment.schedule_version::integer,
+         assignment.scheduled_teaching_session_id::text,
+         state.state_version::integer,
+         state.status::text,
+         (select count(*)::integer from public.task_schedule_events
+          where request_id = $2) as schedule_events,
+         (select count(*)::integer from public.task_schedule_command_receipts
+          where request_id = $2) as schedule_receipts,
+         (select count(*)::integer from public.audit_events
+          where event_name = 'task.iteration_moved'
+            and metadata ->> 'request_id' = $2::text) as schedule_audits,
+         (select count(*)::integer from public.task_completion_attempts
+          where assignment_id = assignment.id) as attempts,
+         (select count(*)::integer from public.student_xp_ledger
+          where assignment_id = assignment.id) as ledger_entries,
+         (select count(*)::integer from public.progress_command_receipts
+          where request_id = $3) as progress_receipts,
+         (select count(*)::integer from public.task_completion_v2_receipts
+          where request_id = $3) as completion_receipts
+       from public.task_assignments as assignment
+       join public.task_iterations as iteration
+         on iteration.id = assignment.iteration_id
+       join public.student_task_state as state
+         on state.assignment_id = assignment.id
+       where assignment.id = $1`,
+      [
+        completionRace.assignment_id,
+        completionMoveRequestId,
+        completionRequestId,
+      ],
+    );
+    assert.deepEqual(
+      proof.rows[0],
+      completionWon
+        ? {
+            management_version: completionRace.management_version,
+            schedule_version: completionRace.schedule_version,
+            scheduled_teaching_session_id:
+              completionRace.source_teaching_session_id,
+            state_version: completionRace.state_version + 1,
+            status: "completed",
+            schedule_events: 0,
+            schedule_receipts: 0,
+            schedule_audits: 0,
+            attempts: 1,
+            ledger_entries: 1,
+            progress_receipts: 1,
+            completion_receipts: 1,
+          }
+        : {
+            management_version: completionRace.management_version + 1,
+            schedule_version: completionRace.schedule_version + 1,
+            scheduled_teaching_session_id:
+              completionRace.target_teaching_session_id,
+            state_version: completionRace.state_version,
+            status: "assigned",
+            schedule_events: 1,
+            schedule_receipts: 1,
+            schedule_audits: 1,
+            attempts: 0,
+            ledger_entries: 0,
+            progress_receipts: 0,
+            completion_receipts: 0,
+          },
+    );
+  });
 }
 
 async function runWeeklyPlanConcurrency(config) {
@@ -1593,18 +2287,22 @@ async function runEmptyScenario() {
     applyA1Followups(container.name);
     applyPostA1(container.name);
     applyE2(container.name);
+    applyD2(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/staff_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/progress_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/weekly_plan_rpc_smoke.sql");
+    runSql(container.name, "supabase/verification/task_iteration_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/help_queue_concurrency_fixture.sql");
+    runSql(container.name, "supabase/verification/task_iteration_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_session_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_staff_controls_rpc_smoke.sql");
     await runHelpQueueStaffControlConcurrency(container.config);
     await runHelpQueueConcurrency(container.config);
     await runWeeklyPlanConcurrency(container.config);
+    await runTaskScheduleConcurrency(container.config);
     await runConcurrency(container.config);
     await runProgressConcurrency(container.config);
     console.log("A1 database empty + RLS/RPC + concurrency: PASS");
@@ -1628,6 +2326,9 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/help_queue_staff_upgrade_fixture.sql");
     applyE2(positive.name);
     runSql(positive.name, "supabase/verification/help_queue_staff_upgrade_smoke.sql");
+    runSql(positive.name, "supabase/verification/task_iteration_upgrade_fixture.sql");
+    applyD2(positive.name);
+    runSql(positive.name, "supabase/verification/task_iteration_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }

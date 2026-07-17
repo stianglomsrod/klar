@@ -13,6 +13,10 @@ Videoen og bildene er historiske produktreferanser. De er ikke bevis på at en
 funksjon finnes i 3.0, og de overstyrer ikke domenekontrakten eller relevante
 epics.
 
+En tidskodet parafrase av produkteierens muntlige intensjon, med kobling til
+gjeldende kontrakt, epics, åpne valg og faktisk implementeringsstatus, finnes i
+[`docs/product/NARRATED_PROTOTYPE_INTENT.md`](../../docs/product/NARRATED_PROTOTYPE_INTENT.md).
+
 ## Det talesporet avklarer
 
 - Lærerens oversikt skal samle nylig brukte elever, aktiv hjelpekø,
@@ -47,7 +51,7 @@ epics.
 | 00:33 | `00-00-33-help-queue-toggle.png` | **Intensjon:** kø åpnes for en klasse. I 3.0 må dette være en autorisert, tidsavgrenset køøkt. |
 | 01:08 | `00-01-08-student-profile.png` | **Visuell referanse:** klasse-, gruppe- og elevinnganger med søk. Individuell støtte skal ikke eksponere passord eller unødvendige elevdata. |
 | 02:05 | `00-02-05-create-task.png` | **Intensjon:** kort innholdssteg før tildeling, økt og iterasjon. 3.0 bruker autoritative serveroperasjoner. |
-| 03:05 | `00-03-05-task-session-iteration.png` | **Intensjon + delvis antimønster:** tildeling kan knyttes til konkrete økter, fullføres samlet eller per økt og gjentas som nye iterasjoner. Den tette legacy-dialogen og klientstyrt gjentakelse kopieres ikke. |
+| 03:05 | `00-03-05-task-session-iteration.png` | **Innarbeidet intensjon:** tildeling kan knyttes til konkrete økter og ny utsending kan bli en ny iterasjon. **Åpent valg:** én fullføring for alle valgte økter eller én per økt. **Utsatt intensjon:** eksplisitt ukegjentakelse. Den tette dialogen og klientstyrt recurrence er antimønstre. |
 | 04:08 | `00-04-08-schedule.png` | **Intensjon:** fast grunnplan med kontrollerte ukeavvik og personlig støtte. |
 | 05:08 | `00-05-08-plan-import.png` | **Intensjon:** DOCX inn, forklaring og redigerbart kontrollpunkt før publisering. KI-påstanden er historisk; pilotens parser er regelbasert. |
 | 06:10 | `00-06-10-student-home.png` | **Intensjon:** dagens økter som rolige, tidsstyrte kort med aktuell økt tydeligst. |
@@ -75,4 +79,7 @@ fortellerstemmen og bildene 00:33, 07:06 og 07:14 spores i
 Oppgaveangre fra 08:16 spores i
 [`docs/qa/CONTROL_POINT_B1.md`](../../docs/qa/CONTROL_POINT_B1.md), mens
 økt- og iterasjonsmodellen fra 03:05 spores i
-[`docs/qa/CONTROL_POINT_C1.md`](../../docs/qa/CONTROL_POINT_C1.md).
+[`docs/qa/CONTROL_POINT_C1.md`](../../docs/qa/CONTROL_POINT_C1.md) og
+[`docs/qa/CONTROL_POINT_D2.md`](../../docs/qa/CONTROL_POINT_D2.md). De åpne og
+utsatte delene spores separat i
+[`docs/product/NARRATED_PROTOTYPE_INTENT.md`](../../docs/product/NARRATED_PROTOTYPE_INTENT.md).

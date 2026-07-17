@@ -11,6 +11,7 @@ export type ClassRole = "teacher" | "student";
 export type TaskPublicationStatus = "draft" | "published" | "archived";
 export type StudentTaskStatus = "assigned" | "completed" | "reopened";
 export type TaskProgressCommand = "complete" | "undo" | "reopen" | "legacy_backfill";
+export type TaskScheduleCommand = "move" | "reissue";
 export type TaskReopenReason =
   | "continue_working"
   | "completed_by_mistake"
@@ -132,6 +133,77 @@ type TaskAssignmentRow = {
   points_value_snapshot: number;
   plan_task_id: string | null;
   source_plan_revision_task_id: string | null;
+  iteration_id: string | null;
+  scheduled_teaching_session_id: string | null;
+  scheduled_from_revision_session_id: string | null;
+  schedule_version: number;
+};
+
+type TaskIterationRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  task_definition_id: string;
+  plan_task_id: string;
+  source_plan_revision_task_id: string;
+  iteration_number: number;
+  reissued_from_iteration_id: string | null;
+  created_by: string;
+  created_by_staff_assignment_id: string | null;
+  management_version: number;
+  created_at: string;
+};
+
+type TaskScheduleEventRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  actor_id: string;
+  authorizing_staff_assignment_id: string;
+  request_id: string;
+  command: TaskScheduleCommand;
+  source_iteration_id: string;
+  result_iteration_id: string;
+  source_assignment_id: string;
+  result_assignment_id: string;
+  student_id: string;
+  from_teaching_session_id: string;
+  from_revision_session_id: string;
+  from_visible_from: string;
+  from_due_at: string | null;
+  to_teaching_session_id: string;
+  to_revision_session_id: string;
+  to_visible_from: string;
+  to_due_at: string | null;
+  occurred_at: string;
+};
+
+type TaskScheduleCommandReceiptRow = {
+  organization_id: string;
+  class_id: string;
+  actor_id: string;
+  authorizing_staff_assignment_id: string;
+  request_id: string;
+  command: TaskScheduleCommand;
+  source_iteration_id: string;
+  target_teaching_session_id: string;
+  target_revision_session_id: string;
+  request_fingerprint: string;
+  result: Json;
+  created_at: string;
+};
+
+type TaskCompletionV2ReceiptRow = {
+  organization_id: string;
+  class_id: string;
+  assignment_id: string;
+  student_id: string;
+  actor_id: string;
+  request_id: string;
+  expected_state_version: number;
+  expected_schedule_version: number;
+  result: Json;
+  created_at: string;
 };
 
 type WeeklyPlanRow = {
@@ -504,6 +576,100 @@ export type Database = {
           created_at?: string;
           plan_task_id?: string | null;
           source_plan_revision_task_id?: string | null;
+          iteration_id?: string | null;
+          scheduled_teaching_session_id?: string | null;
+          scheduled_from_revision_session_id?: string | null;
+          schedule_version?: number;
+        }
+      >;
+      task_iterations: TableDefinition<
+        TaskIterationRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          task_definition_id: string;
+          plan_task_id: string;
+          source_plan_revision_task_id: string;
+          iteration_number: number;
+          reissued_from_iteration_id?: string | null;
+          created_by: string;
+          created_by_staff_assignment_id?: string | null;
+          management_version?: number;
+          created_at?: string;
+        }
+      >;
+      task_schedule_events: TableDefinition<
+        TaskScheduleEventRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          actor_id: string;
+          authorizing_staff_assignment_id: string;
+          request_id: string;
+          command: TaskScheduleCommand;
+          source_iteration_id: string;
+          result_iteration_id: string;
+          source_assignment_id: string;
+          result_assignment_id: string;
+          student_id: string;
+          from_teaching_session_id: string;
+          from_revision_session_id: string;
+          from_visible_from: string;
+          from_due_at?: string | null;
+          to_teaching_session_id: string;
+          to_revision_session_id: string;
+          to_visible_from: string;
+          to_due_at?: string | null;
+          occurred_at?: string;
+        }
+      >;
+      task_schedule_command_receipts: TableDefinition<
+        TaskScheduleCommandReceiptRow,
+        {
+          organization_id: string;
+          class_id: string;
+          actor_id: string;
+          authorizing_staff_assignment_id: string;
+          request_id: string;
+          command: TaskScheduleCommand;
+          source_iteration_id: string;
+          target_teaching_session_id: string;
+          target_revision_session_id: string;
+          request_fingerprint: string;
+          result: Json;
+          created_at?: string;
+        }
+      >;
+      task_completion_v2_receipts: TableDefinition<
+        TaskCompletionV2ReceiptRow,
+        {
+          organization_id: string;
+          class_id: string;
+          assignment_id: string;
+          student_id: string;
+          actor_id: string;
+          request_id: string;
+          expected_state_version: number;
+          expected_schedule_version: number;
+          result: Json;
+          created_at?: string;
+        }
+      >;
+      task_undo_v2_receipts: TableDefinition<
+        TaskCompletionV2ReceiptRow,
+        {
+          organization_id: string;
+          class_id: string;
+          assignment_id: string;
+          student_id: string;
+          actor_id: string;
+          request_id: string;
+          expected_state_version: number;
+          expected_schedule_version: number;
+          result: Json;
+          created_at?: string;
         }
       >;
       weekly_plans: TableDefinition<
@@ -881,6 +1047,28 @@ export type Database = {
         };
         Returns: Json;
       };
+      complete_student_task_v2: {
+        Args: {
+          p_organization_id: string;
+          p_assignment_id: string;
+          p_student_id: string;
+          p_request_id: string;
+          p_expected_state_version: number;
+          p_expected_schedule_version: number;
+        };
+        Returns: Json;
+      };
+      undo_student_task_completion_v2: {
+        Args: {
+          p_organization_id: string;
+          p_assignment_id: string;
+          p_student_id: string;
+          p_request_id: string;
+          p_expected_state_version: number;
+          p_expected_schedule_version: number;
+        };
+        Returns: Json;
+      };
       undo_student_task_completion: {
         Args: {
           p_assignment_id: string;
@@ -1088,6 +1276,38 @@ export type Database = {
         };
         Returns: Json;
       };
+      move_task_iteration_v1: {
+        Args: {
+          p_class_id: string;
+          p_iteration_id: string;
+          p_assignment_ids: string[];
+          p_expected_state_versions: number[];
+          p_expected_schedule_versions: number[];
+          p_target_revision_session_id: string;
+          p_expected_iteration_version: number;
+          p_expected_target_plan_lock_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      reissue_task_iteration_v1: {
+        Args: {
+          p_class_id: string;
+          p_iteration_id: string;
+          p_assignment_ids: string[];
+          p_expected_state_versions: number[];
+          p_expected_schedule_versions: number[];
+          p_target_revision_session_id: string;
+          p_expected_iteration_version: number;
+          p_expected_target_plan_lock_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
       get_student_day_projection_at: {
         Args: {
           p_organization_id: string;
@@ -1171,6 +1391,7 @@ export type Database = {
       task_reopen_reason: TaskReopenReason;
       xp_ledger_kind: XpLedgerKind;
       reward_entitlement_status: RewardEntitlementStatus;
+      task_schedule_command: TaskScheduleCommand;
     };
     CompositeTypes: Record<string, never>;
   };

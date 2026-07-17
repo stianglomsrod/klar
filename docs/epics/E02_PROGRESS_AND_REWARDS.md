@@ -20,6 +20,11 @@ belønningsvalg/claim, separat ansattstyrt motivasjonsramme og elevpreferanse,
 samt de endelige rolige belønningsflatene. 2.x viser ønsket produktintensjon,
 men bruker flere klientskriv og skal ikke porteres direkte.
 
+[Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md) er et delbevis for iterasjons-
+og XP-grensen: flytt beholder samme assignment, historikk og ene XP-mulighet,
+mens en eksplisitt ny utsending får nye assignments og en separat framtidig
+XP-mulighet uten å omskrive originalen.
+
 ## Omfang og invariants
 
 - Elevens domenestatus er tildelt, fullført eller åpnet igjen. Åpning av en
@@ -72,6 +77,11 @@ Navnene kan justeres i implementasjonen, men garantiene kan ikke svekkes.
 Belønningsvalg skal være en separat, transaksjonell serverkommando som låser
 entitlement og håndhever én claim samt eventuelle globale begrensninger.
 Klienten skal aldri sende eller skrive en autoritativ XP-saldo eller rolle.
+
+Kupongens senere innløsning er et eget, uavklart livsløp. Unik reward claim
+beviser at eleven bare valgte belønningen én gang; den avgjør ikke hvem som kan
+markere kupongen brukt, hvordan feilinnløsning rettes eller hvordan dobbel bruk
+hindres. Dette må kontraktsfestes før kuponginnløsning implementeres.
 
 ## UX-regler
 

@@ -462,10 +462,21 @@ begin
     raise exception 'Plan import RPC did not assign every imported task';
   end if;
 
-  progress_result := public.complete_student_task(
+  progress_result := public.complete_student_task_v2(
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     published_assignment_id,
     '33333333-3333-3333-3333-333333333333',
-    '77777777-7777-4777-8777-777777777701'
+    '77777777-7777-4777-8777-777777777701',
+    (
+      select state.state_version
+      from public.student_task_state as state
+      where state.assignment_id = published_assignment_id
+    ),
+    (
+      select assignment.schedule_version
+      from public.task_assignments as assignment
+      where assignment.id = published_assignment_id
+    )
   );
 
   if progress_result ->> 'status' <> 'completed'

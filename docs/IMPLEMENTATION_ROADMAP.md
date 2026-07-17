@@ -118,9 +118,12 @@ lærerendringer.
 ### Kontrollpunkt D – elevens dag og oppgave
 
 **Status:** Pågår delvis – C1 projiserer forrige/aktuell/neste økt, B1 gir
-fullføring uten vedlegg, angre og ansattretur, og E1 leverer kontekstuell hånd
-i footer og oppgave. Medier, flytt/send ut på nytt, offlineflyt og fysisk
-målenhetsmatrise gjenstår.
+fullføring uten vedlegg, angre og ansattretur, E1 leverer kontekstuell hånd i
+footer og oppgave, og [D2](./qa/CONTROL_POINT_D2.md) leverer eksplisitt flytt
+eller ny lenket utsending fra en konkret planoppgave. D2s databaseporter,
+målrettede nettleserflyter, fulle autentiserte suiter og responsive
+Chromium-/WebKit-matrise er grønne.
+Medier, offlineflyt og den samlede fysiske målenhetsmatrisen gjenstår.
 
 Bygg E01 på de stabile sesjons- og progresjonsmodellene:
 
@@ -128,6 +131,8 @@ Bygg E01 på de stabile sesjons- og progresjonsmodellene:
 - åpning av oppgave viser instruksjon uten en «I gang»-knapp;
 - «Fullfør» åpner et sjekkpunkt der tekst, lyd og bilde er valgfritt;
 - bekreftelse uten vedlegg er en fullverdig standardflyt;
+- lærer kan eksplisitt flytte samme uferdige tildeling eller sende samme
+  definisjon ut som en ny, lenket iterasjon;
 - valgt oppgave kan sende kontekst videre til hjelpekøen.
 
 **Utgangskrav:** En førsteklassing kan forstå og fullføre hovedflyten med

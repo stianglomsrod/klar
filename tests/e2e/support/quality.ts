@@ -62,11 +62,28 @@ export async function expectMinimumTargetSize(
   ).toEqual([]);
 }
 
-export function observeRuntimeErrors(page: Page) {
+export function observeRuntimeErrors(
+  page: Page,
+  expectedErrors: readonly string[] = [],
+) {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`));
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(`console: ${message.text()}`);
   });
-  return () => expect(errors, "Uventede runtime-feil i browseren").toEqual([]);
+  return () => {
+    const unexpectedErrors = [...errors];
+    for (const expectedError of expectedErrors) {
+      const expectedIndex = unexpectedErrors.indexOf(expectedError);
+      expect(
+        expectedIndex,
+        `Forventet runtime-feil ble ikke observert: ${expectedError}`,
+      ).toBeGreaterThanOrEqual(0);
+      unexpectedErrors.splice(expectedIndex, 1);
+    }
+    expect(
+      unexpectedErrors,
+      "Uventede runtime-feil i browseren",
+    ).toEqual([]);
+  };
 }

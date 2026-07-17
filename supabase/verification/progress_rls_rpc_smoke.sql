@@ -161,6 +161,60 @@ values (
   '91000000-0000-4000-8000-000000000004'
 );
 
+create function pg_temp.complete_current_task(
+  p_assignment_id uuid,
+  p_student_id uuid,
+  p_request_id uuid
+)
+returns jsonb
+language sql
+volatile
+as $$
+  select public.complete_student_task_v2(
+    '92000000-0000-4000-8000-000000000001',
+    p_assignment_id,
+    p_student_id,
+    p_request_id,
+    (
+      select state.state_version
+      from public.student_task_state as state
+      where state.assignment_id = p_assignment_id
+    ),
+    (
+      select assignment.schedule_version
+      from public.task_assignments as assignment
+      where assignment.id = p_assignment_id
+    )
+  );
+$$;
+
+create function pg_temp.undo_current_task(
+  p_assignment_id uuid,
+  p_student_id uuid,
+  p_request_id uuid
+)
+returns jsonb
+language sql
+volatile
+as $$
+  select public.undo_student_task_completion_v2(
+    '92000000-0000-4000-8000-000000000001',
+    p_assignment_id,
+    p_student_id,
+    p_request_id,
+    (
+      select state.state_version
+      from public.student_task_state as state
+      where state.assignment_id = p_assignment_id
+    ),
+    (
+      select assignment.schedule_version
+      from public.task_assignments as assignment
+      where assignment.id = p_assignment_id
+    )
+  );
+$$;
+
 do $$
 declare
   active_staff_assignment_id uuid;
@@ -212,7 +266,34 @@ begin
     raise exception 'Task assignment XP snapshots did not preserve iteration values';
   end if;
 
-  first_result := public.complete_student_task(
+  denial_message := null;
+  begin
+    perform public.complete_student_task_v2(
+      '92000000-0000-4000-8000-000000000002',
+      '95000000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000004',
+      '97000000-0000-4000-8000-000000000015',
+      1,
+      1
+    );
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message is distinct from 'Task assignment is unavailable'
+    or exists (
+      select 1 from public.progress_command_receipts
+      where request_id = '97000000-0000-4000-8000-000000000015'
+    )
+    or exists (
+      select 1 from public.task_completion_v2_receipts
+      where request_id = '97000000-0000-4000-8000-000000000015'
+    )
+  then
+    raise exception 'Completion was not bound to the selected organization: %',
+      denial_message;
+  end if;
+
+  first_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000001'
@@ -227,10 +308,13 @@ begin
     raise exception 'Initial completion result is wrong: %', first_result;
   end if;
 
-  repeated_result := public.complete_student_task(
+  repeated_result := public.complete_student_task_v2(
+    '92000000-0000-4000-8000-000000000001',
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
-    '97000000-0000-4000-8000-000000000001'
+    '97000000-0000-4000-8000-000000000001',
+    1,
+    1
   );
   if repeated_result <> first_result then
     raise exception 'Same request retry did not return the canonical result';
@@ -238,7 +322,24 @@ begin
 
   denial_message := null;
   begin
-    perform public.undo_student_task_completion(
+    perform public.complete_student_task_v2(
+      '92000000-0000-4000-8000-000000000001',
+      '95000000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000004',
+      '97000000-0000-4000-8000-000000000001',
+      2,
+      1
+    );
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message not like 'Request ID was already used%' then
+    raise exception 'Completion retry changed its version payload: %', denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    perform pg_temp.undo_current_task(
       '95000000-0000-4000-8000-000000000001',
       '91000000-0000-4000-8000-000000000004',
       '97000000-0000-4000-8000-000000000001'
@@ -250,7 +351,7 @@ begin
     raise exception 'Conflicting idempotency retry was not rejected: %', denial_message;
   end if;
 
-  no_op_result := public.complete_student_task(
+  no_op_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000002'
@@ -267,7 +368,56 @@ begin
   where entitlement.student_id = '91000000-0000-4000-8000-000000000004'
     and entitlement.level = 2;
 
-  undo_result := public.undo_student_task_completion(
+  denial_message := null;
+  begin
+    perform public.undo_student_task_completion_v2(
+      '92000000-0000-4000-8000-000000000002',
+      '95000000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000004',
+      '97000000-0000-4000-8000-000000000017',
+      2,
+      1
+    );
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message is distinct from 'Task assignment is unavailable'
+    or exists (
+      select 1 from public.task_undo_v2_receipts
+      where request_id = '97000000-0000-4000-8000-000000000017'
+    )
+  then
+    raise exception 'Undo was not bound to the selected organization: %',
+      denial_message;
+  end if;
+
+  denial_message := null;
+  begin
+    perform public.undo_student_task_completion_v2(
+      '92000000-0000-4000-8000-000000000001',
+      '95000000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000004',
+      '97000000-0000-4000-8000-000000000016',
+      1,
+      1
+    );
+  exception when others then
+    get stacked diagnostics denial_message = message_text;
+  end;
+  if denial_message is distinct from 'Task assignment changed after it was opened'
+    or exists (
+      select 1 from public.progress_command_receipts
+      where request_id = '97000000-0000-4000-8000-000000000016'
+    )
+    or exists (
+      select 1 from public.task_undo_v2_receipts
+      where request_id = '97000000-0000-4000-8000-000000000016'
+    )
+  then
+    raise exception 'A stale undo changed state or left history: %', denial_message;
+  end if;
+
+  undo_result := pg_temp.undo_current_task(
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000003'
@@ -287,7 +437,7 @@ begin
     raise exception 'Undo did not preserve milestone history correctly: %', undo_result;
   end if;
 
-  second_result := public.complete_student_task(
+  second_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000004'
@@ -382,7 +532,7 @@ begin
     raise exception 'Authorized staff reopen did not preserve the safe history: %', reopen_result;
   end if;
 
-  third_result := public.complete_student_task(
+  third_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000001',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000009'
@@ -396,7 +546,7 @@ begin
     raise exception 'Completion after staff reopen is inconsistent: %', third_result;
   end if;
 
-  multi_result := public.complete_student_task(
+  multi_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000002',
     '91000000-0000-4000-8000-000000000005',
     '97000000-0000-4000-8000-000000000010'
@@ -409,7 +559,7 @@ begin
     raise exception 'One completion did not cross every earned level: %', multi_result;
   end if;
 
-  iteration_result := public.complete_student_task(
+  iteration_result := pg_temp.complete_current_task(
     '95000000-0000-4000-8000-000000000003',
     '91000000-0000-4000-8000-000000000004',
     '97000000-0000-4000-8000-000000000011'
@@ -425,7 +575,7 @@ begin
 
   denial_message := null;
   begin
-    perform public.complete_student_task(
+    perform pg_temp.complete_current_task(
       '95000000-0000-4000-8000-000000000003',
       '91000000-0000-4000-8000-000000000005',
       '97000000-0000-4000-8000-000000000012'
@@ -454,7 +604,12 @@ begin
   if to_regprocedure('public.update_student_task_status(uuid,uuid,public.student_task_status)') is not null
     or has_function_privilege('service_role', 'public.apply_task_progress_command(uuid,uuid,uuid,public.task_progress_command,uuid,public.task_reopen_reason,text)', 'EXECUTE')
     or has_function_privilege('authenticated', 'public.complete_student_task(uuid,uuid,uuid)', 'EXECUTE')
-    or not has_function_privilege('service_role', 'public.complete_student_task(uuid,uuid,uuid)', 'EXECUTE')
+    or has_function_privilege('service_role', 'public.complete_student_task(uuid,uuid,uuid)', 'EXECUTE')
+    or has_function_privilege('authenticated', 'public.complete_student_task_v2(uuid,uuid,uuid,uuid,integer,integer)', 'EXECUTE')
+    or not has_function_privilege('service_role', 'public.complete_student_task_v2(uuid,uuid,uuid,uuid,integer,integer)', 'EXECUTE')
+    or has_function_privilege('authenticated', 'public.undo_student_task_completion_v2(uuid,uuid,uuid,uuid,integer,integer)', 'EXECUTE')
+    or not has_function_privilege('service_role', 'public.undo_student_task_completion_v2(uuid,uuid,uuid,uuid,integer,integer)', 'EXECUTE')
+    or has_function_privilege('service_role', 'public.undo_student_task_completion(uuid,uuid,uuid)', 'EXECUTE')
     or has_table_privilege('service_role', 'public.student_task_state', 'UPDATE')
     or has_table_privilege('service_role', 'public.student_xp_ledger', 'INSERT')
     or not has_table_privilege('authenticated', 'public.student_xp_ledger', 'SELECT')
@@ -615,7 +770,7 @@ begin
 
   denial_message := null;
   begin
-    perform public.undo_student_task_completion(
+    perform pg_temp.undo_current_task(
       '95000000-0000-4000-8000-000000000003',
       '91000000-0000-4000-8000-000000000004',
       '97000000-0000-4000-8000-000000000013'

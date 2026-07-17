@@ -42,6 +42,10 @@ function parseTask(value: unknown): StudentTodayTask {
     !Number.isInteger(value.support_level) ||
     !Number.isInteger(value.points_value) ||
     !["assigned", "completed", "reopened"].includes(status) ||
+    !Number.isInteger(value.state_version) ||
+    Number(value.state_version) < 1 ||
+    !Number.isInteger(value.schedule_version) ||
+    Number(value.schedule_version) < 1 ||
     !(value.reopen_message === null || typeof value.reopen_message === "string") ||
     !(value.due_at === null || typeof value.due_at === "string")
   ) {
@@ -57,6 +61,8 @@ function parseTask(value: unknown): StudentTodayTask {
     supportLevel: Number(value.support_level),
     pointsValue: Number(value.points_value),
     status,
+    stateVersion: Number(value.state_version),
+    scheduleVersion: Number(value.schedule_version),
     reopenMessage: value.reopen_message,
     dueAt: value.due_at,
   };

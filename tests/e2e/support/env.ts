@@ -19,6 +19,8 @@ export function getE2ECredentials() {
     studentPassword: required("KLAR_E2E_STUDENT_PASSWORD"),
     visualStudentCode: required("KLAR_E2E_VISUAL_STUDENT_CODE"),
     visualStudentPassword: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
+    d2StudentCode: required("KLAR_E2E_D2_STUDENT_CODE"),
+    d2StudentPassword: required("KLAR_E2E_D2_STUDENT_PASSWORD"),
     returnStudentEmail: "return-student@e2e.klar.invalid",
     returnStudentPassword: required("KLAR_E2E_RETURN_STUDENT_PASSWORD"),
     helpStudentEmail: "help-student@e2e.klar.invalid",

@@ -321,14 +321,19 @@ export function StudentTaskList({
   const hasPendingMutation = updatingId !== null;
 
   function commandKey(task: StudentTodayTask, command: ProgressCommand): string {
-    return `${task.assignmentId}:${command}`;
+    return `${task.assignmentId}:${task.stateVersion}:${task.scheduleVersion}:${command}`;
   }
 
   function applyResult(result: TaskProgressResult): void {
     setTasks((currentTasks) =>
       currentTasks.map((currentTask) =>
         currentTask.assignmentId === result.assignmentId
-          ? { ...currentTask, status: result.status }
+          ? {
+              ...currentTask,
+              status: result.status,
+              stateVersion: result.stateVersion,
+              scheduleVersion: result.scheduleVersion,
+            }
           : currentTask,
       ),
     );
@@ -370,8 +375,18 @@ export function StudentTaskList({
     try {
       const result =
         command === "complete"
-          ? await completeOwnTaskAction(task.assignmentId, requestId)
-          : await undoOwnTaskCompletionAction(task.assignmentId, requestId);
+          ? await completeOwnTaskAction(
+              task.assignmentId,
+              requestId,
+              task.stateVersion,
+              task.scheduleVersion,
+            )
+          : await undoOwnTaskCompletionAction(
+              task.assignmentId,
+              requestId,
+              task.stateVersion,
+              task.scheduleVersion,
+            );
       if (!result.success) {
         setError(result.error);
         return;

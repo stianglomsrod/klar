@@ -27,6 +27,12 @@ reverserer poeng, og at lærerens interne køprioritering ikke trenger å
 eksponeres for eleven. Skjermens synlige kønummer er derfor klassifisert som et
 antimønster selv om køflyten ellers er en produktintensjon.
 
+Den tidskodede koblingen mellom det som faktisk blir sagt, gjeldende kontrakt,
+åpne valg og implementeringsstatus føres i
+[`NARRATED_PROTOTYPE_INTENT.md`](./NARRATED_PROTOTYPE_INTENT.md). Synlige
+legacy-detaljer skal ikke få høyere vekt enn produkteierens forklaring av hva
+flyten var ment å oppnå.
+
 ## Rollebasert visuell modell
 
 ### Elevflaten
@@ -101,6 +107,11 @@ Den tidligere prototypens fagpalett kan brukes som gjenkjenningsstøtte:
 
 Farge er sekundær. Fagnavn, symbol og struktur skal fortsatt identifisere
 innholdet for elever som ikke oppfatter fargen.
+
+Talesporet beskriver også egendefinerte fag der lærerens valgte symbol og farge
+følger inn i elevflaten. Dette er en utsatt intensjon, ikke implementert
+pilotatferd. En senere løsning må ha forståelige standardvalg og kan aldri
+bruke farge alene som identifikasjon.
 
 Semantisk retning:
 
@@ -182,8 +193,10 @@ opp/ned/først for tastatur og berøring.
 - klasser, grupper og elevadministrasjon;
 - hjelpekøens ansattpanel;
 - Smart Import med redigerbar, menneskekontrollert forhåndsvisning;
-- oppgavegjennomgang med reaksjon, kommentar og retur;
+- oppgavegjennomgang og retur; reaksjon og kommentar er en åpen retning som
+  krever avklart personvern, moderering og oppbevaring;
 - valgfri blomsterhage, kuponger og level-up-belønning.
 
-Disse flatene skal reimplementeres på 3.0-domenet og ikke kopieres sammen med
-2.x-klientmutasjoner, gamle RLS-regler eller kjente tilgjengelighetsavvik.
+De avklarte delene av disse flatene skal reimplementeres på 3.0-domenet og ikke
+kopieres sammen med 2.x-klientmutasjoner, gamle RLS-regler eller kjente
+tilgjengelighetsavvik. Åpne retninger må først avgjøres i domenekontrakten.

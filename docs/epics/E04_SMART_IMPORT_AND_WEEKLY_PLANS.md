@@ -44,6 +44,11 @@ Elever som meldes inn etter publisering får ikke automatisk oppgavene i den
 allerede publiserte revisjonen. Inntil en egen autorisert backfill-/ny-
 revisjonsoperasjon finnes, skal elevlisten ferdigstilles før publisering.
 
+[Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md) bygger et stabilt iterasjons- og
+planleggingslag på C1s økt- og oppgaveproveniens. Det gjør eksplisitt flytt og
+ny utsending mulig, men er ikke en senere planrevisjon, reimport, treveis merge
+eller rollback og lukker derfor ikke Smart Import-epicen.
+
 ## Omfang
 
 - ukeplan per organisasjon, målgruppe og `week_start_date`;

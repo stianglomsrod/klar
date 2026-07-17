@@ -265,7 +265,7 @@ export async function getTeacherClassWorkspace(
 
   const { data: assignments, error: assignmentsError } = await admin
     .from("task_assignments")
-    .select("id, task_definition_id, student_id")
+    .select("id, task_definition_id, student_id, plan_task_id")
     .eq("class_id", actor.classId);
   if (assignmentsError) throw new PrototypeDataError();
 
@@ -299,6 +299,11 @@ export async function getTeacherClassWorkspace(
   );
   const studentNameById = new Map(
     profiles.data.map((profile) => [profile.id, profile.display_name]),
+  );
+  const planTaskDefinitionIds = new Set(
+    assignments.flatMap((assignment) =>
+      assignment.plan_task_id ? [assignment.task_definition_id] : [],
+    ),
   );
 
   const confirmedActor = await requireStaffCapability(
@@ -341,11 +346,16 @@ export async function getTeacherClassWorkspace(
       .sort((first, second) =>
         first.displayName.localeCompare(second.displayName, "nb"),
       ),
-    tasks: tasks.map((task) => {
+    tasks: tasks.flatMap((task) => {
       const taskAssignments = assignments.filter(
-        (assignment) => assignment.task_definition_id === task.id,
+        (assignment) =>
+          assignment.task_definition_id === task.id &&
+          assignment.plan_task_id === null,
       );
-      return {
+      if (taskAssignments.length === 0 && planTaskDefinitionIds.has(task.id)) {
+        return [];
+      }
+      return [{
         id: task.id,
         title: task.title,
         subject: task.subject,
@@ -376,7 +386,7 @@ export async function getTeacherClassWorkspace(
               ];
             })
           : [],
-      };
+      }];
     }),
     staffAssignmentId: confirmedActor.staffAssignmentId,
     capabilities: confirmedActor.capabilities,

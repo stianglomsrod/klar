@@ -12,6 +12,10 @@ beskriver tekniske utviklings- og driftsgrep, ikke en produksjonsutrulling.
 - En ansatt kan manuelt kontrollere og publisere den første strukturerte
   klasseuken med tidsfestede økter og oppgaver. Senere planrevisjoner er ikke
   implementert.
+- En AAL2-ansatt med aktivt klasseoppdrag og publiseringskapabiliteter kan fra
+  en konkret planoppgave eksplisitt flytte valgte uferdige tildelinger til en
+  senere publisert økt eller sende samme definisjon ut som en ny, lenket
+  utsending. Det finnes ingen automatisk flytting eller gjentakelse.
 - En AAL2-ansatt med aktivt klasseoppdrag kan åpne og stenge en hjelpekø for
   den aktuelle undervisningsøkten, ta og løse forespørsler. Eleven får hånd
   bare i riktig økt og kan bruke generell eller oppgaveknyttet hjelp. Ansatte
@@ -72,9 +76,12 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    piloten.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: nåværende elevliste → strukturert klasseuke →
-   forrige/aktuell/neste økt → fullføring/angre/ansattretur → åpne hjelpekø →
-   generell og oppgaveknyttet hånd → avmelding → claim → privat reorder →
-   release/transfer → resolve → `closing`/`closed` → reconnect.
+   forrige/aktuell/neste økt → flytt en uferdig oppgave → bekreft at en gammel
+   elevfane ikke kan gi XP → send samme definisjon ut på nytt → bekreft at
+   originalen er urørt og den nye utsendingen er separat →
+   fullføring/angre/ansattretur → åpne hjelpekø → generell og oppgaveknyttet
+   hånd → avmelding → claim → privat reorder → release/transfer → resolve →
+   `closing`/`closed` → reconnect.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
 
 ## Minimumskontroll før hver testøkt
@@ -91,6 +98,12 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
   mutere pedagogiske data i klassen.
 - Strukturert klasseuke viser uke, økttid og oppgavetitler i et eksplisitt
   kontrollsteg før den første, atomiske publiseringen.
+- Flytt og ny utsending krever AAL2, et aktivt eksakt klasseoppdrag,
+  `task.publish` og `plan.publish`. Måløkten må komme fra en senere, publisert
+  økt i samme klasseplan.
+- En framtidig flyttet eller ny tildeling er skjult før lokal måldag. Aktiv
+  oppgaveknyttet hjelpeforespørsel bevares ved flytt, og en fullført mottaker
+  kan ikke flyttes.
 - En elev ser ikke framtidige dagsoppgaver gjennom «Andre oppgaver» eller
   read-only RLS før den lokale øktdagen starter. Forrige, aktuell og neste økt
   kommer fra samme aktive planrevisjon og Europe/Oslo-klokke.
@@ -153,7 +166,11 @@ idempotens/rollback, claim-race, request-vs-memberskaps-/rollerace og en
 publisert signaltabell uten runtime-sletting eller cascade. E2-pakken dekker
 atomisk og reviderbar staff-reorder, release/transfer, private metadata,
 stale-/eierskapsrace og ett konsistent staff-snapshot. Realtime brukes bare
-som invalidering før autoritativ serverlesing.
+som invalidering før autoritativ serverlesing. D2-pakken bygger det stabile
+planleggingslaget både fra tom database og representativ C1/B1-oppgradering,
+og verifiserer RLS/grants, rolleparitet, idempotens, samtidighet, audit,
+request-versus-flytt, framtidsskjuling og null XP-sideeffekt fra en gammel
+elevfane.
 Testene bruker bare syntetiske data og lokal Supabase.
 
 ## Manuell E03-port som gjenstår

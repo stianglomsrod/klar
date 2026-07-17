@@ -7,6 +7,7 @@ import {
   observeRuntimeErrors,
 } from "../support/quality";
 
+const organizationId = "20000000-0000-4000-8000-000000000001";
 const studentId = "10000000-0000-4000-8000-000000000002";
 
 async function revealLegacyTasks(page: Page) {
@@ -278,8 +279,19 @@ test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) =>
       );
       if (current.rows[0]?.status === "completed") {
         await database.query(
-          "select public.undo_student_task_completion($1::uuid, $2::uuid, $3::uuid)",
-          [assignmentId, studentId, randomUUID()],
+          `select public.undo_student_task_completion_v2(
+             $1::uuid,
+             $2::uuid,
+             $3::uuid,
+             $4::uuid,
+             state.state_version,
+             assignment.schedule_version
+           )
+           from public.task_assignments as assignment
+           join public.student_task_state as state
+             on state.assignment_id = assignment.id
+           where assignment.id = $2::uuid`,
+          [organizationId, assignmentId, studentId, randomUUID()],
         );
       }
     }

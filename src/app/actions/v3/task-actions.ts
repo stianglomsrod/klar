@@ -41,9 +41,16 @@ export async function publishClassTaskAction(input: {
 export async function completeOwnTaskAction(
   assignmentId: string,
   requestId: string,
+  expectedStateVersion: number,
+  expectedScheduleVersion: number,
 ): Promise<TaskProgressMutationResult> {
   try {
-    const progress = await completeOwnTask(assignmentId, requestId);
+    const progress = await completeOwnTask(
+      assignmentId,
+      requestId,
+      expectedStateVersion,
+      expectedScheduleVersion,
+    );
     revalidatePath("/v3/student");
     return { success: true, progress };
   } catch (error) {
@@ -57,9 +64,16 @@ export async function completeOwnTaskAction(
 export async function undoOwnTaskCompletionAction(
   assignmentId: string,
   requestId: string,
+  expectedStateVersion: number,
+  expectedScheduleVersion: number,
 ): Promise<TaskProgressMutationResult> {
   try {
-    const progress = await undoOwnTaskCompletion(assignmentId, requestId);
+    const progress = await undoOwnTaskCompletion(
+      assignmentId,
+      requestId,
+      expectedStateVersion,
+      expectedScheduleVersion,
+    );
     revalidatePath("/v3/student");
     return { success: true, progress };
   } catch (error) {

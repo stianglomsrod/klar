@@ -9,6 +9,7 @@ import {
 } from "../support/quality";
 
 const authDirectory = path.join(process.cwd(), "playwright", ".auth");
+const primaryOrganizationId = "20000000-0000-4000-8000-000000000001";
 const returnStudentId = "10000000-0000-4000-8000-000000000011";
 const primaryClassId = "30000000-0000-4000-8000-000000000001";
 const returnMessage = "Se på de siste linjene én gang til.";
@@ -173,8 +174,19 @@ test("AAL2-læreren åpner en fullført oppgave igjen i eget omfang", async ({
       );
       if (current.rows[0]?.status !== "completed") {
         await database.query(
-          "select public.complete_student_task($1::uuid, $2::uuid, $3::uuid)",
-          [assignmentId, returnStudentId, randomUUID()],
+          `select public.complete_student_task_v2(
+             $1::uuid,
+             $2::uuid,
+             $3::uuid,
+             $4::uuid,
+             state.state_version,
+             assignment.schedule_version
+           )
+           from public.task_assignments as assignment
+           join public.student_task_state as state
+             on state.assignment_id = assignment.id
+           where assignment.id = $2::uuid`,
+          [primaryOrganizationId, assignmentId, returnStudentId, randomUUID()],
         );
       }
     }

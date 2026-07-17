@@ -10,6 +10,7 @@ const authDirectory = path.join(process.cwd(), "playwright", ".auth");
 const states = {
   student: path.join(authDirectory, "student.json"),
   visualStudent: path.join(authDirectory, "visual-student.json"),
+  d2Student: path.join(authDirectory, "d2-student.json"),
   returnStudent: path.join(authDirectory, "return-student.json"),
   helpStudent: path.join(authDirectory, "help-student.json"),
   helpStaffAal2: path.join(authDirectory, "help-staff-aal2.json"),
@@ -112,6 +113,17 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
   await expect(visualStudentPage).toHaveURL(/\/v3\/student$/);
   await visualStudentContext.storageState({ path: states.visualStudent });
   await visualStudentContext.close();
+
+  const d2StudentContext = await browser.newContext({ baseURL });
+  const d2StudentPage = await d2StudentContext.newPage();
+  await fillLogin(
+    d2StudentPage,
+    credentials.d2StudentCode,
+    credentials.d2StudentPassword,
+  );
+  await expect(d2StudentPage).toHaveURL(/\/v3\/student$/);
+  await d2StudentContext.storageState({ path: states.d2Student });
+  await d2StudentContext.close();
 
   const returnStudentContext = await browser.newContext({ baseURL });
   const returnStudentPage = await returnStudentContext.newPage();

@@ -185,6 +185,8 @@ const testEnvironment = {
   KLAR_E2E_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   KLAR_E2E_VISUAL_STUDENT_CODE: `VIS-${randomBytes(5).toString("hex").toUpperCase()}`,
   KLAR_E2E_VISUAL_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+  KLAR_E2E_D2_STUDENT_CODE: `D2-${randomBytes(5).toString("hex").toUpperCase()}`,
+  KLAR_E2E_D2_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   KLAR_E2E_RETURN_STUDENT_PASSWORD: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
   PILOT_ENABLED: "true",
   NEXT_PUBLIC_FEATURE_LEGACY_2X: "false",

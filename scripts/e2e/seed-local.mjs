@@ -1,7 +1,12 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-safety.mjs";
-import { fixtureSessionPlans } from "./fixture-session-plans.mjs";
+import {
+  addLocalDays,
+  fixtureSessionPlans,
+  localWeekStart,
+  startOfLocalDay,
+} from "./fixture-session-plans.mjs";
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -24,6 +29,8 @@ const IDS = {
   helpStudent: "10000000-0000-4000-8000-000000000012",
   lifecycleHelpStudent: "10000000-0000-4000-8000-000000000013",
   helpStaff: "10000000-0000-4000-8000-000000000014",
+  d2Student: "10000000-0000-4000-8000-000000000015",
+  d2FormerStudent: "10000000-0000-4000-8000-000000000016",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -32,6 +39,7 @@ const IDS = {
   otherClass: "30000000-0000-4000-8000-000000000003",
   visualControlClass: "30000000-0000-4000-8000-000000000004",
   helpClass: "30000000-0000-4000-8000-000000000005",
+  d2Class: "30000000-0000-4000-8000-000000000006",
 };
 
 const url = assertLocalSupabaseUrl(required("NEXT_PUBLIC_SUPABASE_URL"));
@@ -42,6 +50,9 @@ const studentCode = required("KLAR_E2E_STUDENT_CODE")
   .toUpperCase()
   .replace(/[\s_]+/g, "-");
 const visualStudentCode = required("KLAR_E2E_VISUAL_STUDENT_CODE")
+  .toUpperCase()
+  .replace(/[\s_]+/g, "-");
+const d2StudentCode = required("KLAR_E2E_D2_STUDENT_CODE")
   .toUpperCase()
   .replace(/[\s_]+/g, "-");
 
@@ -73,6 +84,10 @@ const credentials = {
   visualStudent: {
     email: "visual-student@e2e.klar.invalid",
     password: required("KLAR_E2E_VISUAL_STUDENT_PASSWORD"),
+  },
+  d2Student: {
+    email: "d2-student@e2e.klar.invalid",
+    password: required("KLAR_E2E_D2_STUDENT_PASSWORD"),
   },
   returnStudent: {
     email: "return-student@e2e.klar.invalid",
@@ -267,6 +282,125 @@ async function publishWeeklyPlanFixture({
   return { sessionCount, taskCount };
 }
 
+async function publishD2ScheduleFixture({
+  classId,
+  actorId,
+  staffAssignmentId,
+}) {
+  if (process.env.TZ !== "Europe/Oslo") {
+    throw new Error("Lokal D2-fixture krever TZ=Europe/Oslo.");
+  }
+  const today = startOfLocalDay(new Date());
+  const tomorrow = addLocalDays(today, 1);
+  const dayAfter = addLocalDays(today, 2);
+  const atHour = (day, hour) => {
+    const value = new Date(day);
+    value.setHours(hour, 0, 0, 0);
+    return value;
+  };
+  const sessions = [
+    {
+      logical_key: "e1000000-0000-4000-8000-000000000001",
+      title: "D2 kildeøkt",
+      subject: "Norsk",
+      starts_at: atHour(today, 8).toISOString(),
+      ends_at: atHour(today, 9).toISOString(),
+      tasks: [
+        {
+          logical_key: "e2000000-0000-4000-8000-000000000001",
+          title: "D2 flytteoppgave",
+          description: "Syntetisk oppgave for flytting med gammel elevfane.",
+          subject: "Norsk",
+          estimated_minutes: 10,
+          support_level: 2,
+        },
+        {
+          logical_key: "e2000000-0000-4000-8000-000000000002",
+          title: "D2 nyutsending",
+          description: "Syntetisk oppgave for en ny, lenket utsending.",
+          subject: "Norsk",
+          estimated_minutes: 10,
+          support_level: 2,
+        },
+        {
+          logical_key: "e2000000-0000-4000-8000-000000000003",
+          title: "D2 gjenåpnet oppgave",
+          description: "Syntetisk gjenåpnet oppgave som fortsatt kan flyttes.",
+          subject: "Norsk",
+          estimated_minutes: 10,
+          support_level: 2,
+        },
+        {
+          logical_key: "e2000000-0000-4000-8000-000000000004",
+          title: "D2 ferdig oppgave",
+          description: "Syntetisk fullført oppgave som ikke kan flyttes.",
+          subject: "Norsk",
+          estimated_minutes: 10,
+          support_level: 2,
+        },
+      ],
+    },
+    {
+      logical_key: "e1000000-0000-4000-8000-000000000002",
+      title: "D2 måløkt én",
+      subject: "Norsk",
+      starts_at: atHour(tomorrow, 9).toISOString(),
+      ends_at: atHour(tomorrow, 10).toISOString(),
+      tasks: [],
+    },
+    {
+      logical_key: "e1000000-0000-4000-8000-000000000003",
+      title: "D2 måløkt to",
+      subject: "Norsk",
+      starts_at: atHour(dayAfter, 9).toISOString(),
+      ends_at: atHour(dayAfter, 10).toISOString(),
+      tasks: [],
+    },
+  ];
+  const sessionsByWeek = new Map();
+  for (const session of sessions) {
+    const weekStartDate = localWeekStart(new Date(session.starts_at));
+    const values = sessionsByWeek.get(weekStartDate) ?? [];
+    values.push(session);
+    sessionsByWeek.set(weekStartDate, values);
+  }
+
+  let taskCount = 0;
+  let sessionCount = 0;
+  for (const [index, [weekStartDate, weekSessions]] of [
+    ...sessionsByWeek.entries(),
+  ].entries()) {
+    weekSessions.sort((left, right) => left.starts_at.localeCompare(right.starts_at));
+    const candidate = {
+      schema_version: "weekly_plan_v1",
+      sessions: weekSessions,
+    };
+    const semanticHash = createHash("sha256")
+      .update(JSON.stringify(candidate), "utf8")
+      .digest("hex");
+    const { data, error } = await admin.rpc("publish_initial_weekly_plan", {
+      p_class_id: classId,
+      p_actor_id: actorId,
+      p_staff_assignment_id: staffAssignmentId,
+      p_week_start_date: weekStartDate,
+      p_timezone_name: "Europe/Oslo",
+      p_expected_lock_version: 0,
+      p_request_id: `e3000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      p_semantic_hash: semanticHash,
+      p_candidate: candidate,
+    });
+    if (error || !data) {
+      throw error ?? new Error("D2-ukeplanen ble ikke publisert.");
+    }
+    taskCount += weekSessions.reduce(
+      (sum, session) => sum + session.tasks.length,
+      0,
+    );
+    sessionCount += weekSessions.length;
+  }
+  return { taskCount, sessionCount };
+}
+
 async function publishQueueOnlyPlan({
   classId,
   actorId,
@@ -412,6 +546,17 @@ await Promise.all([
     password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
     displayName: "Livsløpselev",
   }),
+  createUser({
+    id: IDS.d2Student,
+    ...credentials.d2Student,
+    displayName: "D2 elev",
+  }),
+  createUser({
+    id: IDS.d2FormerStudent,
+    email: "d2-former-student@e2e.klar.invalid",
+    password: `E2E-${randomBytes(18).toString("base64url")}aA1!`,
+    displayName: "Tidligere D2-elev",
+  }),
 ]);
 
 await insert("organizations", [
@@ -442,6 +587,8 @@ await insert("memberships", [
   { organization_id: IDS.organization, user_id: IDS.returnStudent, role: "student", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.helpStudent, role: "student", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.lifecycleHelpStudent, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.d2Student, role: "student", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.d2FormerStudent, role: "student", created_by: IDS.owner },
 ]);
 await insert("classes", [
   {
@@ -479,12 +626,21 @@ await insert("classes", [
     academic_year: "2026/2027",
     created_by: IDS.owner,
   },
+  {
+    id: IDS.d2Class,
+    organization_id: IDS.organization,
+    name: "D2 kontrollklasse 6A",
+    academic_year: "2026/2027",
+    created_by: IDS.owner,
+  },
 ]);
 await insert("class_memberships", [
   { class_id: IDS.class, organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
   { class_id: IDS.visualClass, organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
   { class_id: IDS.otherClass, organization_id: IDS.otherOrganization, user_id: IDS.otherStudent, role: "student", created_by: IDS.otherOwner },
   { class_id: IDS.helpClass, organization_id: IDS.organization, user_id: IDS.helpStudent, role: "student", created_by: IDS.owner },
+  { class_id: IDS.d2Class, organization_id: IDS.organization, user_id: IDS.d2Student, role: "student", created_by: IDS.owner },
+  { class_id: IDS.d2Class, organization_id: IDS.organization, user_id: IDS.d2FormerStudent, role: "student", created_by: IDS.owner },
 ]);
 
 const { data: visualOperationalClass, error: visualOperationalClassError } =
@@ -513,6 +669,14 @@ const visualStaffAssignment = await createAssignment({
   classId: IDS.visualClass,
   jobLabel: "subject_teacher",
   key: "60000000-0000-4000-8000-000000000002",
+});
+const d2StaffAssignment = await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.visualStaff,
+  classId: IDS.d2Class,
+  jobLabel: "subject_teacher",
+  key: "60000000-0000-4000-8000-000000000010",
 });
 const otherStaffAssignment = await createAssignment({
   organizationId: IDS.otherOrganization,
@@ -586,6 +750,9 @@ const codeDigest = createHmac("sha256", pepper)
 const visualStudentCodeDigest = createHmac("sha256", pepper)
   .update(visualStudentCode, "utf8")
   .digest("hex");
+const d2StudentCodeDigest = createHmac("sha256", pepper)
+  .update(d2StudentCode, "utf8")
+  .digest("hex");
 await insert("student_login_codes", [
   {
     user_id: IDS.student,
@@ -597,6 +764,12 @@ await insert("student_login_codes", [
     user_id: IDS.visualStudent,
     organization_id: IDS.organization,
     code_digest: visualStudentCodeDigest,
+    created_by: IDS.owner,
+  },
+  {
+    user_id: IDS.d2Student,
+    organization_id: IDS.organization,
+    code_digest: d2StudentCodeDigest,
     created_by: IDS.owner,
   },
 ]);
@@ -615,6 +788,106 @@ const visualWeeklyPlan = await publishWeeklyPlanFixture({
   keyPrefix: "b",
   titlePrefix: "Visuell",
 });
+const d2WeeklyPlan = await publishD2ScheduleFixture({
+  classId: IDS.d2Class,
+  actorId: IDS.visualStaff,
+  staffAssignmentId: d2StaffAssignment,
+});
+
+async function loadD2AssignmentId(title) {
+  const { data: definition, error: definitionError } = await admin
+    .from("task_definitions")
+    .select("id")
+    .eq("organization_id", IDS.organization)
+    .eq("class_id", IDS.d2Class)
+    .eq("title", title)
+    .single();
+  if (definitionError || !definition) {
+    throw definitionError ?? new Error(`D2-definisjonen ${title} mangler.`);
+  }
+  const { data: assignment, error: assignmentError } = await admin
+    .from("task_assignments")
+    .select("id")
+    .eq("organization_id", IDS.organization)
+    .eq("class_id", IDS.d2Class)
+    .eq("student_id", IDS.d2Student)
+    .eq("task_definition_id", definition.id)
+    .single();
+  if (assignmentError || !assignment) {
+    throw assignmentError ?? new Error(`D2-assignmenten ${title} mangler.`);
+  }
+  return assignment.id;
+}
+
+const d2ReopenedAssignmentId = await loadD2AssignmentId(
+  "D2 gjenåpnet oppgave",
+);
+const d2CompletedAssignmentId = await loadD2AssignmentId("D2 ferdig oppgave");
+const { data: d2FirstCompletion, error: d2FirstCompletionError } =
+  await admin.rpc("complete_student_task_v2", {
+    p_organization_id: IDS.organization,
+    p_assignment_id: d2ReopenedAssignmentId,
+    p_student_id: IDS.d2Student,
+    p_request_id: "e4000000-0000-4000-8000-000000000001",
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
+  });
+if (
+  d2FirstCompletionError ||
+  d2FirstCompletion?.status !== "completed" ||
+  d2FirstCompletion.xp_balance !== 10
+) {
+  throw d2FirstCompletionError ?? new Error("D2-gjenåpningsfixturen kunne ikke fullføres.");
+}
+const { data: d2Reopened, error: d2ReopenedError } = await admin.rpc(
+  "reopen_student_task_for_staff",
+  {
+    p_assignment_id: d2ReopenedAssignmentId,
+    p_actor_id: IDS.visualStaff,
+    p_staff_assignment_id: d2StaffAssignment,
+    p_request_id: "e5000000-0000-4000-8000-000000000001",
+    p_reason_code: "continue_working",
+    p_student_message: null,
+  },
+);
+if (
+  d2ReopenedError ||
+  d2Reopened?.status !== "reopened" ||
+  d2Reopened.xp_balance !== 0
+) {
+  throw d2ReopenedError ?? new Error("D2-gjenåpningsfixturen er inkonsistent.");
+}
+const { data: d2Completed, error: d2CompletedError } = await admin.rpc(
+  "complete_student_task_v2",
+  {
+    p_organization_id: IDS.organization,
+    p_assignment_id: d2CompletedAssignmentId,
+    p_student_id: IDS.d2Student,
+    p_request_id: "e4000000-0000-4000-8000-000000000002",
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
+  },
+);
+if (
+  d2CompletedError ||
+  d2Completed?.status !== "completed" ||
+  d2Completed.xp_balance !== 10
+) {
+  throw d2CompletedError ?? new Error("D2-fullførtfixturen er inkonsistent.");
+}
+const { error: formerClassMembershipError } = await admin
+  .from("class_memberships")
+  .delete()
+  .eq("organization_id", IDS.organization)
+  .eq("class_id", IDS.d2Class)
+  .eq("user_id", IDS.d2FormerStudent);
+if (formerClassMembershipError) throw formerClassMembershipError;
+const { error: formerOrganizationMembershipError } = await admin
+  .from("memberships")
+  .delete()
+  .eq("organization_id", IDS.organization)
+  .eq("user_id", IDS.d2FormerStudent);
+if (formerOrganizationMembershipError) throw formerOrganizationMembershipError;
 const helpWeeklyPlan = await publishWeeklyPlanFixture({
   classId: IDS.helpClass,
   actorId: IDS.owner,
@@ -708,11 +981,14 @@ const { error: positionError } = await admin
 if (positionError) throw positionError;
 
 const { data: visualCompletion, error: visualCompletionError } = await admin.rpc(
-  "complete_student_task",
+  "complete_student_task_v2",
   {
+    p_organization_id: IDS.organization,
     p_assignment_id: visualReturnTask.assignmentId,
     p_student_id: IDS.visualStudent,
     p_request_id: "80000000-0000-4000-8000-000000000003",
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
   },
 );
 if (
@@ -725,11 +1001,14 @@ if (
 }
 
 const { data: completedSeed, error: completedSeedError } = await admin.rpc(
-  "complete_student_task",
+  "complete_student_task_v2",
   {
+    p_organization_id: IDS.organization,
     p_assignment_id: taskTwo.assignmentId,
     p_student_id: IDS.student,
     p_request_id: "80000000-0000-4000-8000-000000000001",
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
   },
 );
 if (
@@ -775,11 +1054,14 @@ const returnTask = await publishTask({
   estimatedMinutes: 8,
 });
 const { data: returnCompletion, error: returnCompletionError } = await admin.rpc(
-  "complete_student_task",
+  "complete_student_task_v2",
   {
+    p_organization_id: IDS.organization,
     p_assignment_id: returnTask.assignmentId,
     p_student_id: IDS.returnStudent,
     p_request_id: "80000000-0000-4000-8000-000000000002",
+    p_expected_state_version: 1,
+    p_expected_schedule_version: 1,
   },
 );
 if (
@@ -877,24 +1159,35 @@ const assignedStates = statesResult.data.filter(
 const completedStates = statesResult.data.filter(
   (state) => state.status === "completed",
 ).length;
+const reopenedStates = statesResult.data.filter(
+  (state) => state.status === "reopened",
+).length;
 const ledgerBalance = ledgerResult.data.reduce(
   (sum, entry) => sum + entry.points_delta,
   0,
 );
 const plannedAssignmentCount =
-  primaryWeeklyPlan.taskCount + visualWeeklyPlan.taskCount + helpWeeklyPlan.taskCount;
+  primaryWeeklyPlan.taskCount +
+  visualWeeklyPlan.taskCount +
+  helpWeeklyPlan.taskCount +
+  d2WeeklyPlan.taskCount * 2;
 // Five task definitions are published while their classes have one student.
 // The final return fixture is intentionally class-wide after two more students
 // have joined the primary class, so that publication creates three assignments.
 const manuallyPublishedAssignmentCount = 5 + 3;
-const completedFixtureCount = 3;
+const completedFixtureCount = 4;
+const reopenedFixtureCount = 1;
 const expectedAssignedCount =
-  plannedAssignmentCount + manuallyPublishedAssignmentCount - completedFixtureCount;
+  plannedAssignmentCount +
+  manuallyPublishedAssignmentCount -
+  completedFixtureCount -
+  reopenedFixtureCount;
 if (
   statesResult.data.length !==
     manuallyPublishedAssignmentCount + plannedAssignmentCount ||
   assignedStates !== expectedAssignedCount ||
   completedStates !== completedFixtureCount ||
+  reopenedStates !== reopenedFixtureCount ||
   attemptsResult.data.length !== 1 ||
   transitionsResult.data.length !== 1 ||
   transitionsResult.data[0]?.command !== "complete" ||
@@ -912,6 +1205,7 @@ if (
       totalStates: statesResult.data.length,
       assignedStates,
       completedStates,
+      reopenedStates,
       plannedAssignmentCount,
       attempts: attemptsResult.data.length,
       transitions: transitionsResult.data,
@@ -923,4 +1217,4 @@ if (
   );
 }
 
-console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual-, help-queue- og other-org-data.");
+console.log("Lokal E2E-fixture er klar med isolerte owner-, vikar-, visual-, D2-, help-queue- og other-org-data.");

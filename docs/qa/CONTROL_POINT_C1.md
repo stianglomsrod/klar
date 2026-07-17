@@ -24,10 +24,12 @@ oppgaver».
 ## Kildegrunnlag og valgte produktgrep
 
 - Produksjonsreglene følger domenekontrakten og E01/E04, ikke legacy-koden.
-- Produkteierens egen fortellerstemme i videoen er primær intensjonskilde.
+- Produkteierens egen fortellerstemme i videoen er en historisk
+  produktintensjonskilde.
   [03:05 – oppgave, økt og iterasjon](../../Prototypen/Videoomvisning/00-03-05-task-session-iteration.png)
-  underbygger at en oppgave knyttes til konkrete undervisningsøkter og kan
-  gi én samlet eller én ny fullføring per økt.
+  underbygger at en oppgave knyttes til konkrete undervisningsøkter. Talesporet
+  skiller også mellom én samlet fullføring og én ny fullføring per økt; C1
+  implementerer eller avgjør ikke dette åpne flersesjonsvalget.
   [06:10 – elevens dag](../../Prototypen/Videoomvisning/00-06-10-student-home.png)
   underbygger fisheye-hierarkiet, og
   [09:41 – tolket plan](../../Prototypen/Videoomvisning/00-09-41-parsed-plan.png)
@@ -104,11 +106,11 @@ C1 er ikke hele E04 eller E01:
   automatisk den allerede publiserte revisjonen. Pilotoperatøren må derfor
   ferdigstille elevlisten først til en autorisert backfill-/revisjonsflyt
   finnes.
-- Valgfri tekst, lyd og bilde, oppgaveknyttet hånd, flytt, send ut på nytt,
-  offlineflyt og opplesingskontroll gjenstår i E01/E03.
-- Den eksisterende tekstlige hjelpekontrollen er fortsatt en mellomtilstand.
-  Den avtalte hånden skal bare vises når en ansatt har åpnet kø for økten, og
-  eleven skal ikke se køplass.
+- Valgfri tekst, lyd og bilde, offlineflyt og opplesingskontroll gjenstår i
+  E01. Oppgaveknyttet hånd er levert i E1; eksplisitt flytt og ny utsending er
+  levert i D2.
+- Den avtalte hånden vises bare når en ansatt har åpnet kø for økten, og
+  eleven ser ikke køplass.
 - Automatisert fem-viewport-QA erstatter ikke gjenværende fysisk mobil/iPad,
   VoiceOver/NVDA, safe-area og virtuelt tastatur i den samlede pilotporten.
 
