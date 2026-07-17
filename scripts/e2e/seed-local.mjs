@@ -23,6 +23,7 @@ const IDS = {
   returnStudent: "10000000-0000-4000-8000-000000000011",
   helpStudent: "10000000-0000-4000-8000-000000000012",
   lifecycleHelpStudent: "10000000-0000-4000-8000-000000000013",
+  helpStaff: "10000000-0000-4000-8000-000000000014",
   organization: "20000000-0000-4000-8000-000000000001",
   otherOrganization: "20000000-0000-4000-8000-000000000002",
   visualControlOrganization: "20000000-0000-4000-8000-000000000003",
@@ -80,6 +81,10 @@ const credentials = {
   helpStudent: {
     email: "help-student@e2e.klar.invalid",
     password: required("KLAR_E2E_STUDENT_PASSWORD"),
+  },
+  helpStaff: {
+    email: "help-staff@e2e.klar.invalid",
+    password: required("KLAR_E2E_SUBSTITUTE_PASSWORD"),
   },
 };
 
@@ -361,6 +366,7 @@ await Promise.all([
   createUser({ id: IDS.student, ...credentials.student, displayName: "Testelev" }),
   createUser({ id: IDS.substitute, ...credentials.substitute, displayName: "Livsløpsvikar" }),
   createUser({ id: IDS.visualStaff, ...credentials.visualStaff, displayName: "Visuell faglærer" }),
+  createUser({ id: IDS.helpStaff, ...credentials.helpStaff, displayName: "Hjelpelærer" }),
   createUser({ id: IDS.otherStaff, ...credentials.otherStaff, displayName: "Ansatt annen skole" }),
   createUser({
     id: IDS.otherStudent,
@@ -426,6 +432,7 @@ await insert("memberships", [
   { organization_id: IDS.organization, user_id: IDS.student, role: "student", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.substitute, role: "teacher", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.visualStaff, role: "teacher", created_by: IDS.owner },
+  { organization_id: IDS.organization, user_id: IDS.helpStaff, role: "teacher", created_by: IDS.owner },
   { organization_id: IDS.organization, user_id: IDS.visualStudent, role: "student", created_by: IDS.owner },
   { organization_id: IDS.otherOrganization, user_id: IDS.otherOwner, role: "owner", created_by: IDS.otherOwner },
   { organization_id: IDS.otherOrganization, user_id: IDS.otherStaff, role: "teacher", created_by: IDS.otherOwner },
@@ -522,6 +529,14 @@ const helpOwnerStaffAssignment = await createAssignment({
   classId: IDS.helpClass,
   jobLabel: "contact_teacher",
   key: "60000000-0000-4000-8000-000000000008",
+});
+await createAssignment({
+  organizationId: IDS.organization,
+  ownerId: IDS.owner,
+  userId: IDS.helpStaff,
+  classId: IDS.helpClass,
+  jobLabel: "substitute",
+  key: "60000000-0000-4000-8000-000000000009",
 });
 await createAssignment({
   organizationId: IDS.visualControlOrganization,

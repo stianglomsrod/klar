@@ -43,8 +43,11 @@ begin
     'public.begin_close_help_queue_session(uuid,integer,uuid,uuid,uuid)',
     'public.request_student_help_v2(uuid,uuid,uuid,uuid)',
     'public.cancel_student_help_v2(uuid,uuid,uuid)',
-    'public.claim_student_help_v2(uuid,uuid,uuid,uuid)',
-    'public.resolve_student_help_v2(uuid,uuid,uuid,uuid)'
+    'public.claim_student_help_v3(uuid,bigint,uuid,uuid,uuid)',
+    'public.resolve_student_help_v3(uuid,bigint,uuid,uuid,uuid)',
+    'public.reorder_student_help_v1(uuid,uuid,text,public.help_queue_priority_reason,bigint,uuid,uuid,uuid)',
+    'public.release_student_help_v1(uuid,bigint,uuid,uuid,uuid)',
+    'public.transfer_student_help_v1(uuid,bigint,uuid,uuid,uuid,uuid)'
   ] loop
     if not has_function_privilege('service_role', signature, 'EXECUTE') then
       raise exception 'Service role lacks E1 RPC: %', signature;
@@ -56,15 +59,35 @@ begin
     end loop;
   end loop;
 
+  if has_function_privilege(
+    'service_role',
+    'public.claim_student_help_v2(uuid,uuid,uuid,uuid)',
+    'EXECUTE'
+  ) or has_function_privilege(
+    'service_role',
+    'public.resolve_student_help_v2(uuid,uuid,uuid,uuid)',
+    'EXECUTE'
+  ) then
+    raise exception 'Service role can bypass E2 ownership-version checks';
+  end if;
+
   foreach signature in array array[
     'public.lock_help_queue_command(uuid,uuid)',
     'public.read_help_queue_command_receipt(uuid,uuid,text,text)',
     'public.store_help_queue_command_receipt(uuid,uuid,uuid,text,text,uuid,jsonb)',
     'public.help_queue_result(public.help_queue_sessions,boolean)',
     'public.help_request_result(public.help_requests,boolean)',
+    'public.help_queue_staff_command_result(public.help_requests,integer,bigint,boolean)',
     'public.touch_help_queue_signal(uuid,uuid)',
     'public.touch_help_queue_session(uuid,uuid)',
+    'public.touch_help_queue_staff_signal(uuid)',
+    'public.touch_help_queue_staff_activity(uuid)',
     'public.ensure_help_queue_signal_for_membership()',
+    'public.validate_help_request_roles()',
+    'public.normalize_help_request_ownership()',
+    'public.bump_help_request_ownership_version()',
+    'public.sync_help_queue_request_order()',
+    'public.lock_help_queue_transfer_assignments(uuid,uuid,uuid,uuid)',
     'public.terminalize_student_help_scope(uuid,uuid,uuid,text)',
     'public.terminalize_help_on_membership_change()',
     'public.terminalize_help_on_organization_role_change()',
@@ -81,7 +104,9 @@ begin
   if has_table_privilege('authenticated', 'public.help_queue_sessions', 'SELECT,INSERT,UPDATE,DELETE')
     or has_table_privilege('authenticated', 'public.help_requests', 'SELECT,INSERT,UPDATE,DELETE')
     or has_table_privilege('authenticated', 'public.help_queue_command_receipts', 'SELECT,INSERT,UPDATE,DELETE')
+    or has_table_privilege('authenticated', 'public.help_queue_request_order', 'SELECT,INSERT,UPDATE,DELETE')
     or has_table_privilege('authenticated', 'public.help_queue_signals', 'INSERT,UPDATE,DELETE')
+    or has_table_privilege('service_role', 'public.help_queue_request_order', 'INSERT,UPDATE,DELETE')
     or has_table_privilege('service_role', 'public.help_queue_signals', 'INSERT,UPDATE,DELETE')
     or has_table_privilege('anon', 'public.help_queue_signals', 'SELECT')
   then
@@ -94,6 +119,13 @@ begin
   ) then
     raise exception 'Authenticated browser lacks the read-only E1 signal';
   end if;
+  if not has_table_privilege(
+    'service_role',
+    'public.help_queue_request_order',
+    'SELECT'
+  ) then
+    raise exception 'Service role lacks the staff-only queue order';
+  end if;
   if not exists (
     select 1
     from pg_publication_tables
@@ -105,7 +137,11 @@ begin
     from pg_publication_tables
     where pubname = 'supabase_realtime'
       and schemaname = 'public'
-      and tablename in ('help_requests', 'help_queue_sessions')
+      and tablename in (
+        'help_requests',
+        'help_queue_sessions',
+        'help_queue_request_order'
+      )
   ) then
     raise exception 'Realtime publication exposes the wrong E1 tables';
   end if;
@@ -370,14 +406,16 @@ begin
     raise exception 'Real foreign pupil assignment was not rejected: %', denial_message;
   end if;
 
-  claim_result := public.claim_student_help_v2(
+  claim_result := public.claim_student_help_v3(
     (request_result ->> 'request_id')::uuid,
+    (request_result ->> 'ownership_version')::bigint,
     actor_id,
     staff_assignment_id,
     'e1600000-0000-4000-8000-000000000001'
   );
-  resolve_result := public.resolve_student_help_v2(
+  resolve_result := public.resolve_student_help_v3(
     (request_result ->> 'request_id')::uuid,
+    (claim_result ->> 'ownership_version')::bigint,
     actor_id,
     staff_assignment_id,
     'e1600000-0000-4000-8000-000000000002'
@@ -410,8 +448,9 @@ begin
     'e1500000-0000-4000-8000-000000000006',
     null
   );
-  perform public.claim_student_help_v2(
+  perform public.claim_student_help_v3(
     (recovery_request_result ->> 'request_id')::uuid,
+    (recovery_request_result ->> 'ownership_version')::bigint,
     'a0000000-0000-4000-8000-000000000003',
     recovery_staff_assignment_id,
     'e1600000-0000-4000-8000-000000000003'

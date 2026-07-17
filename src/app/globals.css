@@ -260,6 +260,23 @@ body {
   }
 }
 
+@media (min-width: 768px) and (max-width: 1023px) and (orientation: portrait) {
+  .staff-dialog.staff-dialog--help-queue {
+    inset: 0;
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  .staff-dialog.staff-dialog--help-queue .staff-dialog__content {
+    height: 100dvh;
+    max-height: none;
+  }
+}
+
 @media (max-width: 1023px) {
   .staff-dialog__content > header,
   .staff-dialog__scroll,

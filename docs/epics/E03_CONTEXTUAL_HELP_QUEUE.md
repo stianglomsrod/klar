@@ -1,6 +1,6 @@
 # E03 – Kontekstuell hjelpekø
 
-**Status:** Pågår – E1s øktbundne kjernekø er lokalt verifisert
+**Status:** Pågår – E1s kjernekø og E2s private ansattstyring er lokalt verifisert
 
 **Kontrakt:** [§ 8 Hjelpekø](../product/DOMAIN_CONTRACT.md#8-hjelpekø)
 
@@ -17,8 +17,8 @@ Ansatte ser og styrer den faktiske køen. Eleven ser aldri køplass eller stille
 omprioritering. E1 har levert en aktiv kø for eksakt
 `plan_revision_session`, generell og oppgaveknyttet elevhånd, avmelding, FIFO,
 claim/resolve, sikker realtime-invalidering og deterministisk
-`open → closing → closed`. Reviderbar manuell omprioritering og de utvidede
-ansatthandlingene gjenstår.
+`open → closing → closed`. E2 har i tillegg levert atomisk, reviderbar
+omprioritering, frigivelse og overføring mellom autoriserte ansatte.
 
 ## Omfang
 
@@ -49,15 +49,23 @@ ventetidsløfte eller eksponering av andre elever.
   signaltabell uten elevlesbar prioritet;
 - negative scope-, rolle-, medlemskaps-, oppdrags- og samtidighetstester.
 
+## Levert i kontrollpunkt E2
+
+- separat staff-only rekkefølge med deterministisk FIFO-backfill og
+  sammenhengende posisjoner;
+- atomiske «først», «opp» og «ned» med forventet aktivitetsversjon,
+  idempotente receipts og strukturert, privat audit;
+- frigivelse tilbake til ventende og direkte overføring til en annen aktiv
+  ansatt med `help_queue.manage` i samme klasse;
+- én service-only snapshot-lesing av kø, orden og aktive forespørsler, slik at
+  samtidige elevsignaler ikke kan gi en blandet ansattvisning;
+- tastatur-, touch-, fokus-, axe-, reflow- og viewportbevis i Chromium og
+  WebKit, uten køplass eller prioriteringsmetadata i elevflaten.
+
 ## Gjenstår i E03
 
-- atomisk, reviderbar manuell reorder med tastatur- og touchalternativ;
-- release og transfer mellom autoriserte ansatte;
 - versjonssjekket første Realtime-synkronisering eller eksplisitt
   draftbevaring før flere livepaneler deler en staff-side;
-- kompositt-FK for signalets økt, organisasjon og klasse før en eventuell ny
-  intern skriver introduseres; dagens runtime-writes er revokert og de
-  autoriserte skriverne bevarer allerede dette scopet;
 - gruppekø og forhåndsåpning;
 - global livewidget/klassefilter for ansatte;
 - fysisk E1-retest av touch, safe-area og skjermleser på reell enhet.
@@ -104,8 +112,10 @@ eksplisitt kansellert. Først da blir køen `lukket`.
 
 - `help_queue_sessions`: organisasjon, målgruppe, økt, åpnet/stengt, ansvarlig
   og versjon.
-- `help_requests`: kø, elev, valgfri oppgaveiterasjon, status, intern rang,
-  eier og tidsstempler.
+- `help_requests`: kø, elev, valgfri oppgaveiterasjon, status, eier og
+  tidsstempler.
+- `help_queue_order`: separat, staff-only intern rang for aktive
+  forespørsler.
 - Unik aktiv forespørsel per `(queue_session, student)`.
 - Serverkommandoer for open/close, request/cancel, contextualize, claim,
   release/transfer, resolve og reorder.
@@ -131,7 +141,7 @@ eksplisitt kansellert. Først da blir køen `lukket`.
 - [x] Oppgavekontekst kan legges til uten ny forespørsel eller nullstilt tid.
 - [x] Eleven ser aldri køplass, andre elever eller omprioritering.
 - [x] To ansatte kan ikke overta samme forespørsel samtidig.
-- [ ] Reorder er atomisk, reviderbart og har tastatur-/touch-alternativ.
+- [x] Reorder er atomisk, reviderbart og har tastatur-/touch-alternativ.
 - [x] Stenging bruker en eksplisitt `stenger`-tilstand og etterlater ingen
   usynlig aktiv forespørsel.
 - [x] Reconnect, dobbeltrykk og retry gir semantisk stabil status.
@@ -149,7 +159,8 @@ med minst to ansatte og flere elever uten duplikat, strandet forespørsel eller
 lekkasje av prioritet, og når audit og tilgjengelighet er verifisert.
 
 Automatisert og visuelt delbevis finnes i
-[Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md). Det samlede kriteriet for fysisk
+[Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md) og
+[kontrollpunkt E2](../qa/CONTROL_POINT_E2.md). Det samlede kriteriet for fysisk
 skjermleser/touch står åpent selv om Chromium, WebKit, axe, tastatur og
 viewportmatrisen er grønne.
 

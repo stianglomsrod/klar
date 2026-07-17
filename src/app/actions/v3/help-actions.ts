@@ -7,10 +7,17 @@ import {
   claimStudentHelp,
   closeTeacherHelpQueue,
   openTeacherHelpQueue,
+  releaseStudentHelp,
+  reorderStudentHelp,
   requestOwnHelp,
   resolveStudentHelp,
+  transferStudentHelp,
 } from "@/server/help/help-service";
-import type { ActiveStudentHelpRequest } from "@/server/help/help-service";
+import type {
+  ActiveStudentHelpRequest,
+  HelpQueueMoveDirection,
+  HelpQueuePriorityReason,
+} from "@/server/help/help-service";
 import { authorizationFailure, type ActionFailure } from "./action-errors";
 
 type MutationResult = { success: true } | ActionFailure;
@@ -98,10 +105,16 @@ export async function closeTeacherHelpQueueAction(
 export async function claimStudentHelpAction(
   classId: string,
   requestId: string,
+  expectedOwnershipVersion: number,
   commandRequestId: string,
 ): Promise<MutationResult> {
   try {
-    await claimStudentHelp(classId, requestId, commandRequestId);
+    await claimStudentHelp(
+      classId,
+      requestId,
+      expectedOwnershipVersion,
+      commandRequestId,
+    );
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {
@@ -112,13 +125,87 @@ export async function claimStudentHelpAction(
 export async function resolveStudentHelpAction(
   classId: string,
   requestId: string,
+  expectedOwnershipVersion: number,
   commandRequestId: string,
 ): Promise<MutationResult> {
   try {
-    await resolveStudentHelp(classId, requestId, commandRequestId);
+    await resolveStudentHelp(
+      classId,
+      requestId,
+      expectedOwnershipVersion,
+      commandRequestId,
+    );
     revalidatePath(`/v3/teacher/classes/${classId}`);
     return { success: true };
   } catch (error) {
     return resultFromError(error, "Kunne ikke fullføre køplassen.");
+  }
+}
+
+export async function reorderStudentHelpAction(
+  classId: string,
+  queueSessionId: string,
+  requestId: string,
+  direction: HelpQueueMoveDirection,
+  reasonCode: HelpQueuePriorityReason,
+  expectedActivityVersion: number,
+  commandRequestId: string,
+): Promise<MutationResult> {
+  try {
+    await reorderStudentHelp(
+      classId,
+      queueSessionId,
+      requestId,
+      direction,
+      reasonCode,
+      expectedActivityVersion,
+      commandRequestId,
+    );
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke endre kørekkefølgen.");
+  }
+}
+
+export async function releaseStudentHelpAction(
+  classId: string,
+  requestId: string,
+  expectedOwnershipVersion: number,
+  commandRequestId: string,
+): Promise<MutationResult> {
+  try {
+    await releaseStudentHelp(
+      classId,
+      requestId,
+      expectedOwnershipVersion,
+      commandRequestId,
+    );
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke frigi forespørselen.");
+  }
+}
+
+export async function transferStudentHelpAction(
+  classId: string,
+  requestId: string,
+  expectedOwnershipVersion: number,
+  targetStaffAssignmentId: string,
+  commandRequestId: string,
+): Promise<MutationResult> {
+  try {
+    await transferStudentHelp(
+      classId,
+      requestId,
+      expectedOwnershipVersion,
+      targetStaffAssignmentId,
+      commandRequestId,
+    );
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke overføre forespørselen.");
   }
 }

@@ -12,6 +12,7 @@ const states = {
   visualStudent: path.join(authDirectory, "visual-student.json"),
   returnStudent: path.join(authDirectory, "return-student.json"),
   helpStudent: path.join(authDirectory, "help-student.json"),
+  helpStaffAal2: path.join(authDirectory, "help-staff-aal2.json"),
   ownerAal1: path.join(authDirectory, "owner-aal1.json"),
   ownerAal2: path.join(authDirectory, "owner-aal2.json"),
   substituteAal1: path.join(authDirectory, "substitute-aal1.json"),
@@ -170,5 +171,12 @@ setup("oppretter isolerte elev-, owner- og ansattsesjoner", async ({ browser, ba
     email: credentials.otherStaffEmail,
     password: credentials.otherStaffPassword,
     aal2Path: states.otherStaffAal2,
+  });
+  await createAdultStates({
+    browser,
+    baseURL,
+    email: credentials.helpStaffEmail,
+    password: credentials.helpStaffPassword,
+    aal2Path: states.helpStaffAal2,
   });
 });

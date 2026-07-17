@@ -35,6 +35,7 @@ const postA1Migrations = [
   "20260716000002_weekly_plan_sessions.sql",
   "20260717000000_session_help_queues.sql",
 ];
+const e2Migration = "20260717000001_help_queue_staff_controls.sql";
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -196,6 +197,10 @@ function applyPostA1(containerName) {
   for (const migration of postA1Migrations) {
     runSql(containerName, `supabase/migrations/${migration}`);
   }
+}
+
+function applyE2(containerName) {
+  runSql(containerName, `supabase/migrations/${e2Migration}`);
 }
 
 function applyA1Followups(containerName) {
@@ -1011,22 +1016,26 @@ async function runHelpQueueConcurrency(config) {
   });
 
   const activeRequestId = sameRetry[0].value.rows[0].result.request_id;
+  const activeOwnershipVersion =
+    sameRetry[0].value.rows[0].result.ownership_version;
   const claimRace = await synchronizedPair(
     config,
     "help-claim",
     (client) => client.query(
-      "select public.claim_student_help_v2($1,$2,$3,$4) as result",
+      "select public.claim_student_help_v3($1,$2,$3,$4,$5) as result",
       [
         activeRequestId,
+        activeOwnershipVersion,
         firstStaffId,
         state.assignmentByStaff.get(firstStaffId),
         "e1b00000-0000-4000-8000-000000000001",
       ],
     ),
     (client) => client.query(
-      "select public.claim_student_help_v2($1,$2,$3,$4) as result",
+      "select public.claim_student_help_v3($1,$2,$3,$4,$5) as result",
       [
         activeRequestId,
+        activeOwnershipVersion,
         secondStaffId,
         state.assignmentByStaff.get(secondStaffId),
         "e1b00000-0000-4000-8000-000000000002",
@@ -1038,14 +1047,15 @@ async function runHelpQueueConcurrency(config) {
 
   const claimOwner = await withClient(config, "klar-e1-resolve-claim", async (client) => {
     const owner = await client.query(
-      "select claimed_by from public.help_requests where id = $1",
+      "select claimed_by, ownership_version from public.help_requests where id = $1",
       [activeRequestId],
     );
     const staffId = owner.rows[0].claimed_by;
     await client.query(
-      "select public.resolve_student_help_v2($1,$2,$3,$4)",
+      "select public.resolve_student_help_v3($1,$2,$3,$4,$5)",
       [
         activeRequestId,
+        owner.rows[0].ownership_version,
         staffId,
         state.assignmentByStaff.get(staffId),
         "e1b00000-0000-4000-8000-000000000003",
@@ -1106,12 +1116,21 @@ async function runHelpQueueConcurrency(config) {
     const counts = await client.query(
       `select
         (select count(*)::integer from public.help_requests
-         where queue_session_id = $1 and student_id = $2) as requests,
+         where queue_session_id = $1 and student_id = $2 and id = $3) as requests,
         (select count(*)::integer from public.audit_events
          where entity_id = $3 and event_name = 'help.requested') as audits,
         (select count(*)::integer from public.help_queue_command_receipts
-         where actor_id = $2 and command = 'request_help') as receipts`,
-      [state.queueId, secondStudentId, requestId],
+         where actor_id = $2 and command = 'request_help'
+           and request_id = any($4::uuid[])) as receipts`,
+      [
+        state.queueId,
+        secondStudentId,
+        requestId,
+        [
+          "e1c00000-0000-4000-8000-000000000001",
+          "e1c00000-0000-4000-8000-000000000002",
+        ],
+      ],
     );
     assert.deepEqual(counts.rows[0], { requests: 1, audits: 1, receipts: 2 });
   });
@@ -1133,9 +1152,10 @@ async function runHelpQueueConcurrency(config) {
     config,
     "help-claim-revoke",
     (client) => client.query(
-      "select public.claim_student_help_v2($1,$2,$3,$4) as result",
+      "select public.claim_student_help_v3($1,$2,$3,$4,$5) as result",
       [
         revokeRaceRequest,
+        1,
         revocationStaffId,
         state.assignmentByStaff.get(revocationStaffId),
         "e1c00000-0000-4000-8000-000000000005",
@@ -1406,6 +1426,165 @@ async function runHelpQueueConcurrency(config) {
   });
 }
 
+async function runHelpQueueStaffControlConcurrency(config) {
+  const organizationId = "b0000000-0000-4000-8000-000000000001";
+  const classId = "c0000000-0000-4000-8000-000000000001";
+  const firstStudentId = "a0000000-0000-4000-8000-000000000006";
+  const secondStudentId = "a0000000-0000-4000-8000-000000000009";
+  const firstStaffId = "a0000000-0000-4000-8000-000000000003";
+  const secondStaffId = "a0000000-0000-4000-8000-000000000004";
+  const firstCommandId = "e2900000-0000-4000-8000-000000000001";
+  const secondCommandId = "e2900000-0000-4000-8000-000000000002";
+
+  const state = await withClient(config, "klar-e2-reorder-race-setup", async (client) => {
+    const queue = await client.query(
+      `select id
+       from public.help_queue_sessions
+       where organization_id = $1 and class_id = $2 and status = 'open'`,
+      [organizationId, classId],
+    );
+    assert.equal(queue.rows.length, 1);
+    const assignments = await client.query(
+      `select distinct on (assignment.user_id)
+          assignment.id, assignment.user_id
+       from public.staff_assignments as assignment
+       join public.staff_assignment_class_scopes as scope
+         on scope.assignment_id = assignment.id
+        and scope.organization_id = assignment.organization_id
+       join public.staff_assignment_capabilities as capability
+         on capability.assignment_id = assignment.id
+        and capability.profile_version = assignment.profile_version
+        and capability.capability = 'help_queue.manage'
+       where assignment.organization_id = $1
+         and assignment.user_id = any($2::uuid[])
+         and scope.class_id = $3
+         and assignment.revoked_at is null
+         and assignment.starts_at <= transaction_timestamp()
+         and (assignment.ends_at is null or transaction_timestamp() < assignment.ends_at)
+       order by assignment.user_id, assignment.starts_at desc, assignment.id`,
+      [organizationId, [firstStaffId, secondStaffId], classId],
+    );
+    assert.equal(assignments.rows.length, 2);
+    const assignmentByStaff = new Map(
+      assignments.rows.map((row) => [row.user_id, row.id]),
+    );
+    const firstRequest = await client.query(
+      "select public.request_student_help_v2($1,$2,$3,$4) as result",
+      [
+        queue.rows[0].id,
+        firstStudentId,
+        "e2910000-0000-4000-8000-000000000001",
+        null,
+      ],
+    );
+    const secondRequest = await client.query(
+      "select public.request_student_help_v2($1,$2,$3,$4) as result",
+      [
+        queue.rows[0].id,
+        secondStudentId,
+        "e2910000-0000-4000-8000-000000000002",
+        null,
+      ],
+    );
+    const version = await client.query(
+      "select activity_version from public.help_queue_sessions where id = $1",
+      [queue.rows[0].id],
+    );
+    return {
+      queueId: queue.rows[0].id,
+      firstRequestId: firstRequest.rows[0].result.request_id,
+      secondRequestId: secondRequest.rows[0].result.request_id,
+      activityVersion: version.rows[0].activity_version,
+      assignmentByStaff,
+    };
+  });
+
+  const reorderSql = `select public.reorder_student_help_v1(
+    $1,$2,$3,$4::public.help_queue_priority_reason,$5,$6,$7,$8
+  ) as result`;
+  const race = await synchronizedPair(
+    config,
+    "help-e2-reorder",
+    (client) => client.query(reorderSql, [
+      state.queueId,
+      state.firstRequestId,
+      "down",
+      "staff_coordination",
+      state.activityVersion,
+      firstStaffId,
+      state.assignmentByStaff.get(firstStaffId),
+      firstCommandId,
+    ]),
+    (client) => client.query(reorderSql, [
+      state.queueId,
+      state.secondRequestId,
+      "first",
+      "support_needed_now",
+      state.activityVersion,
+      secondStaffId,
+      state.assignmentByStaff.get(secondStaffId),
+      secondCommandId,
+    ]),
+  );
+  assert.equal(race.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(race.filter((result) => result.status === "rejected").length, 1);
+  const rejected = race.find((result) => result.status === "rejected");
+  assert.match(rejected.reason.message, /activity version is stale/i);
+
+  await withClient(config, "klar-e2-reorder-race-assert", async (client) => {
+    const result = await client.query(
+      `select
+        (select array_agg(request_id order by position)
+         from public.help_queue_request_order
+         where queue_session_id = $1 and active) as ordered_requests,
+        (select activity_version from public.help_queue_sessions where id = $1) as activity_version,
+        (select count(*)::integer from public.audit_events
+         where event_name = 'help.reordered'
+           and entity_id = any($2::uuid[])) as audits,
+        (select count(*)::integer from public.help_queue_command_receipts
+         where request_id = any($3::uuid[]) and command = 'reorder_help') as receipts,
+        (select count(*)::integer from public.help_queue_signals
+         where queue_session_id = $1 and staff_only) as staff_signals`,
+      [
+        state.queueId,
+        [state.firstRequestId, state.secondRequestId],
+        [firstCommandId, secondCommandId],
+      ],
+    );
+    assert.deepEqual(result.rows[0], {
+      ordered_requests: [state.secondRequestId, state.firstRequestId],
+      activity_version: String(BigInt(state.activityVersion) + 1n),
+      audits: 1,
+      receipts: 1,
+      staff_signals: 1,
+    });
+
+    await client.query(
+      "select public.cancel_student_help_v2($1,$2,$3)",
+      [
+        state.firstRequestId,
+        firstStudentId,
+        "e2920000-0000-4000-8000-000000000001",
+      ],
+    );
+    await client.query(
+      "select public.cancel_student_help_v2($1,$2,$3)",
+      [
+        state.secondRequestId,
+        secondStudentId,
+        "e2920000-0000-4000-8000-000000000002",
+      ],
+    );
+    const active = await client.query(
+      `select count(*)::integer as requests
+       from public.help_requests
+       where queue_session_id = $1 and status in ('waiting','claimed')`,
+      [state.queueId],
+    );
+    assert.equal(active.rows[0].requests, 0);
+  });
+}
+
 async function runEmptyScenario() {
   const container = startContainer("empty");
   try {
@@ -1413,6 +1592,7 @@ async function runEmptyScenario() {
     runSql(container.name, `supabase/migrations/${a1Migration}`);
     applyA1Followups(container.name);
     applyPostA1(container.name);
+    applyE2(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
@@ -1421,6 +1601,8 @@ async function runEmptyScenario() {
     runSql(container.name, "supabase/verification/weekly_plan_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_concurrency_fixture.sql");
     runSql(container.name, "supabase/verification/help_queue_session_rpc_smoke.sql");
+    runSql(container.name, "supabase/verification/help_queue_staff_controls_rpc_smoke.sql");
+    await runHelpQueueStaffControlConcurrency(container.config);
     await runHelpQueueConcurrency(container.config);
     await runWeeklyPlanConcurrency(container.config);
     await runConcurrency(container.config);
@@ -1443,6 +1625,9 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/progress_upgrade_smoke.sql");
     runSql(positive.name, "supabase/verification/weekly_plan_upgrade_smoke.sql");
     runSql(positive.name, "supabase/verification/help_queue_upgrade_smoke.sql");
+    runSql(positive.name, "supabase/verification/help_queue_staff_upgrade_fixture.sql");
+    applyE2(positive.name);
+    runSql(positive.name, "supabase/verification/help_queue_staff_upgrade_smoke.sql");
   } finally {
     cleanupContainer(positive.name);
   }
@@ -1461,6 +1646,27 @@ function runUpgradeScenario() {
     runSql(invalid.name, "supabase/verification/staff_invalid_legacy_assert.sql");
   } finally {
     cleanupContainer(invalid.name);
+  }
+
+  const invalidE2 = startContainer("upgrade-e2-invalid");
+  try {
+    applyPreA1(invalidE2.name);
+    runSql(invalidE2.name, "supabase/verification/staff_upgrade_fixture.sql");
+    runSql(invalidE2.name, `supabase/migrations/${a1Migration}`);
+    applyA1Followups(invalidE2.name);
+    applyPostA1(invalidE2.name);
+    runSql(invalidE2.name, "supabase/verification/help_queue_staff_upgrade_fixture.sql");
+    runSql(invalidE2.name, "supabase/verification/help_queue_staff_invalid_scope_fixture.sql");
+    const output = runSql(invalidE2.name, `supabase/migrations/${e2Migration}`, {
+      expectFailure: true,
+    });
+    assert.match(
+      output,
+      /help queue signal scope is inconsistent with its queue session/i,
+    );
+    runSql(invalidE2.name, "supabase/verification/help_queue_staff_invalid_scope_assert.sql");
+  } finally {
+    cleanupContainer(invalidE2.name);
   }
   console.log("A1 database representative upgrade + atomic preflight: PASS");
 }

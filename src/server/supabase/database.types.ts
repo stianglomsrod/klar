@@ -25,6 +25,10 @@ export type HelpRequestStatus =
   | "cancelled"
   | "expired";
 export type HelpQueueSessionStatus = "open" | "closing" | "closed";
+export type HelpQueuePriorityReason =
+  | "support_needed_now"
+  | "short_clarification"
+  | "staff_coordination";
 export type StaffJobLabel =
   | "contact_teacher"
   | "subject_teacher"
@@ -184,6 +188,8 @@ type HelpRequestRow = {
   claimed_by: string | null;
   requested_at: string;
   claimed_at: string | null;
+  ownership_changed_at: string | null;
+  ownership_version: number;
   resolved_at: string | null;
   expires_at: string;
   updated_at: string;
@@ -213,11 +219,39 @@ type HelpQueueCommandReceiptRow = {
     | "request_help"
     | "cancel_help"
     | "claim_help"
-    | "resolve_help";
+    | "resolve_help"
+    | "reorder_help"
+    | "release_help"
+    | "transfer_help";
   request_fingerprint: string;
   queue_session_id: string;
   result: Json;
   created_at: string;
+};
+
+type HelpQueueSignalRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  queue_session_id: string | null;
+  student_id: string | null;
+  signal_version: number;
+  updated_at: string;
+  staff_only: boolean;
+};
+
+type HelpQueueRequestOrderRow = {
+  request_id: string;
+  organization_id: string;
+  class_id: string;
+  queue_session_id: string;
+  position: number | null;
+  active: boolean;
+  last_changed_by: string | null;
+  last_changed_at: string | null;
+  last_reason_code: HelpQueuePriorityReason | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type AuditEventRow = {
@@ -534,6 +568,8 @@ export type Database = {
           claimed_by?: string | null;
           requested_at?: string;
           claimed_at?: string | null;
+          ownership_changed_at?: string | null;
+          ownership_version?: number;
           resolved_at?: string | null;
           expires_at?: string;
           updated_at?: string;
@@ -552,6 +588,35 @@ export type Database = {
           opened_at?: string;
           closing_started_at?: string | null;
           closed_at?: string | null;
+          updated_at?: string;
+        }
+      >;
+      help_queue_signals: TableDefinition<
+        HelpQueueSignalRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          queue_session_id?: string | null;
+          student_id?: string | null;
+          signal_version?: number;
+          updated_at?: string;
+          staff_only?: boolean;
+        }
+      >;
+      help_queue_request_order: TableDefinition<
+        HelpQueueRequestOrderRow,
+        {
+          request_id: string;
+          organization_id: string;
+          class_id: string;
+          queue_session_id: string;
+          position?: number | null;
+          active?: boolean;
+          last_changed_by?: string | null;
+          last_changed_at?: string | null;
+          last_reason_code?: HelpQueuePriorityReason | null;
+          created_at?: string;
           updated_at?: string;
         }
       >;
@@ -938,6 +1003,68 @@ export type Database = {
         };
         Returns: Json;
       };
+      claim_student_help_v3: {
+        Args: {
+          p_request_id: string;
+          p_expected_ownership_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      resolve_student_help_v3: {
+        Args: {
+          p_request_id: string;
+          p_expected_ownership_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      read_help_queue_staff_snapshot_v1: {
+        Args: {
+          p_organization_id: string;
+          p_class_id: string;
+          p_queue_session_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_student_help_v1: {
+        Args: {
+          p_queue_session_id: string;
+          p_request_id: string;
+          p_direction: "first" | "up" | "down";
+          p_reason_code: HelpQueuePriorityReason;
+          p_expected_activity_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      release_student_help_v1: {
+        Args: {
+          p_request_id: string;
+          p_expected_ownership_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
+      transfer_student_help_v1: {
+        Args: {
+          p_request_id: string;
+          p_expected_ownership_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_target_staff_assignment_id: string;
+          p_command_request_id: string;
+        };
+        Returns: Json;
+      };
       publish_plan_to_class: {
         Args: {
           p_class_id: string;
@@ -1035,6 +1162,8 @@ export type Database = {
       task_publication_status: TaskPublicationStatus;
       student_task_status: StudentTaskStatus;
       help_request_status: HelpRequestStatus;
+      help_queue_session_status: HelpQueueSessionStatus;
+      help_queue_priority_reason: HelpQueuePriorityReason;
       staff_job_label: StaffJobLabel;
       staff_assignment_source: StaffAssignmentSource;
       staff_capability: StaffCapability;

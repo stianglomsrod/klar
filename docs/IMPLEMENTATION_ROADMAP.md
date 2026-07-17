@@ -136,8 +136,9 @@ symboler, korte handlingsord og opplesing, på mobil, iPad og PC.
 ### Kontrollpunkt E – aktiv hjelpekø
 
 **Status:** Pågår – E1 leverer det øktbundne livsløpet, elevhånden, FIFO,
-claim/resolve, privacy og reconnect. Manuell reorder, release/transfer,
-grupper, globalt livepanel og fysisk enhetsport gjenstår.
+claim/resolve, privacy og reconnect. E2 leverer atomisk og reviderbar manuell
+reorder, release/transfer og privat staff-snapshot. Grupper, globalt livepanel
+og fysisk enhetsport gjenstår.
 
 Koble E03 til aktive timer/sesjoner:
 

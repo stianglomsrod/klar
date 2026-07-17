@@ -637,3 +637,298 @@ test("aktiv hånd overlever klassebytte og naturlig øktslutt", async ({
     }
   }
 });
+
+test("to AAL2-ansatte prioriterer, overfører og frigir hjelp privat", async ({
+  browser,
+  baseURL,
+}) => {
+  test.slow();
+  if (!baseURL) throw new Error("Playwright baseURL mangler.");
+  const database = await openLocalDatabase();
+  const ownerContext = await browser.newContext({
+    baseURL,
+    storageState: path.join(authDirectory, "owner-aal2.json"),
+    viewport: { width: 768, height: 1024 },
+    hasTouch: true,
+    locale: "nb-NO",
+    timezoneId: "Europe/Oslo",
+    reducedMotion: "reduce",
+    serviceWorkers: "block",
+  });
+  const helpStaffContext = await browser.newContext({
+    baseURL,
+    storageState: path.join(authDirectory, "help-staff-aal2.json"),
+    viewport: { width: 1024, height: 768 },
+    locale: "nb-NO",
+    timezoneId: "Europe/Oslo",
+    reducedMotion: "reduce",
+    serviceWorkers: "block",
+  });
+  const studentContext = await browser.newContext({
+    baseURL,
+    storageState: path.join(authDirectory, "help-student.json"),
+    viewport: { width: 360, height: 640 },
+    hasTouch: true,
+    locale: "nb-NO",
+    timezoneId: "Europe/Oslo",
+    reducedMotion: "reduce",
+    serviceWorkers: "block",
+  });
+  const ownerPage = await ownerContext.newPage();
+  const helpStaffPage = await helpStaffContext.newPage();
+  const studentPage = await studentContext.newPage();
+  const ownerRuntime = observeRuntimeErrors(ownerPage);
+  const helpStaffRuntime = observeRuntimeErrors(helpStaffPage);
+  const studentRuntime = observeRuntimeErrors(studentPage);
+
+  function queueOn(page: Page) {
+    return page.getByRole("region", { name: "Hjelpekø" });
+  }
+
+  async function expectOrder(page: Page, names: string[]) {
+    const items = queueOn(page)
+      .getByRole("list", { name: "Intern kørekkefølge" })
+      .getByRole("listitem");
+    await expect(items).toHaveCount(names.length);
+    for (const [index, name] of names.entries()) {
+      await expect(items.nth(index)).toContainText(name);
+      await expect(
+        items.nth(index).getByLabel(`Køplass ${index + 1}`),
+      ).toBeVisible();
+    }
+  }
+
+  try {
+    await Promise.all([
+      ownerPage.goto(`/v3/teacher/classes/${helpClassId}`),
+      helpStaffPage.goto(`/v3/teacher/classes/${helpClassId}`),
+    ]);
+    const ownerQueue = queueOn(ownerPage);
+    const helpStaffQueue = queueOn(helpStaffPage);
+    await ownerQueue.getByRole("button", { name: "Åpne kø" }).click();
+    await expect(ownerQueue.getByText("Åpen", { exact: true })).toBeVisible();
+
+    const queueSession = await database.query<{ id: string }>(
+      `select id::text
+       from public.help_queue_sessions
+       where class_id = $1::uuid and status = 'open'`,
+      [helpClassId],
+    );
+    const queueSessionId = queueSession.rows[0]?.id;
+    expect(queueSessionId).toBeTruthy();
+    const lifecycleRequest = await database.query<{ result: { request_id: string } }>(
+      "select public.request_student_help_v2($1::uuid,$2::uuid,$3::uuid,null) as result",
+      [
+        queueSessionId,
+        lifecycleHelpStudentId,
+        "e2e00000-0000-4000-8000-000000000001",
+      ],
+    );
+    const helpRequest = await database.query<{ result: { request_id: string } }>(
+      "select public.request_student_help_v2($1::uuid,$2::uuid,$3::uuid,null) as result",
+      [
+        queueSessionId,
+        helpStudentId,
+        "e2e00000-0000-4000-8000-000000000002",
+      ],
+    );
+    expect(lifecycleRequest.rows[0]?.result.request_id).toBeTruthy();
+    const helpRequestId = helpRequest.rows[0]?.result.request_id;
+    expect(helpRequestId).toBeTruthy();
+
+    await Promise.all([
+      expectOrder(ownerPage, ["Livsløpselev", "Hjelpeelev"]),
+      expectOrder(helpStaffPage, ["Livsløpselev", "Hjelpeelev"]),
+      studentPage.goto("/v3/student"),
+    ]);
+    const activeHelp = studentPage
+      .getByRole("region", { name: "Hjelp" })
+      .getByRole("button", { name: "Står i kø. Åpne avmelding" });
+    await expect(activeHelp).toBeVisible();
+    await expectStudentPrivacy(studentPage);
+
+    const initialInternalState = await database.query<{
+      requested_at: string;
+      task_assignment_id: string | null;
+      signal_version: string;
+    }>(
+      `select
+         request.requested_at::text,
+         request.task_assignment_id::text,
+         signal.signal_version::text
+       from public.help_requests as request
+       join public.help_queue_signals as signal
+         on signal.queue_session_id = request.queue_session_id
+        and signal.student_id = request.student_id
+       where request.id = $1::uuid`,
+      [helpRequestId],
+    );
+
+    const helpRow = ownerQueue
+      .getByRole("listitem")
+      .filter({ hasText: "Hjelpeelev" });
+    const priorityTrigger = helpRow.getByRole("button", {
+      name: "Endre prioritet – Hjelpeelev",
+    });
+    await priorityTrigger.click();
+    const priorityDialog = ownerPage.getByRole("dialog", {
+      name: "Endre prioritet",
+    });
+    await expect(priorityDialog).toBeVisible();
+    const portraitBox = await priorityDialog.boundingBox();
+    expect(portraitBox).not.toBeNull();
+    expect(portraitBox!.x).toBeLessThanOrEqual(1);
+    expect(portraitBox!.y).toBeLessThanOrEqual(1);
+    expect(portraitBox!.width).toBeGreaterThanOrEqual(767);
+    expect(portraitBox!.height).toBeGreaterThanOrEqual(1023);
+    await expectNoAxeViolations(ownerPage);
+    await priorityDialog.getByLabel("Trenger støtte nå").check();
+    await priorityDialog.getByRole("button", { name: "Flytt først" }).click();
+    await expect(priorityDialog).toBeHidden();
+    await expect(priorityTrigger).toBeFocused();
+
+    await Promise.all([
+      expectOrder(ownerPage, ["Hjelpeelev", "Livsløpselev"]),
+      expectOrder(helpStaffPage, ["Hjelpeelev", "Livsløpselev"]),
+    ]);
+    await expect(helpRow).toContainText("Trenger støtte nå");
+
+    const claim = helpRow.getByRole("button", {
+      name: "Jeg tar denne – Hjelpeelev",
+    });
+    await claim.click();
+    const resolve = helpRow.getByRole("button", {
+      name: "Ferdig hjulpet – Hjelpeelev",
+    });
+    await expect(resolve).toBeVisible();
+    await expect(resolve).toBeFocused();
+    await expect(
+      helpStaffQueue
+        .getByRole("listitem")
+        .filter({ hasText: "Hjelpeelev" }),
+    ).toContainText("Hos Testeier");
+
+    const transferTrigger = helpRow.getByRole("button", {
+      name: "Overfør – Hjelpeelev",
+    });
+    await transferTrigger.click();
+    const transferDialog = ownerPage.getByRole("dialog", {
+      name: "Overfør hjelp",
+    });
+    await expect(transferDialog).toBeVisible();
+    await ownerPage.keyboard.press("Escape");
+    await expect(transferDialog).toBeHidden();
+    await expect(transferTrigger).toBeFocused();
+    await transferTrigger.click();
+    await transferDialog.getByLabel("Ansatt").selectOption({
+      label: "Hjelpelærer",
+    });
+    await transferDialog.getByRole("button", { name: "Overfør" }).click();
+    await expect(transferDialog).toBeHidden();
+    await expect(helpRow).toBeFocused();
+
+    const helpStaffRow = helpStaffQueue
+      .getByRole("listitem")
+      .filter({ hasText: "Hjelpeelev" });
+    await expect(helpStaffRow).toContainText("Hos deg");
+    await expect(helpRow).toContainText("Hos Hjelpelærer");
+    const release = helpStaffRow.getByRole("button", {
+      name: "Frigi – Hjelpeelev",
+    });
+    await release.click();
+    await expect(helpStaffRow).toBeFocused();
+    await expect(
+      helpStaffRow.getByRole("button", {
+        name: "Jeg tar denne – Hjelpeelev",
+      }),
+    ).toBeVisible();
+    await Promise.all([
+      expectOrder(ownerPage, ["Hjelpeelev", "Livsløpselev"]),
+      expectOrder(helpStaffPage, ["Hjelpeelev", "Livsløpselev"]),
+    ]);
+
+    const finalInternalState = await database.query<{
+      requested_at: string;
+      task_assignment_id: string | null;
+      signal_version: string;
+      position: number;
+      status: string;
+    }>(
+      `select
+         request.requested_at::text,
+         request.task_assignment_id::text,
+         signal.signal_version::text,
+         queue_order.position,
+         request.status::text
+       from public.help_requests as request
+       join public.help_queue_signals as signal
+         on signal.queue_session_id = request.queue_session_id
+        and signal.student_id = request.student_id
+       join public.help_queue_request_order as queue_order
+         on queue_order.request_id = request.id
+       where request.id = $1::uuid`,
+      [helpRequestId],
+    );
+    expect(finalInternalState.rows[0]).toMatchObject({
+      requested_at: initialInternalState.rows[0]?.requested_at,
+      task_assignment_id: initialInternalState.rows[0]?.task_assignment_id,
+      signal_version: initialInternalState.rows[0]?.signal_version,
+      position: 1,
+      status: "waiting",
+    });
+    await expectStudentPrivacy(studentPage);
+
+    for (const viewport of [
+      { width: 360, height: 640 },
+      { width: 640, height: 360 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 768 },
+      { width: 1440, height: 900 },
+      // 1440 × 900 at 200 % browser zoom has approximately this CSS viewport.
+      { width: 720, height: 450 },
+    ]) {
+      await helpStaffPage.setViewportSize(viewport);
+      const priorityControl = helpStaffRow.getByRole("button", {
+        name: "Endre prioritet – Hjelpeelev",
+      });
+      await priorityControl.click();
+      const responsiveDialog = helpStaffPage.getByRole("dialog", {
+        name: "Endre prioritet",
+      });
+      await expect(responsiveDialog).toBeVisible();
+      await expectNoHorizontalOverflow(helpStaffPage);
+      await expectNoAxeViolations(helpStaffPage);
+      await expectMinimumTargetSize(
+        responsiveDialog.getByRole("button", { name: "Lukk" }),
+      );
+      if (captureChromiumEvidence) {
+        await helpStaffPage.screenshot({
+          path: `docs/qa/evidence/E2/staff-priority-dialog-${viewport.width}x${viewport.height}.png`,
+          fullPage: false,
+        });
+      }
+      await helpStaffPage.keyboard.press("Escape");
+      await expect(responsiveDialog).toBeHidden();
+      await expect(priorityControl).toBeFocused();
+    }
+
+    await Promise.all([
+      expectNoHorizontalOverflow(ownerPage),
+      expectNoHorizontalOverflow(helpStaffPage),
+      expectNoHorizontalOverflow(studentPage),
+      expectNoAxeViolations(ownerPage),
+      expectNoAxeViolations(helpStaffPage),
+      expectNoAxeViolations(studentPage),
+    ]);
+    ownerRuntime();
+    helpStaffRuntime();
+    studentRuntime();
+  } finally {
+    await Promise.all([
+      database.end(),
+      ownerContext.close(),
+      helpStaffContext.close(),
+      studentContext.close(),
+    ]);
+  }
+});

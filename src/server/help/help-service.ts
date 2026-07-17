@@ -8,9 +8,13 @@ import { isUuid } from "@/server/auth/policy";
 import { PrototypeDataError } from "@/server/data/errors";
 import { getSupabaseAdminClient } from "@/server/supabase/admin";
 import type {
+  HelpQueuePriorityReason,
   HelpQueueSessionStatus,
   Json,
 } from "@/server/supabase/database.types";
+
+export type HelpQueueMoveDirection = "first" | "up" | "down";
+export type { HelpQueuePriorityReason };
 
 export type StudentHelpQueue = {
   id: string;
@@ -42,13 +46,25 @@ export type TeacherHelpSession = {
 
 export type TeacherHelpQueueItem = {
   id: string;
+  position: number;
   studentName: string;
   status: "waiting" | "claimed";
   requestedAt: string;
+  ownershipVersion: number;
   taskTitle: string | null;
   taskSubject: string | null;
   claimedByName: string | null;
   claimedByCurrentTeacher: boolean;
+  priority: {
+    changedByName: string;
+    changedAt: string;
+    reasonCode: HelpQueuePriorityReason;
+  } | null;
+};
+
+export type TeacherHelpTransferTarget = {
+  staffAssignmentId: string;
+  displayName: string;
 };
 
 export type TeacherHelpQueueState = {
@@ -61,6 +77,7 @@ export type TeacherHelpQueueState = {
     activityVersion: number;
   } | null;
   requests: TeacherHelpQueueItem[];
+  transferTargets: TeacherHelpTransferTarget[];
 };
 
 export type HelpQueueCommandResult = {
@@ -77,6 +94,160 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isHelpQueuePriorityReason(
+  value: unknown,
+): value is HelpQueuePriorityReason {
+  return [
+    "support_needed_now",
+    "short_clarification",
+    "staff_coordination",
+  ].includes(String(value));
+}
+
+type TeacherHelpQueueSnapshot = {
+  queue: {
+    id: string;
+    organization_id: string;
+    class_id: string;
+    revision_session_id: string;
+    status: "open" | "closing" | "closed";
+    lock_version: number;
+    activity_version: number;
+  };
+  orderRows: Array<{
+    request_id: string;
+    position: number;
+    last_changed_by: string | null;
+    last_changed_at: string | null;
+    last_reason_code: HelpQueuePriorityReason | null;
+  }>;
+  requestRows: Array<{
+    id: string;
+    student_id: string;
+    status: "waiting" | "claimed";
+    requested_at: string;
+    claimed_by: string | null;
+    task_assignment_id: string | null;
+    ownership_version: number;
+  }>;
+};
+
+function isNullableUuid(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && isUuid(value));
+}
+
+function parseTeacherHelpQueueSnapshot(
+  value: Json,
+  organizationId: string,
+  classId: string,
+): TeacherHelpQueueSnapshot | null {
+  if (value === null) return null;
+  if (
+    !isRecord(value) ||
+    !isRecord(value.queue) ||
+    !Array.isArray(value.order_rows) ||
+    !Array.isArray(value.request_rows)
+  ) {
+    throw new PrototypeDataError();
+  }
+  const queue = value.queue;
+  if (
+    typeof queue.id !== "string" ||
+    !isUuid(queue.id) ||
+    queue.organization_id !== organizationId ||
+    queue.class_id !== classId ||
+    typeof queue.revision_session_id !== "string" ||
+    !isUuid(queue.revision_session_id) ||
+    !["open", "closing", "closed"].includes(String(queue.status)) ||
+    !isInteger(queue.lock_version) ||
+    queue.lock_version < 1 ||
+    !isInteger(queue.activity_version) ||
+    queue.activity_version < 0
+  ) {
+    throw new PrototypeDataError();
+  }
+
+  const orderRows = value.order_rows.map((row, index) => {
+    if (
+      !isRecord(row) ||
+      typeof row.request_id !== "string" ||
+      !isUuid(row.request_id) ||
+      !isInteger(row.position) ||
+      row.position !== index + 1 ||
+      !isNullableUuid(row.last_changed_by) ||
+      !(
+        row.last_changed_at === null ||
+        typeof row.last_changed_at === "string"
+      ) ||
+      !(
+        row.last_reason_code === null ||
+        isHelpQueuePriorityReason(row.last_reason_code)
+      )
+    ) {
+      throw new PrototypeDataError();
+    }
+    return {
+      request_id: row.request_id,
+      position: row.position,
+      last_changed_by: row.last_changed_by,
+      last_changed_at: row.last_changed_at,
+      last_reason_code: row.last_reason_code,
+    };
+  });
+  const requestRows = value.request_rows.map((row) => {
+    if (
+      !isRecord(row) ||
+      typeof row.id !== "string" ||
+      !isUuid(row.id) ||
+      typeof row.student_id !== "string" ||
+      !isUuid(row.student_id) ||
+      !["waiting", "claimed"].includes(String(row.status)) ||
+      typeof row.requested_at !== "string" ||
+      !isNullableUuid(row.claimed_by) ||
+      !isNullableUuid(row.task_assignment_id) ||
+      !isInteger(row.ownership_version) ||
+      row.ownership_version < 1
+    ) {
+      throw new PrototypeDataError();
+    }
+    return {
+      id: row.id,
+      student_id: row.student_id,
+      status: row.status as "waiting" | "claimed",
+      requested_at: row.requested_at,
+      claimed_by: row.claimed_by,
+      task_assignment_id: row.task_assignment_id,
+      ownership_version: row.ownership_version,
+    };
+  });
+  const requestIds = new Set(requestRows.map((request) => request.id));
+  const orderedRequestIds = new Set(
+    orderRows.map((orderRow) => orderRow.request_id),
+  );
+  if (
+    requestIds.size !== requestRows.length ||
+    orderedRequestIds.size !== orderRows.length ||
+    orderRows.length !== requestRows.length ||
+    orderRows.some((orderRow) => !requestIds.has(orderRow.request_id)) ||
+    (queue.status === "closed" && orderRows.length > 0)
+  ) {
+    throw new PrototypeDataError();
+  }
+  return {
+    queue: {
+      id: queue.id,
+      organization_id: organizationId,
+      class_id: classId,
+      revision_session_id: queue.revision_session_id,
+      status: queue.status as "open" | "closing" | "closed",
+      lock_version: queue.lock_version,
+      activity_version: queue.activity_version,
+    },
+    orderRows,
+    requestRows,
+  };
 }
 
 function parseHelpQueueCommand(value: Json): HelpQueueCommandResult {
@@ -121,6 +292,12 @@ function parseStudentHelpRequest(value: Json): ActiveStudentHelpRequest {
 
 function assertUuid(value: string, message: string): void {
   if (!isUuid(value)) throw new PrototypeDataError(message);
+}
+
+function assertPositiveVersion(value: number, message: string): void {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new PrototypeDataError(message);
+  }
 }
 
 async function reconcileHelpQueues(classId?: string): Promise<void> {
@@ -402,29 +579,123 @@ export async function getTeacherHelpQueue(
     visibleQueue = existingQueue;
   }
 
-  const requestResult =
+  async function readAtomicActiveQueue(queueId: string) {
+    const { data, error } = await admin.rpc(
+      "read_help_queue_staff_snapshot_v1",
+      {
+        p_organization_id: actor.organizationId,
+        p_class_id: actor.classId,
+        p_queue_session_id: queueId,
+      },
+    );
+    if (error) throw new PrototypeDataError();
+    const snapshot = parseTeacherHelpQueueSnapshot(
+      data,
+      actor.organizationId,
+      actor.classId,
+    );
+    return (
+      snapshot ?? {
+        queue: null,
+        orderRows: [],
+        requestRows: [],
+      }
+    );
+  }
+
+  const queueSnapshot =
     visibleQueue && visibleQueue.status !== "closed"
+      ? await readAtomicActiveQueue(visibleQueue.id)
+      : { queue: visibleQueue, orderRows: [], requestRows: [] };
+  visibleQueue = queueSnapshot.queue;
+  const orderRows = queueSnapshot.orderRows;
+  const requestRows = queueSnapshot.requestRows;
+  const requestById = new Map(
+    requestRows.map((request) => [request.id, request]),
+  );
+
+  const nowIso = new Date().toISOString();
+  const { data: targetScopes, error: targetScopeError } = await admin
+    .from("staff_assignment_class_scopes")
+    .select("assignment_id")
+    .eq("organization_id", actor.organizationId)
+    .eq("class_id", actor.classId);
+  if (targetScopeError) throw new PrototypeDataError();
+  const scopedAssignmentIds = targetScopes.map((scope) => scope.assignment_id);
+  const targetAssignmentResult = scopedAssignmentIds.length
     ? await admin
-        .from("help_requests")
-        .select(
-          "id, student_id, status, requested_at, claimed_by, task_assignment_id",
-        )
+        .from("staff_assignments")
+        .select("id, user_id, profile_version, starts_at")
         .eq("organization_id", actor.organizationId)
-        .eq("class_id", actor.classId)
-        .eq("queue_session_id", visibleQueue.id)
-        .in("status", ["waiting", "claimed"])
-        .order("requested_at")
+        .in("id", scopedAssignmentIds)
+        .is("revoked_at", null)
+        .lte("starts_at", nowIso)
+        .or(`ends_at.is.null,ends_at.gt.${nowIso}`)
+        .order("starts_at", { ascending: false })
         .order("id")
     : { data: [], error: null };
-  if (requestResult.error) throw new PrototypeDataError();
+  if (targetAssignmentResult.error) throw new PrototypeDataError();
+  const activeAssignmentIds = targetAssignmentResult.data.map(
+    (assignment) => assignment.id,
+  );
+  const targetCapabilityResult = activeAssignmentIds.length
+    ? await admin
+        .from("staff_assignment_capabilities")
+        .select("assignment_id, profile_version")
+        .in("assignment_id", activeAssignmentIds)
+        .eq("capability", "help_queue.manage")
+    : { data: [], error: null };
+  if (targetCapabilityResult.error) throw new PrototypeDataError();
+  const targetUserIds = [
+    ...new Set(targetAssignmentResult.data.map((assignment) => assignment.user_id)),
+  ];
+  const targetMembershipResult = targetUserIds.length
+    ? await admin
+        .from("memberships")
+        .select("user_id")
+        .eq("organization_id", actor.organizationId)
+        .in("user_id", targetUserIds)
+        .in("role", ["owner", "teacher"])
+    : { data: [], error: null };
+  if (targetMembershipResult.error) throw new PrototypeDataError();
+  const activeCapabilityKeys = new Set(
+    targetCapabilityResult.data.map(
+      (capability) =>
+        `${capability.assignment_id}:${capability.profile_version}`,
+    ),
+  );
+  const adultUserIds = new Set(
+    targetMembershipResult.data.map((membership) => membership.user_id),
+  );
+  const targetAssignmentByUser = new Map<
+    string,
+    (typeof targetAssignmentResult.data)[number]
+  >();
+  for (const assignment of targetAssignmentResult.data) {
+    if (
+      assignment.user_id === actor.userId ||
+      !adultUserIds.has(assignment.user_id) ||
+      !activeCapabilityKeys.has(
+        `${assignment.id}:${assignment.profile_version}`,
+      ) ||
+      targetAssignmentByUser.has(assignment.user_id)
+    ) {
+      continue;
+    }
+    targetAssignmentByUser.set(assignment.user_id, assignment);
+  }
 
   const profileIds = [
     ...new Set(
-      requestResult.data.flatMap((request) => [
+      requestRows.flatMap((request) => [
         request.student_id,
         ...(request.claimed_by ? [request.claimed_by] : []),
       ]),
     ),
+    ...orderRows.flatMap((orderRow) =>
+      orderRow.last_changed_by ? [orderRow.last_changed_by] : [],
+    ),
+    ...targetAssignmentByUser.keys(),
   ];
   const profileResult = profileIds.length
     ? await admin.from("profiles").select("id, display_name").in("id", profileIds)
@@ -434,7 +705,7 @@ export async function getTeacherHelpQueue(
     profileResult.data.map((profile) => [profile.id, profile.display_name]),
   );
 
-  const assignmentIds = requestResult.data.flatMap((request) =>
+  const assignmentIds = requestRows.flatMap((request) =>
     request.task_assignment_id ? [request.task_assignment_id] : [],
   );
   const assignmentResult = assignmentIds.length
@@ -491,23 +762,55 @@ export async function getTeacherHelpQueue(
           activityVersion: visibleQueue.activity_version,
         }
       : null,
-    requests: requestResult.data.map((request) => {
+    requests: orderRows.map((orderRow) => {
+      const request = requestById.get(orderRow.request_id);
+      if (!request || orderRow.position === null) throw new PrototypeDataError();
       const task = request.task_assignment_id
         ? taskByAssignmentId.get(request.task_assignment_id)
         : undefined;
+      const hasPriorityMetadata =
+        orderRow.last_changed_at !== null ||
+        orderRow.last_reason_code !== null ||
+        orderRow.last_changed_by !== null;
+      if (
+        hasPriorityMetadata &&
+        (orderRow.last_changed_at === null ||
+          !isHelpQueuePriorityReason(orderRow.last_reason_code))
+      ) {
+        throw new PrototypeDataError();
+      }
       return {
         id: request.id,
+        position: orderRow.position,
         studentName: nameById.get(request.student_id) ?? "Elev",
         status: request.status as "waiting" | "claimed",
         requestedAt: request.requested_at,
+        ownershipVersion: request.ownership_version,
         taskTitle: task?.title ?? null,
         taskSubject: task?.subject ?? null,
         claimedByName: request.claimed_by
           ? nameById.get(request.claimed_by) ?? "Ansatt"
           : null,
         claimedByCurrentTeacher: request.claimed_by === actor.userId,
+        priority: hasPriorityMetadata
+          ? {
+              changedByName: orderRow.last_changed_by
+                ? nameById.get(orderRow.last_changed_by) ?? "Ansatt"
+                : "Tidligere ansatt",
+              changedAt: orderRow.last_changed_at!,
+              reasonCode: orderRow.last_reason_code as HelpQueuePriorityReason,
+            }
+          : null,
       };
     }),
+    transferTargets: [...targetAssignmentByUser.entries()]
+      .map(([userId, assignment]) => ({
+        staffAssignmentId: assignment.id,
+        displayName: nameById.get(userId) ?? "Ansatt",
+      }))
+      .sort((first, second) =>
+        first.displayName.localeCompare(second.displayName, "nb"),
+      ),
   };
 }
 
@@ -585,20 +888,26 @@ async function requireStaffForSessionRequest(
 export async function claimStudentHelp(
   classId: string,
   requestId: string,
+  expectedOwnershipVersion: number,
   commandRequestId: string,
 ): Promise<void> {
+  assertPositiveVersion(expectedOwnershipVersion, "Ugyldig forespørselsversjon.");
   assertUuid(commandRequestId, "Ugyldig forespørsels-ID.");
   const actor = await requireStaffForSessionRequest(classId, requestId);
   const admin = getSupabaseAdminClient();
   await reconcileHelpQueues(actor.classId);
-  const { error } = await admin.rpc("claim_student_help_v2", {
+  const { error } = await admin.rpc("claim_student_help_v3", {
     p_request_id: requestId,
+    p_expected_ownership_version: expectedOwnershipVersion,
     p_actor_id: actor.userId,
     p_staff_assignment_id: actor.staffAssignmentId,
     p_command_request_id: commandRequestId,
   });
   if (error) {
     await requireStaffCapability(classId, "help_queue.manage");
+    if (error.message.includes("ownership version is stale")) {
+      throw new PrototypeDataError("Køen ble endret. Prøv igjen.");
+    }
     throw new PrototypeDataError("Forespørselen ble tatt av en annen ansatt.");
   }
 }
@@ -606,20 +915,128 @@ export async function claimStudentHelp(
 export async function resolveStudentHelp(
   classId: string,
   requestId: string,
+  expectedOwnershipVersion: number,
   commandRequestId: string,
 ): Promise<void> {
+  assertPositiveVersion(expectedOwnershipVersion, "Ugyldig forespørselsversjon.");
   assertUuid(commandRequestId, "Ugyldig forespørsels-ID.");
   const actor = await requireStaffForSessionRequest(classId, requestId);
   const admin = getSupabaseAdminClient();
   await reconcileHelpQueues(actor.classId);
-  const { error } = await admin.rpc("resolve_student_help_v2", {
+  const { error } = await admin.rpc("resolve_student_help_v3", {
     p_request_id: requestId,
+    p_expected_ownership_version: expectedOwnershipVersion,
     p_actor_id: actor.userId,
     p_staff_assignment_id: actor.staffAssignmentId,
     p_command_request_id: commandRequestId,
   });
   if (error) {
     await requireStaffCapability(classId, "help_queue.manage");
+    if (error.message.includes("ownership version is stale")) {
+      throw new PrototypeDataError("Køen ble endret. Prøv igjen.");
+    }
     throw new PrototypeDataError("Kunne ikke markere eleven som ferdig hjulpet.");
+  }
+}
+
+export async function reorderStudentHelp(
+  classId: string,
+  queueSessionId: string,
+  requestId: string,
+  direction: HelpQueueMoveDirection,
+  reasonCode: HelpQueuePriorityReason,
+  expectedActivityVersion: number,
+  commandRequestId: string,
+): Promise<void> {
+  assertUuid(queueSessionId, "Ugyldig hjelpekø.");
+  assertUuid(commandRequestId, "Ugyldig forespørsels-ID.");
+  if (!["first", "up", "down"].includes(direction)) {
+    throw new PrototypeDataError("Ugyldig flytteretning.");
+  }
+  if (!isHelpQueuePriorityReason(reasonCode)) {
+    throw new PrototypeDataError("Velg en gyldig grunn.");
+  }
+  if (!Number.isSafeInteger(expectedActivityVersion) || expectedActivityVersion < 0) {
+    throw new PrototypeDataError("Ugyldig køversjon.");
+  }
+  const actor = await requireStaffForSessionRequest(classId, requestId);
+  const admin = getSupabaseAdminClient();
+  await reconcileHelpQueues(actor.classId);
+  const { error } = await admin.rpc("reorder_student_help_v1", {
+    p_queue_session_id: queueSessionId,
+    p_request_id: requestId,
+    p_direction: direction,
+    p_reason_code: reasonCode,
+    p_expected_activity_version: expectedActivityVersion,
+    p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
+    p_command_request_id: commandRequestId,
+  });
+  if (error) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError("Køen ble endret. Prøv igjen.");
+  }
+}
+
+export async function releaseStudentHelp(
+  classId: string,
+  requestId: string,
+  expectedOwnershipVersion: number,
+  commandRequestId: string,
+): Promise<void> {
+  assertPositiveVersion(expectedOwnershipVersion, "Ugyldig forespørselsversjon.");
+  assertUuid(commandRequestId, "Ugyldig forespørsels-ID.");
+  const actor = await requireStaffForSessionRequest(classId, requestId);
+  const admin = getSupabaseAdminClient();
+  await reconcileHelpQueues(actor.classId);
+  const { error } = await admin.rpc("release_student_help_v1", {
+    p_request_id: requestId,
+    p_expected_ownership_version: expectedOwnershipVersion,
+    p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
+    p_command_request_id: commandRequestId,
+  });
+  if (error) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError(
+      error.message.includes("ownership version is stale")
+        ? "Køen ble endret. Prøv igjen."
+        : "Du hjelper ikke lenger denne eleven.",
+    );
+  }
+}
+
+export async function transferStudentHelp(
+  classId: string,
+  requestId: string,
+  expectedOwnershipVersion: number,
+  targetStaffAssignmentId: string,
+  commandRequestId: string,
+): Promise<void> {
+  assertPositiveVersion(expectedOwnershipVersion, "Ugyldig forespørselsversjon.");
+  assertUuid(targetStaffAssignmentId, "Ugyldig ansattoppdrag.");
+  assertUuid(commandRequestId, "Ugyldig forespørsels-ID.");
+  const actor = await requireStaffForSessionRequest(classId, requestId);
+  const admin = getSupabaseAdminClient();
+  await reconcileHelpQueues(actor.classId);
+  const { error } = await admin.rpc("transfer_student_help_v1", {
+    p_request_id: requestId,
+    p_expected_ownership_version: expectedOwnershipVersion,
+    p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
+    p_target_staff_assignment_id: targetStaffAssignmentId,
+    p_command_request_id: commandRequestId,
+  });
+  if (error) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    if (error.message.includes("ownership version is stale")) {
+      throw new PrototypeDataError("Køen ble endret. Prøv igjen.");
+    }
+    if (error.message.includes("assignments do not authorize")) {
+      throw new PrototypeDataError(
+        "Den ansatte har ikke lenger tilgang. Velg en annen.",
+      );
+    }
+    throw new PrototypeDataError("Du hjelper ikke lenger denne eleven.");
   }
 }

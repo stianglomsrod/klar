@@ -285,7 +285,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   });
   const { data: seededHelpRequest, error: seededHelpRequestError } = await admin
     .from("help_requests")
-    .select("id")
+    .select("id, ownership_version")
     .eq("organization_id", organizationId)
     .eq("class_id", classId)
     .eq("student_id", studentId)
@@ -298,6 +298,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     );
   }
   const helpRequestId = seededHelpRequest.id;
+  const helpOwnershipVersion = seededHelpRequest.ownership_version;
   const token = randomUUID().slice(0, 8);
   const deniedTaskTitle = `Avvist oppgave ${token}`;
   const deniedPlanTitles = [
@@ -737,8 +738,9 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
             ],
           },
         }),
-        admin.rpc("claim_student_help_v2", {
+        admin.rpc("claim_student_help_v3", {
           p_request_id: helpRequestId,
+          p_expected_ownership_version: helpOwnershipVersion,
           p_actor_id: staffId,
           p_staff_assignment_id: assignmentId,
           p_command_request_id: randomUUID(),
