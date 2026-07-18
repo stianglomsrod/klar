@@ -179,10 +179,21 @@ async function assertScenarioFixtureReady(databaseUrl, scenarioId) {
     const result = await database.query(
       `select exists (
          select 1
-         from public.plan_revision_sessions
-         where class_id = $1::uuid
-           and ($2::boolean = false or starts_at <= statement_timestamp())
-           and ends_at > statement_timestamp()
+         from public.plan_revision_sessions as revision_session
+         join public.weekly_plans as plan
+           on plan.id = revision_session.weekly_plan_id
+          and plan.organization_id = revision_session.organization_id
+          and plan.class_id = revision_session.class_id
+          and plan.active_revision_id = revision_session.revision_id
+         where revision_session.class_id = $1::uuid
+           and (
+             ($2::boolean = true
+               and revision_session.starts_at <= statement_timestamp()
+               and revision_session.ends_at > statement_timestamp())
+             or
+             ($2::boolean = false
+               and revision_session.starts_at > statement_timestamp())
+           )
        ) as ready`,
       [currentClassId ?? futureClassId, Boolean(currentClassId)],
     );

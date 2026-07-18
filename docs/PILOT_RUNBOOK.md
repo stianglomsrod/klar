@@ -51,6 +51,10 @@ reset. Starteren henter lokale nøkler fra `supabase status`, ikke fra pilotens
 pilotbootstrap eller et manuelt QA-bevis. Formell desktop-QA startes eksplisitt
 med `npm run qa:a1:desktop` og følger den separate protokollen i
 [`qa/CONTROL_POINT_A1_MANUAL_QA.md`](./qa/CONTROL_POINT_A1_MANUAL_QA.md).
+En ny lokal dato stopper ikke laben globalt. Tidløse scenarioer kan fortsatt
+brukes med bevarte data; et valgt tidsstyrt scenario avvises individuelt når
+tidsforutsetningen i aktiv planrevisjon ikke er oppfylt, og ber da om
+`npm run lab:reset`.
 
 Pilotmiljøet starter med [`PILOT_ENABLED=false`](../.env.pilot.example). Denne
 verdien sender innlogging og alle 3.0-ruter til en nøytral stengt-side. Endre

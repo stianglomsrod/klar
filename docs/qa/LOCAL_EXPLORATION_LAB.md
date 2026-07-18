@@ -79,16 +79,16 @@ skjult reset**. Starteren ber om ny reset når:
   endret;
 - den faste syntetiske databasegenerasjonen ikke matcher;
 - en browsertilstand er manglende eller endret uten ryddig lagring;
-- forrige økt ble avbrutt med `Ctrl+C`, krasj eller tvungen lukking;
-- fixture-datoen ikke lenger er dagens dato i `Europe/Oslo`;
-- den aktuelle undervisningsøkten for dags-, fag- eller hjelpekøscenariet er
-  utløpt.
+- forrige økt ble avbrutt med `Ctrl+C`, krasj eller tvungen lukking.
 
-Dette kan bety at en lang utforskingsdag trenger en eksplisitt reset før ny
-dags-, fag- eller hjelpekørunde. Det er valgt fremfor å skjule at scenarioets
-tidsforutsetning er utløpt. I den interaktive menyen blir bare det utløpte
-scenariet avvist, og du kommer tilbake til menyen slik at tidløse scenarioer
-fortsatt kan utforskes. Direkte modus avsluttes med samme resetveiledning.
+Selve datoendringen invaliderer ikke cachen: manifestets lokale
+opprettelsesdato er bare metadata. For dags-, fag-, hjelpekø- og
+oppgaveiterasjonsscenarioene kontrolleres i stedet tidsforutsetningen i aktiv
+planrevisjon mot autoritativ DB-tid. Dersom den ikke er oppfylt, blir bare det
+valgte scenariet avvist i den interaktive menyen, og du kommer tilbake til
+menyen slik at tidløse scenarioer fortsatt kan utforskes. Direkte modus
+avsluttes med samme resetveiledning. En eksplisitt `npm run lab:reset` er da
+nødvendig bare dersom du vil fornye det tidsstyrte grunnlaget.
 
 ## Auth, cache og sikkerhetsgrense
 
@@ -104,7 +104,8 @@ fortsatt kan utforskes. Direkte modus avsluttes med samme resetveiledning.
   som hemmelige selv om alle brukere er syntetiske. De committes aldri.
 - Manifestet inneholder bare fingerprints, fixture-dato, fast syntetisk
   eiergenerasjon og hashes av state-filene. Lokale Supabase-nøkler og rå tokens
-  skrives ikke dit.
+  skrives ikke dit. Fixture-datoen dokumenterer når grunnlaget ble opprettet,
+  men brukes ikke som en global utløpsdato.
 - Studentkode-pepperen må følge den stateful databasen og ligger derfor i en
   separat ignorert runtime-fil og bindes til det hemmelighetsfrie manifestet
   med en hash. Passord, elevkoder og TOTP-hemmeligheter persisteres ikke.
@@ -198,3 +199,25 @@ viewports/enhetene og bevisføringen – ikke en ny auth- eller testarkitektur.
   auth-mappe utenfor lab. Ny fresh `help` bestod med eier/elev, og `access`
   bestod deretter via reuse med eier/vikar på 13,5 sekunder. Sluttstatus er 11
   states, `dirtySince = null`, ingen lock og ingen tempfiler.
+
+## Retest 18. juli 2026 – datoendring
+
+- En ellers gyldig format-2-cache fra 17. juli ble først avvist globalt 18.
+  juli, selv om fingerprint, databasegenerasjon, Auth og alle 11 states matchet.
+- Global døgninvalidasjon ble fjernet. Opprettelsesdatoen beholdes som metadata,
+  mens tidsstyrte scenarioer fortsatt bruker autoritativ DB-tid og avvises
+  enkeltvis uten skjult reset.
+- `access` bestod fra gårsdagens cache med eier/vikar på 22,8 sekunder uten
+  reset, seed eller auth-setup. `day` bestod fordi den aktive økten faktisk
+  krysset midnatt og fortsatt var aktuell i DB, mens `iterations` bestod på
+  21,7 sekunder mot en strengt fremtidig måløkt i aktiv planrevisjon.
+- Readiness-spørringen er herdet til klassens aktive planrevisjon. Aktuelle
+  scenarioer krever `starts_at <= DB-tid < ends_at`; oppgaveiterasjon krever
+  `starts_at > DB-tid`.
+- 21 av 21 målrettede tester bestod. De viser også at gammel metadata-dato
+  ikke omgår fingerprint, databasegenerasjon, dirty-state, state-hash eller
+  validering av selve datofeltet.
+- `npm run verify:checkpoint` bestod med 84 av 84 enhetstester, lint,
+  kjerne-lint, typecheck, produksjonsbuild, 4 av 4 offentlig Playwright og
+  eksisterende high/critical-auditgrense. Cachen er fortsatt datert 17. juli,
+  har 11 states, `dirtySince = null`, ingen lock og ingen lytter på port 3100.

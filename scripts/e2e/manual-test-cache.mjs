@@ -113,6 +113,15 @@ function databaseTarget(databaseUrl) {
   return `${url.hostname}:${url.port}${url.pathname}`;
 }
 
+function isValidLocalFixtureDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const dateAtNoonUtc = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(dateAtNoonUtc.valueOf()) &&
+    localFixtureDate(dateAtNoonUtc) === value;
+}
+
 export function getManualTestCachePaths(root) {
   const authRoot = path.resolve(root, "playwright", ".auth");
   const directory = path.join(authRoot, "lab");
@@ -226,14 +235,15 @@ export function writeManualTestCache(input) {
       return [state, sha256File(file)];
     }),
   );
-  const createdAt = new Date().toISOString();
+  const createdAtInstant = new Date();
+  const createdAt = createdAtInstant.toISOString();
   const manifest = {
     formatVersion: MANUAL_TEST_CACHE_VERSION,
     projectId: input.projectId,
     apiUrl: input.apiUrl,
     databaseTarget: databaseTarget(input.databaseUrl),
     fixtureFingerprint: createFixtureFingerprint(input.root),
-    fixtureLocalDate: localFixtureDate(),
+    fixtureLocalDate: localFixtureDate(createdAtInstant),
     owner: { id: OWNER_ID, createdAt: input.ownerCreatedAt },
     credentialFingerprints: {
       anon: sha256(input.anonKey),
@@ -266,13 +276,15 @@ export function readManualTestCache(input) {
     paths.secret,
     "Hemmelighetsfilen for det lokale testverkstedet",
   );
+  if (!isValidLocalFixtureDate(manifest.fixtureLocalDate)) {
+    throw new Error("Fixture-datoen i labmanifestet er ugyldig metadata.");
+  }
   const expected = {
     formatVersion: MANUAL_TEST_CACHE_VERSION,
     projectId: input.projectId,
     apiUrl: input.apiUrl,
     databaseTarget: databaseTarget(input.databaseUrl),
     fixtureFingerprint: createFixtureFingerprint(input.root),
-    fixtureLocalDate: localFixtureDate(),
     ownerId: OWNER_ID,
     ownerCreatedAt: input.ownerCreatedAt,
     anonFingerprint: sha256(input.anonKey),
@@ -284,7 +296,6 @@ export function readManualTestCache(input) {
     apiUrl: manifest.apiUrl,
     databaseTarget: manifest.databaseTarget,
     fixtureFingerprint: manifest.fixtureFingerprint,
-    fixtureLocalDate: manifest.fixtureLocalDate,
     ownerId: manifest.owner?.id,
     ownerCreatedAt: manifest.owner?.createdAt,
     anonFingerprint: manifest.credentialFingerprints?.anon,
@@ -292,7 +303,7 @@ export function readManualTestCache(input) {
   };
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error(
-      "Det lokale testverkstedet matcher ikke dagens fixture, database eller Auth-oppsett.",
+      "Det lokale testverkstedet matcher ikke forventet fixture, database eller Auth-oppsett.",
     );
   }
   if (

@@ -165,12 +165,14 @@ npm run lab:list
 npm run lab -- --scenario=rewards
 ```
 
-Gjenbruk gjør aldri en skjult reset. Ugyldig/utløpt cache, en avbrutt økt eller
-en endret fixture stopper med beskjed om `npm run lab:reset`. Tilkoblingen har
-ingen fallback til `.env.local`, et linket prosjekt eller pilotdatabasen.
-Verkstedet er uformell utforsking og registrerer ikke QA som bestått. Når et
-formelt manuelt kontrollpunkt ønskes, brukes fortsatt den separate
-`npm run qa:a1:desktop` og tilhørende bevisprotokoll. Se
+Gjenbruk gjør aldri en skjult reset. Ugyldig cache, en avbrutt økt eller en
+endret fixture stopper med beskjed om `npm run lab:reset`. En datoendring alene
+stopper ikke laben; bare valgte tidsstyrte scenarioer avvises dersom
+tidsforutsetningen i aktiv planrevisjon ikke er oppfylt. Tilkoblingen har ingen
+fallback til `.env.local`, et linket prosjekt eller pilotdatabasen. Verkstedet
+er uformell utforsking og registrerer ikke QA som bestått. Når et formelt manuelt
+kontrollpunkt ønskes, brukes fortsatt den separate `npm run qa:a1:desktop` og
+tilhørende bevisprotokoll. Se
 [`docs/qa/LOCAL_EXPLORATION_LAB.md`](./docs/qa/LOCAL_EXPLORATION_LAB.md).
 
 ## Verifikasjon

@@ -111,7 +111,84 @@ describe("manual test cache", () => {
     assert.doesNotThrow(() => readManualTestCache(input));
 
     writeFileSync(path.join(root, "supabase", "seed.sql"), "changed\n", "utf8");
-    assert.throws(() => readManualTestCache(input), /matcher ikke dagens fixture/);
+    assert.throws(() => readManualTestCache(input), /matcher ikke forventet fixture/);
+  });
+
+  test("keeps a valid stateful cache across local calendar days", () => {
+    const { root, paths } = createFixtureRoot();
+    const input = cacheInput(root);
+    writeManualTestCache(input);
+    const manifest = JSON.parse(readFileSync(paths.manifest, "utf8"));
+    manifest.fixtureLocalDate = "2000-01-01";
+    writeFileSync(paths.manifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+    const result = readManualTestCache(input);
+    assert.equal(result.manifest.fixtureLocalDate, "2000-01-01");
+  });
+
+  test("keeps every integrity guard active for an older cache", async (t) => {
+    const cases = [
+      {
+        name: "fixture fingerprint",
+        mutate: ({ root }) =>
+          writeFileSync(path.join(root, "supabase", "seed.sql"), "changed\n"),
+        input: (value) => value,
+        error: /matcher ikke forventet fixture/,
+      },
+      {
+        name: "database generation",
+        mutate: () => undefined,
+        input: (value) => ({
+          ...value,
+          ownerCreatedAt: "2026-07-18T10:00:00.000Z",
+        }),
+        error: /matcher ikke forventet fixture/,
+      },
+      {
+        name: "dirty state",
+        mutate: ({ root }) => markManualTestCacheDirty(root),
+        input: (value) => value,
+        error: /ikke avsluttet ryddig/,
+      },
+      {
+        name: "state hash",
+        mutate: ({ paths }) =>
+          writeFileSync(
+            path.join(paths.directory, manualTestStateFiles[0]),
+            JSON.stringify({ cookies: [{ changed: true }], origins: [] }),
+          ),
+        input: (value) => value,
+        error: /endret uten en ryddig lagring/,
+      },
+    ];
+
+    for (const testCase of cases) {
+      await t.test(testCase.name, () => {
+        const fixture = createFixtureRoot();
+        const input = cacheInput(fixture.root);
+        writeManualTestCache(input);
+        const manifest = JSON.parse(readFileSync(fixture.paths.manifest, "utf8"));
+        manifest.fixtureLocalDate = "2000-01-01";
+        writeFileSync(
+          fixture.paths.manifest,
+          `${JSON.stringify(manifest, null, 2)}\n`,
+          "utf8",
+        );
+        testCase.mutate(fixture);
+        assert.throws(() => readManualTestCache(testCase.input(input)), testCase.error);
+      });
+    }
+  });
+
+  test("rejects malformed fixture-date metadata", () => {
+    const { root, paths } = createFixtureRoot();
+    const input = cacheInput(root);
+    writeManualTestCache(input);
+    const manifest = JSON.parse(readFileSync(paths.manifest, "utf8"));
+    manifest.fixtureLocalDate = "2026-02-31";
+    writeFileSync(paths.manifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+    assert.throws(() => readManualTestCache(input), /ugyldig metadata/);
   });
 
   test("fingerprints fixture inputs deterministically", () => {

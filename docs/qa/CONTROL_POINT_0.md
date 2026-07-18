@@ -112,6 +112,21 @@ skjul. Før en labøkt presenteres eller lagres som ryddig avsluttet, må den
 faktiske lokale Supabase-brukeren matche scenarioets syntetiske aktør, og alle
 voksen-states merket `aal2` må fortsatt ha AAL2.
 
+En datoendring alene invaliderer ikke lenger hele den stateful laben.
+Manifestdatoen er metadata; dags-, fag-, hjelpekø- og
+oppgaveiterasjonsscenarioer kontrollerer i stedet sin faktiske tidsforutsetning
+mot DB-tid. Dermed kan tidløse scenarioer og manuelle data gjenbrukes over
+midnatt, mens et utløpt valgt scenario fortsatt stopper med resetveiledning.
+
+### Dato-rollover 18. juli 2026
+
+En cache fra 17. juli ble gjenbrukt 18. juli uten reset. `access`, en faktisk
+aktuell `day`-økt som krysset midnatt og `iterations` med en strengt fremtidig
+måløkt bestod mot aktiv planrevisjon. Manifestdatoen forble 17. juli, alle 11
+states var rene, og ingen lock eller appserver stod igjen. Den målrettede
+pakken bestod 21 av 21 tester; full `npm run verify:checkpoint` bestod med 84 av
+84 enhetstester, produksjonsbuild og 4 av 4 offentlig Playwright.
+
 Den formelle `npm run qa:a1:desktop` er fortsatt en separat opt-in med fersk
 fixture, produksjonsbuild, fast trevindusoppsett og egen bevisprotokoll. Se
 [`LOCAL_EXPLORATION_LAB.md`](./LOCAL_EXPLORATION_LAB.md) for scenarioer,
