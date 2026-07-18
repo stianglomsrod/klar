@@ -1,7 +1,7 @@
 # E02 – Progresjon og belønninger
 
-**Status:** Pågår – B1- og B2-kjernen er verifisert; fysisk skjermleserport og
-WebKit-runtimeavvik gjenstår
+**Status:** Pågår – B1- og B2-kjernen er automatisert verifisert i Chromium og
+WebKit; fysisk skjermleserport og øvrige belønningstyper gjenstår
 
 **Kontrakt:** [§ 7 Oppgavestatus, XP, nivå og belønning](../product/DOMAIN_CONTRACT.md#7-oppgavestatus-xp-nivå-og-belønning)
 
@@ -24,9 +24,10 @@ samlingsmetaforen, men ikke en konsistent bevaringsregel. Bevaring og
 anti-farming følger den senere eksplisitte produktbeslutningen i
 domenekontrakten § 7.3.
 
-Det som fortsatt gjenstår i epicen er fysisk VoiceOver/NVDA-bevis,
-WebKit/Next.js-runtimeavviket i B2 og avklaring/implementering av eventuelle
-andre belønningstyper, særlig kuponginnløsning.
+Det som fortsatt gjenstår i epicen er fysisk VoiceOver/NVDA-bevis og
+avklaring/implementering av eventuelle andre belønningstyper, særlig
+kuponginnløsning. Det tidligere B2-WebKit-avviket ble lukket med en streng
+58/58-retest 18. juli uten runtime-allowlist.
 
 [Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md) er et delbevis for iterasjons-
 og XP-grensen: flytt beholder samme assignment, historikk og ene XP-mulighet,

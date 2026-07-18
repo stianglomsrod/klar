@@ -105,12 +105,12 @@ oppgaveiterasjoner og tilgang/vikar. Rollene har separate ignorerte storage
 states under `playwright/.auth/lab`, men bruker samme origin. Manuelle
 dataendringer beholdes til eksplisitt reset. Browsertilstandene lagres etter
 vellykket navigasjon og ryddig lukking fordi lokal Auth roterer refresh-token.
-En avbrutt økt eller mismatch i fixture, databasegenerasjon eller state stopper
-gjenbruk. En utløpt tidsfixture avviser bare det valgte scenariet i menyen,
-mens direkte modus stopper med resetveiledning. Starteren nullstiller aldri i
-skjul. Før en labøkt presenteres eller lagres som ryddig avsluttet, må den
-faktiske lokale Supabase-brukeren matche scenarioets syntetiske aktør, og alle
-voksen-states merket `aal2` må fortsatt ha AAL2.
+Et avbrutt, registrert scenario kan gjenopptas bare når låsens PID beviselig er
+død, tilfeldig runner-/scenariobinding matcher dirty-manifestet, og faste
+identiteter og AAL2 valideres på nytt. Mismatch i fixture,
+databasegenerasjon, state eller binding stopper gjenbruk og krever reset. En
+utløpt tidsfixture avviser bare det valgte scenariet i menyen, mens direkte
+modus stopper med resetveiledning. Starteren nullstiller aldri i skjul.
 
 En datoendring alene invaliderer ikke lenger hele den stateful laben.
 Manifestdatoen er metadata; dags-, fag-, hjelpekø- og
@@ -171,7 +171,8 @@ cachevalidert scenarioverksted. Fresh- og reuse-prosjektgraf, ekte lokal
 reset/seed/Auth/MFA, rask gjenbruk, 1–3 samtidige roller og alle ti
 startscenarioer,
 refresh-state-lagring, eksklusiv runnerlås, bevart databasesentinel og
-fail-closed avvisning av en avbrutt cache er integrasjonstestet. Den raske
+fail-closed avvisning eller kontrollert adopsjon av en avbrutt cache er
+integrasjonstestet. Den raske
 reuse-banen brukte 11–25 sekunder per kontrollert scenario og kjørte verken
 database-reset, seed eller auth-setup. Detaljert bevis og arbeidsvalg ligger i
 [`LOCAL_EXPLORATION_LAB.md`](./LOCAL_EXPLORATION_LAB.md).

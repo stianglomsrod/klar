@@ -79,7 +79,14 @@ skjult reset**. Starteren ber om ny reset når:
   endret;
 - den faste syntetiske databasegenerasjonen ikke matcher;
 - en browsertilstand er manglende eller endret uten ryddig lagring;
-- forrige økt ble avbrutt med `Ctrl+C`, krasj eller tvungen lukking.
+- en avbrutt økt ikke kan knyttes til ett registrert scenario og valideres med
+  de forventede lokale bruker-ID-ene og AAL2.
+
+Et avbrutt, registrert scenario nullstilles ikke. Neste `npm run lab` åpner
+akkurat dette scenarioet først. Laben blir ren bare dersom alle forventede
+roller fortsatt matcher, voksenøktene fortsatt har AAL2 og vinduene avsluttes
+ryddig. En eldre dirty-cache uten scenario- og runnerproveniens feiler lukket
+og krever en eksplisitt `npm run lab:reset`.
 
 Selve datoendringen invaliderer ikke cachen: manifestets lokale
 opprettelsesdato er bare metadata. For dags-, fag-, hjelpekø- og
@@ -121,9 +128,15 @@ nødvendig bare dersom du vil fornye det tidsstyrte grunnlaget.
   pilotdatabase er aldri fallback.
 - Next bindes til `127.0.0.1:3100`; en ukjent prosess på porten stoppes aldri
   automatisk.
-- En eksklusiv lock tas før lokal Supabase kan startes eller resettes. En lock
-  etter krasj slettes aldri automatisk: kontroller først at ingen runner kjører,
-  og fjern deretter `playwright/.auth/local-runner.lock` manuelt.
+- En eksklusiv lock tas før lokal Supabase kan startes eller resettes. Ved
+  omstart leses og valideres låseierens PID og tilfeldige eier-ID. Låsen
+  overtas bare når prosessen beviselig ikke finnes. En atomisk operasjonsport
+  serialiserer all opprettelse og overtakelse, slik at to starter ikke kan
+  fjerne hverandres lås. Dirty-manifestet må i tillegg være bundet til den
+  foreldreløse låsens tilfeldige runner-ID før en ny runner kan adoptere det.
+  Aktiv, uleselig, ubundet eller endret lås avvises. Etter en trygg overtakelse
+  må eksplisitt refresh-token-fornyelse, scenario-/identitetskontroll og AAL2
+  fortsatt bestå før cachen markeres ren.
 
 ## Utforsking kontra manuell QA
 
@@ -221,3 +234,35 @@ viewports/enhetene og bevisføringen – ikke en ny auth- eller testarkitektur.
   kjerne-lint, typecheck, produksjonsbuild, 4 av 4 offentlig Playwright og
   eksisterende high/critical-auditgrense. Cachen er fortsatt datert 17. juli,
   har 11 states, `dirtySince = null`, ingen lock og ingen lytter på port 3100.
+
+## Retest 18. juli 2026 – krasjgjenoppretting
+
+- Scenario `iterations` ble avbrutt under manuell utforsking. Låsen oppga PID
+  `35972`; prosessen fantes ikke lenger og ingen prosess lyttet på port 3100.
+  Cachemanifestet forble korrekt markert med `dirtySince`.
+- Låseopptaket ble endret fra manuell filsletting til kontrollert overtakelse
+  av bare en beviselig foreldreløs lås. Aktiv, ukjent og endret eier feiler
+  fortsatt lukket.
+- Aktivt scenario og en tilfeldig runner-ID lagres sammen med
+  dirty-markeringen. Bare den runneren kan lagre eller clean-markere cachen.
+  Ved krasj må ID-en matche den beviselig foreldreløse låsen før den adopteres
+  av den nye runneren. Samme scenario kan da gjenopptas idempotent; et annet
+  scenario og eldre ubundet metadata avvises.
+- Første automatiske låseforslag hadde et TOCTOU-vindu mellom kontroll,
+  sletting og ny lås. Det ble forkastet før commit. Den atomiske
+  operasjonsporten og runnerbindingen erstatter denne varianten.
+- 19 av 19 målrettede cache-, lås-, gate-, runnerbinding- og scenariotester,
+  målrettet ESLint og TypeScript bestod etter herdingen.
+- Den siste låseretesten startet to separate prosesser bak samme barriere mot
+  én foreldreløs lås. Nøyaktig én fikk adoptere låsen; den andre ble avvist,
+  og låsfilens nye eier samt den gamle eierens recovery-metadata ble verifisert.
+- `npm run lab -- --lab-check --scenario=iterations` overtok den foreldreløse
+  låsen, åpnet lærer og elev, validerte begge faste bruker-ID-ene og lærerens
+  AAL2, og bestod 1 av 1 uten reset, seed eller nytt Auth-oppsett. Sluttstatus
+  var `dirtySince = null`, ingen aktiv scenario-ID og ingen låsfil.
+- Etter runnerbindingen bestod normal reuse 1 av 1 på 26,5 sekunder. Deretter
+  ble et kontrollert avbrudd etablert med en syntetisk dead-PID og samme
+  runner-ID i lås og dirty-manifest. Recovery fornyet begge lokale
+  refresh-tokenøktene, adopterte bare den matchende kjøringen og bestod 1 av 1
+  på 20,3 sekunder. Manifest, scenario-ID, run-ID, operasjonsport og lås var
+  alle rene/borte etterpå.

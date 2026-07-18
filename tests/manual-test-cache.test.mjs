@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -13,6 +15,7 @@ import path from "node:path";
 import { afterEach, describe, test } from "node:test";
 import {
   acquireLocalRunnerLock,
+  adoptInterruptedManualTestRun,
   createFixtureFingerprint,
   getManualTestCachePaths,
   MANUAL_TEST_CACHE_VERSION,
@@ -73,6 +76,59 @@ function cacheInput(root) {
   };
 }
 
+function observeChildProcess(child) {
+  const messages = [];
+  const waiters = [];
+  let stdoutBuffer = "";
+  let stderrBuffer = "";
+
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => {
+    stderrBuffer += chunk;
+  });
+  child.stdout.on("data", (chunk) => {
+    stdoutBuffer += chunk;
+    const lines = stdoutBuffer.split(String.fromCharCode(10));
+    stdoutBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const message = JSON.parse(line);
+      const waiter = waiters.shift();
+      if (waiter) waiter(message);
+      else messages.push(message);
+    }
+  });
+
+  return {
+    nextMessage() {
+      if (messages.length > 0) return Promise.resolve(messages.shift());
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Barnelåsen svarte ikke innen fem sekunder.")),
+          5_000,
+        );
+        waiters.push((message) => {
+          clearTimeout(timeout);
+          resolve(message);
+        });
+      });
+    },
+    exit: new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code) => {
+        if (code === 0) resolve();
+        else {
+          reject(
+            new Error(
+              "Barnelåsen stoppet med kode " + code + ": " + stderrBuffer,
+            ),
+          );
+        }
+      });
+    }),
+  };
+}
+
 describe("manual test cache", () => {
   test("writes a secret-free manifest and validates the matching local generation", () => {
     const { root, paths } = createFixtureRoot();
@@ -99,9 +155,9 @@ describe("manual test cache", () => {
     const input = cacheInput(root);
     writeManualTestCache(input);
 
-    markManualTestCacheDirty(root);
+    markManualTestCacheDirty(root, "day", "1".repeat(32));
     assert.throws(() => readManualTestCache(input), /ikke avsluttet ryddig/);
-    refreshManualTestCacheStateHashes(root, true);
+    refreshManualTestCacheStateHashes(root, true, "1".repeat(32));
     assert.doesNotThrow(() => readManualTestCache(input));
 
     const state = path.join(paths.directory, manualTestStateFiles[0]);
@@ -146,7 +202,8 @@ describe("manual test cache", () => {
       },
       {
         name: "dirty state",
-        mutate: ({ root }) => markManualTestCacheDirty(root),
+        mutate: ({ root }) =>
+          markManualTestCacheDirty(root, "day", "1".repeat(32)),
         input: (value) => value,
         error: /ikke avsluttet ryddig/,
       },
@@ -230,9 +287,245 @@ describe("manual test cache", () => {
   test("allows only one local runner without terminating the owner", () => {
     const { root } = createFixtureRoot();
     const release = acquireLocalRunnerLock(root);
-    assert.throws(() => acquireLocalRunnerLock(root), /finnes allerede/);
+    assert.throws(() => acquireLocalRunnerLock(root), /allerede aktiv/);
     release();
     const releaseAgain = acquireLocalRunnerLock(root);
     releaseAgain();
+  });
+
+  test("serializes the runner lock across separate processes", async (t) => {
+    const { root } = createFixtureRoot();
+    const moduleUrl = new URL(
+      "../scripts/e2e/manual-test-cache.mjs",
+      import.meta.url,
+    ).href;
+    const child = spawn(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `
+          import { acquireLocalRunnerLock } from ${JSON.stringify(moduleUrl)};
+          const release = acquireLocalRunnerLock(${JSON.stringify(root)});
+          process.stdout.write("locked\\n");
+          process.stdin.resume();
+          process.stdin.once("end", () => {
+            release();
+            process.exit(0);
+          });
+        `,
+      ],
+      { stdio: ["pipe", "pipe", "pipe"] },
+    );
+    t.after(() => {
+      if (child.exitCode === null) child.kill();
+    });
+
+    await new Promise((resolve, reject) => {
+      let output = "";
+      let errorOutput = "";
+      const timeout = setTimeout(
+        () => reject(new Error(`Barnelåsen startet ikke: ${errorOutput}`)),
+        5_000,
+      );
+      child.stderr.on("data", (chunk) => {
+        errorOutput += chunk.toString();
+      });
+      child.stdout.on("data", (chunk) => {
+        output += chunk.toString();
+        if (output.includes("locked\n")) {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+      child.once("error", (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+      child.once("exit", (code) => {
+        if (!output.includes("locked\n")) {
+          clearTimeout(timeout);
+          reject(new Error(`Barnelåsen stoppet med kode ${code}: ${errorOutput}`));
+        }
+      });
+    });
+
+    assert.throws(() => acquireLocalRunnerLock(root), /allerede aktiv/);
+    const childExit = new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`Barnelåsen stoppet med kode ${code}`));
+      });
+    });
+    child.stdin.end();
+    await childExit;
+    const release = acquireLocalRunnerLock(root);
+    assert.equal(release.recoveredStaleLock, false);
+    release();
+  });
+
+  test("allows only one simultaneous stale-lock recovery process", async (t) => {
+    const { root, paths } = createFixtureRoot();
+    const moduleUrl = new URL(
+      "../scripts/e2e/manual-test-cache.mjs",
+      import.meta.url,
+    ).href;
+    const staleOwner = "a".repeat(32);
+    mkdirSync(paths.authRoot, { recursive: true });
+    writeFileSync(
+      paths.runnerLock,
+      JSON.stringify({
+        pid: 2147483647,
+        owner: staleOwner,
+        startedAt: "2026-07-18T01:00:00.000Z",
+      }) + String.fromCharCode(10),
+      "utf8",
+    );
+
+    const source = [
+      "import { acquireLocalRunnerLock } from " + JSON.stringify(moduleUrl) + ";",
+      "let release = null;",
+      "const send = (value) => console.log(JSON.stringify(value));",
+      "send({ type: 'ready' });",
+      "process.stdin.setEncoding('utf8');",
+      "process.stdin.on('data', (chunk) => {",
+      "  const command = chunk.trim();",
+      "  if (command === 'go') {",
+      "    try {",
+      "      release = acquireLocalRunnerLock(" + JSON.stringify(root) + ");",
+      "      send({ type: 'result', ok: true, pid: process.pid, owner: release.owner, recoveredStaleLock: release.recoveredStaleLock, recoveredStaleLockOwner: release.recoveredStaleLockOwner });",
+      "    } catch (error) {",
+      "      send({ type: 'result', ok: false, message: error.message });",
+      "      process.exit(0);",
+      "    }",
+      "  } else if (command === 'release' && release) {",
+      "    release();",
+      "    process.exit(0);",
+      "  }",
+      "});",
+    ].join(String.fromCharCode(10));
+
+    const children = Array.from({ length: 2 }, () =>
+      spawn(
+        process.execPath,
+        ["--input-type=module", "--eval", source],
+        { stdio: ["pipe", "pipe", "pipe"] },
+      ),
+    );
+    const observed = children.map(observeChildProcess);
+    t.after(() => {
+      for (const child of children) {
+        if (child.exitCode === null) child.kill();
+      }
+    });
+
+    const ready = await Promise.all(observed.map((child) => child.nextMessage()));
+    assert.deepEqual(
+      ready.map((message) => message.type),
+      ["ready", "ready"],
+    );
+    for (const child of children) child.stdin.write("go\n");
+    const outcomes = await Promise.all(
+      observed.map((child) => child.nextMessage()),
+    );
+    const winners = outcomes
+      .map((outcome, index) => ({ ...outcome, index }))
+      .filter((outcome) => outcome.ok);
+    const losers = outcomes.filter((outcome) => !outcome.ok);
+
+    assert.equal(winners.length, 1);
+    assert.equal(losers.length, 1);
+    assert.match(losers[0].message, /kontrollerer låsetilstanden|allerede aktiv/);
+    assert.equal(winners[0].recoveredStaleLock, true);
+    assert.equal(winners[0].recoveredStaleLockOwner, staleOwner);
+    const currentLock = JSON.parse(readFileSync(paths.runnerLock, "utf8"));
+    assert.equal(currentLock.pid, winners[0].pid);
+    assert.equal(currentLock.owner, winners[0].owner);
+
+    children[winners[0].index].stdin.write("release\n");
+    await Promise.all(observed.map((child) => child.exit));
+    assert.equal(existsSync(paths.runnerLock), false);
+  });
+
+  test("recovers only a runner lock whose recorded process is dead", () => {
+    const { root, paths } = createFixtureRoot();
+    mkdirSync(paths.authRoot, { recursive: true });
+    writeFileSync(
+      paths.runnerLock,
+      `${JSON.stringify({
+        pid: 2147483647,
+        owner: "a".repeat(32),
+        startedAt: "2026-07-18T01:00:00.000Z",
+      })}\n`,
+      "utf8",
+    );
+
+    const release = acquireLocalRunnerLock(root);
+    assert.equal(release.recoveredStaleLock, true);
+    assert.equal(release.recoveredStaleLockOwner, "a".repeat(32));
+    const currentLock = JSON.parse(readFileSync(paths.runnerLock, "utf8"));
+    assert.equal(currentLock.owner, release.owner);
+    release();
+  });
+
+  test("never bypasses the atomic runner operation gate", () => {
+    const { root, paths } = createFixtureRoot();
+    mkdirSync(paths.runnerGate, { mode: 0o700 });
+    assert.throws(
+      () => acquireLocalRunnerLock(root),
+      /kontrollerer låsetilstanden/,
+    );
+    assert.equal(statSync(paths.runnerGate).isDirectory(), true);
+  });
+
+  test("records and resumes only the same interrupted scenario", () => {
+    const { root, paths } = createFixtureRoot();
+    const input = cacheInput(root);
+    writeManualTestCache(input);
+    markManualTestCacheDirty(root, "iterations", "1".repeat(32));
+    markManualTestCacheDirty(root, "iterations", "1".repeat(32));
+    assert.throws(
+      () => markManualTestCacheDirty(root, "day", "1".repeat(32)),
+      /annet aktivt scenario/,
+    );
+    const dirty = readManualTestCache(input, { allowDirty: true });
+    assert.equal(dirty.manifest.activeScenarioId, "iterations");
+    assert.equal(dirty.manifest.activeRunId, "1".repeat(32));
+    assert.throws(
+      () => refreshManualTestCacheStateHashes(root, true, "2".repeat(32)),
+      /eier ikke dirty-markeringen/,
+    );
+    refreshManualTestCacheStateHashes(root, true, "1".repeat(32));
+    const clean = readManualTestCache(input);
+    assert.equal(clean.manifest.activeScenarioId, null);
+    assert.equal(JSON.parse(readFileSync(paths.manifest, "utf8")).dirtySince, null);
+  });
+
+  test("adopts an interrupted run only from its matching stale lock owner", () => {
+    const { root } = createFixtureRoot();
+    const input = cacheInput(root);
+    writeManualTestCache(input);
+    markManualTestCacheDirty(root, "iterations", "1".repeat(32));
+    assert.throws(
+      () =>
+        adoptInterruptedManualTestRun(
+          root,
+          "iterations",
+          "2".repeat(32),
+          "3".repeat(32),
+        ),
+      /tilhører ikke den foreldreløse runner-låsen/,
+    );
+    adoptInterruptedManualTestRun(
+      root,
+      "iterations",
+      "1".repeat(32),
+      "3".repeat(32),
+    );
+    const adopted = readManualTestCache(input, { allowDirty: true });
+    assert.equal(adopted.manifest.activeRunId, "3".repeat(32));
+    refreshManualTestCacheStateHashes(root, true, "3".repeat(32));
+    assert.doesNotThrow(() => readManualTestCache(input));
   });
 });

@@ -1,8 +1,8 @@
 # Kontrollpunkt B2 – varig blomsterbelønning
 
-**Status:** Implementert og verifisert i database, tjenester, Chromium og den
-responsive visuelle matrisen 17. juli 2026. WebKit-runtimeport og fysisk
-VoiceOver/NVDA-retest er åpne.
+**Status:** Implementert og automatisert verifisert i database, tjenester,
+Chromium, WebKit og den responsive visuelle matrisen 18. juli 2026. Fysisk
+VoiceOver/NVDA-retest er åpen.
 
 **Epic:** [E02 – Progresjon og belønninger](../epics/E02_PROGRESS_AND_REWARDS.md)
 
@@ -147,9 +147,7 @@ belønningsmutasjoner.
   komposisjon uten horisontal overflow eller skjult hovedhandling.
 - [x] Chromium består funksjonell elevflyt, axe A/AA, 200 % reflow,
   WCAG-tekstavstand og reduced-motion-kontroll.
-- [ ] WebKit består samme runtimeport uten Next.js RSC-fallbackfeil. Alle
-  funksjonelle påstander passerer, men motoren rapporterer fortsatt interne
-  RSC-kall som avvist av access-control checks.
+- [x] WebKit består samme runtimeport uten Next.js RSC-fallbackfeil.
 - [ ] Den konkrete B2-flyten er retestet fysisk med VoiceOver og NVDA.
 
 ## Ikke-mål og åpne beslutninger
@@ -165,20 +163,20 @@ belønningsmutasjoner.
 
 ## Baseline før kodeendring
 
-| Port | Resultat 17. juli 2026 |
+| Port | Resultat 17.–18. juli 2026 |
 | --- | --- |
 | `npm test` | Bestått: 57 tester i 21 suiter. |
 | Git | Ren `3.0`, tolv commits foran `origin/3.0`; ingen push. |
 
 ## Verifikasjonsresultat
 
-| Port | Resultat 17. juli 2026 |
+| Port | Resultat 17.–18. juli 2026 |
 | --- | --- |
 | `npm run test:db:staff` | Bestått: tom database, representativ oppgradering, RLS/grants, rollback, retry, samtidige claims, claim/undo-race og klasseovergang. |
 | `npm run test:e2e:auth -- --spec=tests/e2e/authenticated/student-flower-reward.spec.ts` | Bestått i Chromium: 2 tester. Hele elev-/lærerløkken, axe og sluttbevis i databasen er grønn. |
 | `npm run test:e2e:visual -- --spec=tests/e2e/visual/student-flower-reward.visual.spec.ts` | Bestått i Chromium: 7 tester på fem målviewports, 200 % reflow, WCAG-tekstavstand, reduced motion, 44×44-mål, overflow og axe A/AA. |
-| WebKit målrettet funksjonell port | Alle funksjonelle forventninger passerer, men porten er rød fordi Next.js RSC-fallbacks rapporteres som `access control checks`/`Load failed`; se avvik B2-WK-01. |
-| `npm run verify:checkpoint` | Føres etter endelig kontrollpunktport. |
+| `npm run test:e2e:full:webkit` | Bestått 58/58 18. juli, inkludert B2s komplette blomsterflyt, axe/reflow og streng runtimefeilkontroll. |
+| `npm run verify:checkpoint` | Bestått 18. juli med lint, kjernelint, TypeScript, enhetstester, produksjonsbuild og offentlig Chromium-E2E. |
 
 ## Avvik og retester
 
@@ -193,15 +191,16 @@ belønningsmutasjoner.
   Trykkmålskontrollen hadde scrollet siden før opptak. Retesten går tilbake til
   dokumenttoppen før screenshot; produktlayouten var uendret og alle sju
   visuelle tester er grønne.
-- **B2-WK-01 – WebKit/Next.js RSC-runtime.** Tre avgrensede reparasjonsrunder
-  fjernet testens egne refresh- og redirect-race. WebKit gjennomfører fortsatt
-  hele funksjonsflyten, men `observeRuntimeErrors` fanger interne
-  `?_rsc=`-forespørsler som «due to access control checks» og Next.js faller
-  tilbake til full navigasjon. Avviket skjules ikke med allowlist og porten er
-  åpen til fysisk iPad/Safari-retest og en separat Next.js/WebKit-undersøkelse.
-- **Arvet testadvarsel utenfor B2:** `pg` varsler om parallelle lesespørringer
-  på én klient i den eksisterende D2-fixturen. B2-samtidighet bruker separate
-  forbindelser. D2-opprydding holdes utenfor denne commiten.
+- **B2-WK-01 – WebKit/Next.js RSC-runtime, lukket 18. juli.** De første
+  rundene viste at testens harde refresh/redirect kunne vinne over en legitim
+  RSC-oppdatering og selv skape `access control checks`/`Load failed`. Retesten
+  venter på routeroppdateringen og bruker en fersk autentisert side når
+  persistens eller redirect skal bevises. `observeRuntimeErrors` er fortsatt
+  streng og har ingen allowlist. Full WebKit-matrise bestod 58/58.
+- **Arvet testadvarsel utenfor B2, lukket 18. juli:** To uavhengige
+  bevisoppslag i D2-fixturen delte én `pg`-klient parallelt. De kjøres nå
+  sekvensielt; databaseporten består uten driveradvarselen. Reell samtidighet
+  bruker fortsatt separate forbindelser.
 
 Ingen screenshot-baseline er oppdatert for å skjule et avvik.
 

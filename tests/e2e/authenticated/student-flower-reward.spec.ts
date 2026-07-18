@@ -9,13 +9,69 @@ const rewardClassId = "30000000-0000-4000-8000-000000000007";
 const rewardStudentId = "10000000-0000-4000-8000-000000000017";
 const taskTitle = "Fullfør første milepæl";
 
+async function waitForRouterRefresh(page: Page) {
+  // A resolved server action can schedule its RSC refresh in the following
+  // render frame. Give WebKit that frame before asking for network quiescence,
+  // otherwise a reload can abort the just-scheduled request.
+  await page.evaluate(
+    () => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }),
+  );
+  await page.waitForLoadState("networkidle");
+}
+
+async function withFreshAuthenticatedPage(
+  sourcePage: Page,
+  url: string,
+  assertion: (freshPage: Page) => Promise<void>,
+) {
+  const freshPage = await sourcePage.context().newPage();
+  const expectNoRuntimeErrors = observeRuntimeErrors(freshPage);
+  try {
+    await freshPage.goto(url);
+    await assertion(freshPage);
+    expectNoRuntimeErrors();
+  } finally {
+    await freshPage.close();
+  }
+}
+
+async function navigateToStudentDay(page: Page) {
+  if (new URL(page.url()).pathname === "/v3/student") return;
+  await page.getByRole("link", { name: "Tilbake til dagen" }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/v3/student");
+  await expect(
+    page.getByRole("heading", { level: 1, name: /Hei,/ }),
+  ).toBeVisible();
+}
+
+async function navigateToGarden(page: Page) {
+  await page.getByRole("button", { name: "Åpne meny" }).click();
+  await page
+    .getByRole("dialog", { name: "Meny" })
+    .getByRole("link", { name: "Blomsterhagen" })
+    .click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Blomsterhagen" }),
+  ).toBeVisible();
+}
+
 async function openTask(page: Page) {
   const button = page.getByRole("button", {
     name: `Åpne oppgaven ${taskTitle}`,
   });
   if (!(await button.isVisible())) {
-    const details = page.locator("details").filter({ hasText: taskTitle });
-    await details.locator("summary").click();
+    const disclosures = page.getByRole("button", {
+      name: /^(Vis oppgavene fra forrige økt|Se \d+ (?:oppgave|oppgaver) i neste økt|Se \d+ (?:annen oppgave|andre oppgaver))$/,
+    });
+    for (let index = 0; index < (await disclosures.count()); index += 1) {
+      const disclosure = disclosures.nth(index);
+      if ((await disclosure.getAttribute("aria-expanded")) !== "true") {
+        await disclosure.click();
+      }
+      if (await button.isVisible()) break;
+    }
   }
   await expect(button).toBeVisible();
   await button.click();
@@ -32,9 +88,10 @@ async function completeTask(page: Page) {
 }
 
 async function setOwnGardenVisibility(page: Page, visible: boolean) {
-  await page.goto("/v3/student");
+  await navigateToStudentDay(page);
+  await waitForRouterRefresh(page);
   const controls = page.locator("details").filter({ hasText: "Tilpass visningen" });
-  if (!(await controls.getAttribute("open"))) {
+  if ((await controls.getAttribute("open")) === null) {
     await controls.locator("summary").click();
   }
   const checkbox = controls.getByRole("checkbox", { name: "Vis blomsterhagen" });
@@ -42,11 +99,22 @@ async function setOwnGardenVisibility(page: Page, visible: boolean) {
   else await checkbox.uncheck();
   await controls.getByRole("button", { name: "Lagre visning" }).click();
   await expect(controls.getByRole("status")).toHaveText("Visningen er lagret.");
+  await waitForRouterRefresh(page);
 }
 
 async function expectGardenRouteRedirect(page: Page) {
-  await page.evaluate(() => window.location.assign("/v3/student/rewards"));
-  await page.waitForURL((url) => url.pathname === "/v3/student");
+  await withFreshAuthenticatedPage(
+    page,
+    "/v3/student/rewards",
+    async (freshPage) => {
+      await expect(freshPage).toHaveURL(
+        (url) => url.pathname === "/v3/student",
+      );
+      await expect(
+        freshPage.getByRole("heading", { level: 1, name: /Hei,/ }),
+      ).toBeVisible();
+    },
+  );
 }
 
 test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
@@ -79,12 +147,14 @@ test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
     const pendingShortcut = page.getByRole("link", {
       name: "Et kronblad venter i blomsterhagen",
     });
-    // Wait for the server-component refresh that updates the persistent shell
-    // before testing a reload. WebKit reports an intentionally aborted RSC
-    // request as a runtime error if navigation wins this race.
     await expect(pendingShortcut).toBeVisible();
-    await page.reload();
-    await expect(pendingShortcut).toBeVisible();
+    await withFreshAuthenticatedPage(page, "/v3/student", async (freshPage) => {
+      await expect(
+        freshPage.getByRole("link", {
+          name: "Et kronblad venter i blomsterhagen",
+        }),
+      ).toBeVisible();
+    });
     await pendingShortcut.click();
     await expect(
       page.getByRole("heading", { level: 1, name: "Blomsterhagen" }),
@@ -117,20 +187,25 @@ test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
     ).toBeVisible();
 
     await expect(pendingShortcut).toHaveCount(0);
-    await page.reload();
-    await expect(
-      page.getByRole("heading", {
-        level: 2,
-        name: "Alle opptjente kronblad er valgt",
-      }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("img", {
-        name: "Blomst 1, 1 av 5 kronblader valgt",
-      }),
-    ).toBeVisible();
+    await withFreshAuthenticatedPage(
+      page,
+      "/v3/student/rewards",
+      async (freshPage) => {
+        await expect(
+          freshPage.getByRole("heading", {
+            level: 2,
+            name: "Alle opptjente kronblad er valgt",
+          }),
+        ).toBeVisible();
+        await expect(
+          freshPage.getByRole("img", {
+            name: "Blomst 1, 1 av 5 kronblader valgt",
+          }),
+        ).toBeVisible();
+      },
+    );
 
-    await page.goto("/v3/student");
+    await navigateToStudentDay(page);
     const completedDialog = await openTask(page);
     await completedDialog
       .getByRole("button", { name: "Angre fullføring" })
@@ -138,25 +213,26 @@ test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
     await expect(
       page.getByText("Oppgaven er klar igjen. Poengene er justert."),
     ).toBeVisible();
-    await page.goto("/v3/student/rewards");
+    await waitForRouterRefresh(page);
+    await navigateToGarden(page);
     await expect(
       page.getByRole("img", {
         name: "Blomst 1, 1 av 5 kronblader valgt",
       }),
     ).toBeVisible();
 
-    await page.goto("/v3/student");
+    await navigateToStudentDay(page);
     await completeTask(page);
     await expect(
       page.getByText("Oppgaven er ferdig. Du fikk 10 poeng."),
     ).toBeVisible();
-    await page.reload();
-    await expect(
-      page.getByRole("link", { name: /kronblad venter i blomsterhagen/ }),
-    ).toHaveCount(0);
+    await withFreshAuthenticatedPage(page, "/v3/student", async (freshPage) => {
+      await expect(
+        freshPage.getByRole("link", { name: /kronblad venter i blomsterhagen/ }),
+      ).toHaveCount(0);
+    });
 
     await setOwnGardenVisibility(page, false);
-    await page.reload();
     await page.getByRole("button", { name: "Åpne meny" }).click();
     await expect(
       page.getByRole("dialog", { name: "Meny" }).getByRole("link", {
@@ -167,12 +243,7 @@ test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
     await expectGardenRouteRedirect(page);
 
     await setOwnGardenVisibility(page, true);
-    await page.reload();
-    await page.getByRole("button", { name: "Åpne meny" }).click();
-    await page
-      .getByRole("dialog", { name: "Meny" })
-      .getByRole("link", { name: "Blomsterhagen" })
-      .click();
+    await navigateToGarden(page);
     await expect(
       page.getByRole("img", {
         name: "Blomst 1, 1 av 5 kronblader valgt",
@@ -202,7 +273,8 @@ test("første nivå gir ett varig kronblad uten farming eller tvang", async ({
     await staffGate.check();
     await studentRow.getByRole("button", { name: "Lagre" }).click();
     await expect(studentRow.getByRole("status")).toHaveText("Lagret.");
-    await page.goto("/v3/student/rewards");
+    await navigateToStudentDay(page);
+    await navigateToGarden(page);
     await expect(
       page.getByRole("img", {
         name: "Blomst 1, 1 av 5 kronblader valgt",

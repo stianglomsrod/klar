@@ -25,6 +25,9 @@ const canonicalAuthDirectory = path.join(process.cwd(), "playwright", ".auth");
 const labAuthDirectory = path.join(canonicalAuthDirectory, "lab");
 const roleDev = process.env.KLAR_ROLE_DEV === "1";
 const labCheck = process.env.KLAR_LAB_CHECK === "1";
+const recoveringInterruptedRun =
+  process.env.KLAR_RECOVER_INTERRUPTED_RUN === "1";
+const localRunnerId = process.env.KLAR_LOCAL_RUNNER_ID ?? null;
 
 const formalQaSessions = [
   {
@@ -59,7 +62,11 @@ async function persistLabContexts(
       await context.storageState(),
     );
   }
-  refreshManualTestCacheStateHashes(process.cwd(), cleanClose);
+  refreshManualTestCacheStateHashes(
+    process.cwd(),
+    cleanClose,
+    localRunnerId,
+  );
 }
 
 async function assertExpectedLabIdentity(
@@ -74,15 +81,35 @@ async function assertExpectedLabIdentity(
     throw new Error("Lokal Supabase-konfigurasjon mangler for rollekontroll.");
   }
   const contextCookies = await context.cookies(baseURL);
+  const rotatedCookies: Array<{ name: string; value: string }> = [];
   const supabase = createServerClient(apiUrl, anonKey, {
     cookies: {
       getAll: () =>
         contextCookies.map(({ name, value }) => ({ name, value })),
-      // Navigation through the app has already refreshed the browser cookie.
-      // Identity verification must not create a second, unpersisted rotation.
-      setAll: () => undefined,
+      setAll: (cookiesToSet) => {
+        rotatedCookies.push(
+          ...cookiesToSet.map(({ name, value }) => ({ name, value })),
+        );
+      },
     },
   });
+  if (recoveringInterruptedRun) {
+    const { error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      throw new Error(
+        `Den avbrutte lokale økten «${session.label}» kunne ikke fornyes. Kjør \`npm run lab:reset\`.`,
+      );
+    }
+    if (rotatedCookies.length > 0) {
+      await context.addCookies(
+        rotatedCookies.map(({ name, value }) => ({
+          name,
+          value,
+          url: baseURL,
+        })),
+      );
+    }
+  }
   const {
     data: { user },
     error: userError,
@@ -138,7 +165,13 @@ test("åpner isolerte vinduer for lokal utforsking eller manuell desktop-QA", as
   }> = [];
 
   try {
-    if (roleDev) markManualTestCacheDirty(process.cwd());
+    if (roleDev) {
+      markManualTestCacheDirty(
+        process.cwd(),
+        scenario?.id ?? "day",
+        localRunnerId,
+      );
+    }
     for (const session of sessions) {
       const context = await browser.newContext({
         baseURL,

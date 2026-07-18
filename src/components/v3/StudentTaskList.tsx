@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight, Flower2, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Flower2,
+  Sparkles,
+} from "lucide-react";
 import {
   completeOwnTaskAction,
   undoOwnTaskCompletionAction,
@@ -68,6 +80,41 @@ function relationLabel(relation: StudentTaskSection["relation"]): string | null 
     default:
       return null;
   }
+}
+
+function TaskGroupDisclosure({
+  contentId,
+  label,
+  children,
+}: {
+  contentId: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+      <button
+        type="button"
+        aria-controls={contentId}
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left font-bold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600"
+      >
+        <span>{label}</span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`h-5 w-5 shrink-0 transition-transform motion-reduce:transition-none ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+      <div id={contentId} hidden={!isOpen}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export function StudentProgressDock({
@@ -613,7 +660,7 @@ export function StudentTaskList({
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           {temporalLabel && (
                             <p className={`text-xs font-black uppercase tracking-[0.18em] ${
-                              group.relation === "current" ? "text-indigo-800" : "text-slate-600"
+                              group.relation === "current" ? "text-indigo-800" : "text-slate-700"
                             }`}>
                               {temporalLabel}
                             </p>
@@ -642,21 +689,23 @@ export function StudentTaskList({
                 </div>
               )}
               {group.relation === "previous" && group.tasks.length > 0 ? (
-                <details className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                  <summary className="min-h-11 cursor-pointer rounded-xl px-2 py-2 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-                    Vis oppgavene fra forrige økt
-                  </summary>
+                <TaskGroupDisclosure
+                  contentId={`task-group-content-${group.id}`}
+                  label="Vis oppgavene fra forrige økt"
+                >
                   {taskGrid}
-                </details>
+                </TaskGroupDisclosure>
               ) : compactDisclosure && group.tasks.length > 0 ? (
-                <details className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                  <summary className="min-h-11 cursor-pointer rounded-xl px-2 py-2 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-600">
-                    {group.relation === "next"
+                <TaskGroupDisclosure
+                  contentId={`task-group-content-${group.id}`}
+                  label={
+                    group.relation === "next"
                       ? `Se ${group.tasks.length} ${group.tasks.length === 1 ? "oppgave" : "oppgaver"} i neste økt`
-                      : `Se ${group.tasks.length} ${group.tasks.length === 1 ? "annen oppgave" : "andre oppgaver"}`}
-                  </summary>
+                      : `Se ${group.tasks.length} ${group.tasks.length === 1 ? "annen oppgave" : "andre oppgaver"}`
+                  }
+                >
                   {taskGrid}
-                </details>
+                </TaskGroupDisclosure>
               ) : (
                 taskGrid
               )}

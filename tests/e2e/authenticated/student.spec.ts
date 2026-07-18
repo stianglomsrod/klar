@@ -11,10 +11,11 @@ const organizationId = "20000000-0000-4000-8000-000000000001";
 const studentId = "10000000-0000-4000-8000-000000000002";
 
 async function revealLegacyTasks(page: Page) {
-  const summary = page.getByText(/Se \d+ (?:annen oppgave|andre oppgaver)/);
-  const details = summary.locator("..");
-  if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
-    await summary.click();
+  const disclosure = page.getByRole("button", {
+    name: /Se \d+ (?:annen oppgave|andre oppgaver)/,
+  });
+  if ((await disclosure.getAttribute("aria-expanded")) !== "true") {
+    await disclosure.click();
   }
 }
 
@@ -37,6 +38,47 @@ async function expectDurableTaskStatus(
     await durabilityPage.close();
   }
 }
+
+test("oppgavegrupper hydreres uten nettleserstyrt disclosure-tilstand", async ({
+  page,
+}) => {
+  const expectNoRuntimeErrors = observeRuntimeErrors(page);
+  await page.addInitScript(() => {
+    const forceLegacyDisclosureOpen = () => {
+      for (const summary of document.querySelectorAll("summary")) {
+        if (/Se \d+ (?:annen oppgave|andre oppgaver)/.test(summary.textContent ?? "")) {
+          summary.closest("details")?.setAttribute("open", "");
+        }
+      }
+    };
+    new MutationObserver(forceLegacyDisclosureOpen).observe(document, {
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  await page.goto("/v3/student");
+  await expect(page.getByRole("heading", { name: "Hei, Testelev" })).toBeVisible();
+  const disclosure = page.getByRole("button", {
+    name: /Se \d+ (?:annen oppgave|andre oppgaver)/,
+  });
+  const contentId = await disclosure.getAttribute("aria-controls");
+  expect(contentId).toMatch(/^task-group-/);
+  const disclosurePanel = page.locator(`#${contentId}`);
+  await expect(disclosurePanel).toHaveCount(1);
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(disclosurePanel).toBeHidden();
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  await expect(disclosurePanel).toBeVisible();
+  await expect(
+    page.getByRole("article").filter({ hasText: "Regn tre stykker" }),
+  ).toBeVisible();
+  await disclosure.click();
+  await expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  await expect(disclosurePanel).toBeHidden();
+  expectNoRuntimeErrors();
+});
 
 test("elevsesjonen fullfører og angrer med autoritativ XP", async ({ page }) => {
   const database = await openLocalDatabase();

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import {
   acquireLocalRunnerLock,
+  adoptInterruptedManualTestRun,
   ensureManualTestCacheDirectory,
   getManualTestCachePaths,
   readManualTestCache,
@@ -239,6 +240,9 @@ if (docker.error || docker.status !== 0) {
 }
 
 const releaseRunnerLock = acquireLocalRunnerLock(root);
+if (releaseRunnerLock.recoveredStaleLock) {
+  console.log("En foreldreløs lokal runner-lås ble kontrollert og fjernet.");
+}
 const releaseRunnerLockOnExit = () => releaseRunnerLock();
 process.once("exit", releaseRunnerLockOnExit);
 if (roleDev) {
@@ -283,17 +287,45 @@ const ownerCreatedAtBeforeSetup = reuse
   ? await getOwnerCreatedAt(databaseUrl)
   : null;
 let studentCodePepper;
+let interruptedScenarioId = null;
 if (reuse) {
   try {
-    ({ studentCodePepper } = readManualTestCache({
-      root,
-      projectId,
-      apiUrl,
-      databaseUrl,
-      anonKey,
-      serviceRoleKey,
-      ownerCreatedAt: ownerCreatedAtBeforeSetup,
-    }));
+    const cached = readManualTestCache(
+      {
+        root,
+        projectId,
+        apiUrl,
+        databaseUrl,
+        anonKey,
+        serviceRoleKey,
+        ownerCreatedAt: ownerCreatedAtBeforeSetup,
+      },
+      { allowDirty: roleDev },
+    );
+    studentCodePepper = cached.studentCodePepper;
+    if (cached.manifest.dirtySince !== null) {
+      interruptedScenarioId = cached.manifest.activeScenarioId ?? null;
+      if (!interruptedScenarioId) {
+        throw new Error(
+          "Forrige utforskingsøkt mangler sikker scenarioproveniens og kan ikke gjenopprettes. Bruk `npm run lab:reset` for en ny lokal fixture.",
+        );
+      }
+      if (
+        cached.manifest.activeRunId !==
+          releaseRunnerLock.recoveredStaleLockOwner ||
+        !releaseRunnerLock.recoveredStaleLock
+      ) {
+        throw new Error(
+          "Dirty-markeringen matcher ikke en kontrollert foreldreløs runner-lås og kan ikke gjenopprettes.",
+        );
+      }
+      adoptInterruptedManualTestRun(
+        root,
+        interruptedScenarioId,
+        releaseRunnerLock.recoveredStaleLockOwner,
+        releaseRunnerLock.owner,
+      );
+    }
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     throw new Error(
@@ -316,6 +348,7 @@ const baseEnvironment = {
   KLAR_E2E_MODE: mode,
   KLAR_E2E_BROWSER: browser,
   KLAR_LAB_CHECK: labCheck ? "1" : "0",
+  KLAR_LOCAL_RUNNER_ID: releaseRunnerLock.owner,
   ...createLocalRunnerSelectors({ mode, roleDev, reuse }),
   KLAR_E2E_DB_URL: databaseUrl,
   PILOT_ENABLED: "true",
@@ -386,11 +419,12 @@ if (!roleDev) {
     });
   }
 
-  const runScenario = async (scenario) => {
+  const runScenario = async (scenario, recovering = false) => {
     const environment = {
       ...testEnvironment,
       KLAR_AUTH_DIRECTORY: cachePaths.directory,
       KLAR_MANUAL_SCENARIO: scenario.id,
+      KLAR_RECOVER_INTERRUPTED_RUN: recovering ? "1" : "0",
       ...createLocalRunnerSelectors({ mode, roleDev, reuse: true }),
     };
     run(
@@ -406,11 +440,19 @@ if (!roleDev) {
   };
 
   const directScenario = requestedScenario ?? (labCheck ? "day" : null);
-  if (directScenario) {
+  if (interruptedScenarioId) {
+    const interruptedScenario = getManualTestScenario(interruptedScenarioId);
+    console.log(
+      `Forrige kjøring av «${interruptedScenario.label}» ble avbrutt. Scenarioet åpnes først for identitetskontroll og ryddig avslutning.`,
+    );
+    await assertScenarioFixtureReady(databaseUrl, interruptedScenario.id);
+    await runScenario(interruptedScenario, true);
+  }
+  if (directScenario && directScenario !== interruptedScenarioId) {
     const scenario = getManualTestScenario(directScenario);
     await assertScenarioFixtureReady(databaseUrl, scenario.id);
     await runScenario(scenario);
-  } else {
+  } else if (!directScenario) {
     while (true) {
       let scenario;
       try {

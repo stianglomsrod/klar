@@ -128,11 +128,42 @@ test("læreren flytter samme oppgave og en gammel elevfane kan ikke fullføre", 
 
   try {
     await studentPage.goto("/v3/student");
-    const compactSession = studentPage.locator("summary").filter({
-      hasText: /Vis oppgavene|Se \d+ oppgave/,
+    const compactSession = studentPage.getByRole("button", {
+      name: /Vis oppgavene|Se \d+ oppgave/,
     });
     if (await compactSession.count()) {
+      let contentId = await compactSession.first().getAttribute("aria-controls");
+      expect(contentId).toMatch(/^task-group-/);
+      let compactPanel = studentPage.locator(`#${contentId}`);
+      await expect(compactPanel).toHaveCount(1);
+      await expect(compactSession.first()).toHaveAttribute("aria-expanded", "false");
+      await expect(compactPanel).toBeHidden();
       await compactSession.first().click();
+      await expect(compactSession.first()).toHaveAttribute("aria-expanded", "true");
+      await expect(compactPanel).toBeVisible();
+      const freshStudentPage = await studentContext.newPage();
+      const expectNoFreshStudentRuntimeErrors = observeRuntimeErrors(freshStudentPage);
+      try {
+        await freshStudentPage.goto("/v3/student");
+        const freshCompactSession = freshStudentPage.getByRole("button", {
+          name: /Vis oppgavene|Se \d+ oppgave/,
+        });
+        contentId = await freshCompactSession.first().getAttribute("aria-controls");
+        expect(contentId).toMatch(/^task-group-/);
+        compactPanel = freshStudentPage.locator(`#${contentId}`);
+        await expect(compactPanel).toHaveCount(1);
+        await expect(freshCompactSession.first()).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        );
+        await expect(compactPanel).toBeHidden();
+        await freshCompactSession.first().click();
+        await expect(compactPanel).toBeVisible();
+        expectNoFreshStudentRuntimeErrors();
+      } finally {
+        await freshStudentPage.close();
+      }
+      expectNoStudentRuntimeErrors();
     }
     const staleTaskButton = studentPage.getByRole("button", {
       name: "Åpne oppgaven D2 flytteoppgave",
