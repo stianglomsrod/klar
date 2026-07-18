@@ -202,19 +202,32 @@ npm run test:e2e:full
 npm run test:e2e:full:webkit
 ```
 
-Runneren starter Supabase på `127.0.0.1:54321`, avviser alt annet enn loopback og
-godtar direkte testkontroll mot Postgres bare på loopback-port 54322, database
-`postgres`, uten query eller fragment. Den oppretter bare syntetiske fixtures,
-gjennomfører lærerens TOTP-oppsett gjennom UI og lagrer separate, ignorerte
-browsertilstander for elev og lærer. Den bruker aldri det linkede
-pilotprosjektet som reserve. Visuelle kjøringer lagrer QA-artefakter i
-`test-results/<browser>-<modus>`; historiske prototypebilder er ikke
-pixel-baselines.
+Runneren krever og bruker Supabase API via `http://127.0.0.1:54321`, avviser alt
+annet enn loopback og godtar direkte testkontroll mot Postgres bare på
+loopback-port 54322, database `postgres`, uten query eller fragment. Den
+oppretter bare syntetiske fixtures, gjennomfører lærerens TOTP-oppsett gjennom
+UI og bruker samme origin med separate browser contexts og separate, ignorerte
+storage-state-filer for elev og ansatte. Den bruker aldri det linkede
+pilotprosjektet som reserve.
+
+Loopback-valideringen er en applikasjonsvakt, ikke en vertsbrannmur. Supabase CLI
+og Docker Desktop kan fortsatt publisere portene `54321–54324` på
+vertsgrensesnitt. Kontroller lokal brannmur og stopp testmiljøet med
+`npx supabase stop --no-backup` etter kontrollpunktet.
+
+Midlertidige Playwright-spor og feilartefakter lagres i
+`test-results/<browser>-<modus>`. Utvalgte Chromium-tester skriver i tillegg
+kuraterte, versjonerte bilder til `docs/qa/evidence/`; slike endringer skal
+vurderes eksplisitt og aldri godtas automatisk som nye baselines.
+Prototypebildene er semantiske referanser, ikke pixel-baselines.
 
 Den autentiserte grunnsuiten og den samlede automatiserte produktmatrisen er
-verifisert lokalt i Chromium og WebKit. Suiten er fortsatt en eksplisitt lokal
-kontrollpunktport. CI beholder offentlig Playwright-smoke og kjører den
-separate databasepakken i både tomt og representativt oppgraderingsscenario.
+verifisert lokalt i Chromium og WebKit. Kontrollpunkt Fs motorbaseline og åpne
+fysiske porter er dokumentert i
+[`docs/qa/CONTROL_POINT_F.md`](./docs/qa/CONTROL_POINT_F.md). Suiten er fortsatt
+en eksplisitt lokal kontrollpunktport. CI beholder offentlig Playwright-smoke og
+kjører den separate databasepakken i både tomt og representativt
+oppgraderingsscenario.
 
 Første strukturerte klasseuke og den øktstyrte elevdagen er dokumentert med
 akseptansekriterier, avvik, retester og syntetiske fem-viewport-bilder i
@@ -261,20 +274,18 @@ representativ oppgradering, RLS/grants, retry/samtidighet, komplett
 Chromium-/WebKit-flyt og seks kuraterte responsive bilder er verifisert. Den
 fysiske VoiceOver/NVDA-flyten står fortsatt åpen.
 
-A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
-`c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er
-dokumentert i
-[`docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md`](./docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md).
-Faktisk 200 prosent browserzoom og NVDA er bestått. VoiceOver-retesten på iPad
-kontrollerte navigasjonsfokus, tilgangsdialog og Smart Import over lokal HTTP
-samt utvalgte touch-, tastatur- og orienteringssteg uten nytt avvik. Eksakt
-Safari-versjon, gjenværende ansatt- og elevkontroller, mobiltelefon,
-notch/safe-area og resten av den fysiske matrisen gjenstår. A1 omtales derfor
-ikke som fullført.
+Den samlede automatiserte motorbaselinen for kontrollpunkt F er dokumentert i
+[`docs/qa/CONTROL_POINT_F.md`](./docs/qa/CONTROL_POINT_F.md). Den samler
+`verify:checkpoint`, tom database og representativ oppgradering, full
+autentisert Chromium-/WebKit-flyt, samme origin med separate rollekontekster og
+den responsive fem-viewport-matrisen. Dette er et automatisert
+integrasjonsbevis, ikke fysisk enhetsbevis.
 
-Den lokale A1-suiten dekker også ugyldige oppdragsinput, forfalskede
-kontrollhandlinger, en redusert testprofil for kapabiliteter, positiv
-regelbasert DOCX-preview/publisering og utløpsreconcile før autorisasjonsnekt.
+Faktisk 200 prosent browserzoom og NVDA er bestått. Navngitte fysiske porter for
+A1, B1, B2, D2, D3 og E03 står fortsatt åpne eller delvis gjennomførte som
+beskrevet i kontrollpunktdokumentene og pilotrunbooken. Den historiske,
+kandidatbundne A1-revisjonen ligger i
+[`docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md`](./docs/qa/CONTROL_POINT_A1_AUTOMATED_QA.md).
 
 CI gjør i tillegg følgende:
 

@@ -14,6 +14,12 @@ import {
   requestOwnHelpAction,
 } from "@/app/actions/v3/help-actions";
 import { createClientUuid } from "@/lib/client-uuid";
+import {
+  getHelpRequestStateKey,
+  getHelpRequestTransition,
+  isHelpCommandIntentSatisfied,
+  type HelpCommandIntent,
+} from "@/lib/help-request-transition";
 import type { StudentHelpState } from "@/server/help/help-service";
 import { trapDialogFocus } from "./dialog-focus";
 
@@ -41,6 +47,11 @@ export function StudentHelpControl({
   const requestCommand = useRef<CommandIdentity | null>(null);
   const cancelCommand = useRef<CommandIdentity | null>(null);
   const previousPropRequestId = useRef(state.activeRequest?.id ?? null);
+  const previousPropRequestStateKey = useRef(
+    getHelpRequestStateKey(state.activeRequest),
+  );
+  const authoritativeRequest = useRef(state.activeRequest);
+  const failedCommandIntent = useRef<HelpCommandIntent | null>(null);
   const cancelDialogRef = useRef<HTMLDialogElement>(null);
   const cancelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const stayButtonRef = useRef<HTMLButtonElement>(null);
@@ -62,8 +73,27 @@ export function StudentHelpControl({
   }
 
   useEffect(() => {
+    const previousRequestId = previousPropRequestId.current;
     const nextRequestId = state.activeRequest?.id ?? null;
-    if (previousPropRequestId.current && !nextRequestId) {
+    const transition = getHelpRequestTransition(
+      previousPropRequestStateKey.current,
+      state.activeRequest,
+    );
+    authoritativeRequest.current = state.activeRequest;
+    const failedIntent = failedCommandIntent.current;
+    if (
+      failedIntent &&
+      isHelpCommandIntentSatisfied(failedIntent, state.activeRequest)
+    ) {
+      // Clear only an error whose requested outcome is now authoritative.
+      // Unrelated cross-tab changes must not hide a genuine command failure.
+      failedCommandIntent.current = null;
+      setError(null);
+    }
+    if (transition.changed) {
+      setFeedback(transition.feedback);
+    }
+    if (previousRequestId && !nextRequestId) {
       const cancellationWasOpen =
         cancelOpen || Boolean(cancelDialogRef.current?.open);
       setCancelOpen(false);
@@ -74,6 +104,9 @@ export function StudentHelpControl({
       }
     }
     previousPropRequestId.current = nextRequestId;
+    previousPropRequestStateKey.current = getHelpRequestStateKey(
+      state.activeRequest,
+    );
     setActiveRequest(state.activeRequest);
     if (state.activeRequest) requestCommand.current = null;
   }, [cancelOpen, state.activeRequest]);
@@ -114,11 +147,26 @@ export function StudentHelpControl({
     return reference.current.id;
   }
 
+  function clearCommandError() {
+    failedCommandIntent.current = null;
+    setError(null);
+  }
+
+  function reportCommandError(intent: HelpCommandIntent, message: string) {
+    if (isHelpCommandIntentSatisfied(intent, authoritativeRequest.current)) {
+      failedCommandIntent.current = null;
+      setError(null);
+      return;
+    }
+    failedCommandIntent.current = intent;
+    setError(message);
+  }
+
   async function requestHelp() {
     if (loadingRef.current || !state.queue) return;
     loadingRef.current = true;
     setLoading(true);
-    setError(null);
+    clearCommandError();
     setFeedback(null);
     focusAfterRequest.current = false;
     const target = `${state.queue.id}:${taskAssignmentId ?? "general"}`;
@@ -128,6 +176,10 @@ export function StudentHelpControl({
         taskAssignmentId &&
         activeRequest.taskAssignmentId === null,
     );
+    const intent: HelpCommandIntent = {
+      kind: "request",
+      taskAssignmentId: taskAssignmentId ?? null,
+    };
     try {
       const result = await requestOwnHelpAction(
         state.queue.id,
@@ -135,10 +187,11 @@ export function StudentHelpControl({
         taskAssignmentId,
       );
       if (!result.success) {
-        setError(result.error ?? "Kunne ikke be om hjelp.");
+        reportCommandError(intent, result.error ?? "Kunne ikke be om hjelp.");
         return;
       }
       requestCommand.current = null;
+      authoritativeRequest.current = result.activeRequest;
       setActiveRequest(result.activeRequest);
       setFeedback(
         taskAssignmentId
@@ -148,7 +201,10 @@ export function StudentHelpControl({
       focusAfterRequest.current = contextualizing;
       router.refresh();
     } catch {
-      setError("Kunne ikke nå læreren akkurat nå. Prøv igjen.");
+      reportCommandError(
+        intent,
+        "Kunne ikke nå læreren akkurat nå. Prøv igjen.",
+      );
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -157,7 +213,7 @@ export function StudentHelpControl({
 
   function openCancel(trigger: HTMLButtonElement) {
     cancelTriggerRef.current = trigger;
-    setError(null);
+    clearCommandError();
     setCancelOpen(true);
     if (cancelPresentation === "dialog") {
       const dialog = cancelDialogRef.current;
@@ -180,17 +236,19 @@ export function StudentHelpControl({
     if (!activeRequest || loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
-    setError(null);
+    clearCommandError();
     const commandRequestId = commandFor(cancelCommand, activeRequest.id);
+    const intent: HelpCommandIntent = { kind: "cancel" };
     try {
       const result = await cancelOwnHelpAction(
         activeRequest.id,
         commandRequestId,
       );
       if (!result.success) {
-        setError(result.error ?? "Kunne ikke gå ut av køen.");
+        reportCommandError(intent, result.error ?? "Kunne ikke gå ut av køen.");
         return;
       }
+      authoritativeRequest.current = null;
       setActiveRequest(null);
       previousPropRequestId.current = null;
       requestCommand.current = null;
@@ -204,7 +262,10 @@ export function StudentHelpControl({
       }
       router.refresh();
     } catch {
-      setError("Kunne ikke oppdatere køen akkurat nå. Prøv igjen.");
+      reportCommandError(
+        intent,
+        "Kunne ikke oppdatere køen akkurat nå. Prøv igjen.",
+      );
     } finally {
       loadingRef.current = false;
       setLoading(false);

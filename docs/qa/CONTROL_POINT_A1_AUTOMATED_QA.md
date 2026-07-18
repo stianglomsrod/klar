@@ -103,3 +103,22 @@ portene er bestått på endelig kandidatcommit.
 **Den ferske automatiske og visuelle kandidatretesten er godkjent med bevart
 flakehistorikk og eksplisitte evidensgap. A1 som kontrollpunkt er fortsatt
 åpent.**
+
+## Oppfølging i kontrollpunkt F – 18. juli 2026
+
+Listen over automatiske evidensgap ovenfor bevares som historikk for kandidat
+`c562bb0`. Den samlede, nyere F-kandidaten lukker disse automatiske hullene slik:
+
+| Historisk gap | Nytt kandidatbevis |
+| --- | --- |
+| Positiv owner+AAL2-integrasjon for klasse og prototypeelev | Autentisert kontrollplansuite gjennomfører de faktiske UI-/Server Action-flytene og verifiserer resultatet mot lokal database. |
+| Negative bortfall av `class.workspace.read` og `plan.preview` | Capability-suiten fjerner kapabilitetene isolert, kontrollerer resolver og synlig UI, og beviser fail-closed redirect uten beskyttet datamutering. |
+| Direkte RLS-negativer for `help_queue.manage` og `student_support.update` | Databasepakken bygger tom og representativ database og verifiserer RLS/RPC/grants for manglende rolle, kapabilitet, klasse og organisasjon. |
+| Uklart leseomfang for `student_experience_settings` | A1s kapabilitetskontrakt og testmatrisen bruker `student_support.update` for den ansattstyrte støtterammen; caller-bound elevlesing er separat. |
+| Dynamisk immutabilitet og hard-slettevern | Databasepakken verifiserer append-only-/immutabilitetsgrenser, eksplisitte grants og hard-sletteavvisning i den samlede matrisen. |
+
+Hele oppfølgingen, eksakte kommandoresultater og reparasjonsloggen står i
+[`CONTROL_POINT_F.md`](./CONTROL_POINT_F.md). Dette lukker de automatiske
+A1-evidensgapene, men ikke A1s fysiske enhetsporter. A1 er derfor fortsatt åpent
+til de navngitte VoiceOver-, touch-, safe-area-, tastatur-, orienterings- og
+mobilkontrollene er gjennomført på den endelige kandidatcommiten.

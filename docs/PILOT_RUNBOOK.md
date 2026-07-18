@@ -103,6 +103,11 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    loopback. Direkte testkontroll godtar bare Postgres på loopback-port 54322,
    database `postgres`, uten query eller fragment. Runnerne skal aldri peke mot
    piloten.
+   Loopback-valideringen hindrer runneren i å bruke et eksternt prosjekt, men er
+   ikke en vertsbrannmur. Supabase CLI og Docker Desktop kan publisere
+   `54321–54324` på lokale nettverksgrensesnitt. Kontroller brannmuren før
+   kjøring og stopp lokal Supabase med `npx supabase stop --no-backup` når
+   kontrollpunktet er ferdig.
 9. Logg inn som eier, fullfør TOTP-oppsettet, opprett en testklasse og verifiser
    hele løypa med testdata: nåværende elevliste → strukturert klasseuke →
    forrige/aktuell/neste økt → flytt en uferdig oppgave → bekreft at en gammel
@@ -234,6 +239,16 @@ brukte autoritative, ferske sider etter serverhandlinger i stedet for å avbryte
 pågående RSC-oppdateringer; runtimefeilkontrollen ble beholdt uendret.
 Testene bruker bare syntetiske data og lokal Supabase.
 
+Kontrollpunkt F samler disse portene i én lokal motorbaseline, dokumentert i
+[`CONTROL_POINT_F.md`](./qa/CONTROL_POINT_F.md). `verify:checkpoint`,
+databasepakken og full autentisert Chromium-/WebKit-matrise er kjørt mot bare
+syntetiske, lokale data. Baseline dekker fem målviewports, reflowproxy, reduced
+motion, axe A/AA og separate rolleøkter på samme origin. Den beviser
+transaksjonell fail-closed tilbakeføring for implementerte operasjoner, ikke
+E04s fortsatt uimplementerte planrevisjons-rollback eller reimport. Baseline
+erstatter heller ikke de navngitte fysiske A1-, B1-, B2-, D2-, D3- og
+E03-portene.
+
 ## Manuell B2-port som gjenstår
 
 Med VoiceOver på iPad/Safari og NVDA i en støttet desktopnettleser skal eleven
@@ -277,7 +292,8 @@ reelt utstyr. Bruk den detaljerte
 faktisk enhet, nettleser og resultat:
 
 - [x] faktisk 200 prosent browserzoom/reflow;
-- [ ] NVDA bestått 2026-07-16; VoiceOver-retesten på iPad kontrollerte
+- [x] NVDA bestått 2026-07-16;
+- [ ] VoiceOver-retesten på iPad kontrollerte
   navigasjonsfokus, tilgangsdialog og Smart Import over lokal HTTP uten nytt
   avvik, men eksakt Safari-versjon og resten av matrisen gjenstår;
 - [ ] ekte touch og trykkmål; mobilmeny, tilgangsfelt, Avbryt og fjerning av et

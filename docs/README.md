@@ -59,6 +59,9 @@ tilgjengelighetsfeil.
 - [Kontrollpunkt D2](./qa/CONTROL_POINT_D2.md) – eksplisitt flytt av samme
   uferdige oppgave eller ny, lenket utsending med bevart historikk og
   responsive QA-bevis.
+- [Kontrollpunkt D3](./qa/CONTROL_POINT_D3.md) – caller-bound «Fag og
+  oppgaver», delt oppgavestatus/XP og responsive Chromium-/WebKit-bevis;
+  fysisk VoiceOver-/NVDA-retest gjenstår.
 - [Kontrollpunkt E1](./qa/CONTROL_POINT_E1.md) – øktbundet hjelpekø,
   elevhånd, privacy, samtidighet, reconnect og responsive QA-artefakter.
 - [Kontrollpunkt E2](./qa/CONTROL_POINT_E2.md) – privat, reviderbar
@@ -66,6 +69,9 @@ tilgjengelighetsfeil.
 - [Kontrollpunkt E3](./qa/CONTROL_POINT_E3.md) – delt ansattdeltakelse,
   personlig uttreden, global stenging, automatisk uttreden ved endret tilgang
   og trygg, eksplisitt overtakelse av ubemannet kø.
+- [Kontrollpunkt F](./qa/CONTROL_POINT_F.md) – samlet, reproduserbar
+  automatisk baseline for den eksisterende A–E-motoren; navngitte fysiske
+  enhetsporter er fortsatt åpne, og E07–E10 omtales ikke som implementert.
 
 ## Dokumenttyper
 

@@ -59,8 +59,8 @@ belønningsmutasjoner.
 ## Produktbeslutninger
 
 1. B2 leverer bare den avklarte, personlige blomsterbelønningen. Kupongvalg og
-   innløsning holdes utenfor fordi det eksakte livsløpet fortsatt er et åpent
-   produktvalg i domenekontrakten.
+   innløsning er normativt avklart i domenekontrakten § 10.2 og E09, men ligger
+   utenfor B2 og er ikke implementert i dagens pilot.
 2. Belønningen er frivillig. Å forlate siden eller lukke nettleseren lar den
    laveste tilgjengelige tildelingen vente; ingenting velges automatisk.
 3. Ett valgt kronblad bruker nøyaktig én nivå-entitlement. Den laveste
@@ -153,7 +153,8 @@ belønningsmutasjoner.
 ## Ikke-mål og åpne beslutninger
 
 - Ingen kuponginnløsning, korrigering av brukt kupong eller ansattgodkjenning
-  av kupong. Dette skal ikke implementeres ved gjetning.
+  av kupong i B2. Den kontraktfestede flyten hører til E09 og er fortsatt
+  utilgjengelig i dagens pilot.
 - Ingen generell kapabilitetsmodell for streak, kuponger eller andre
   motivasjonselementer. B2 leverer bare den minste separate ansattrammen for
   blomsterhage og elevens separate valg om å vise/skjule selve hagen.

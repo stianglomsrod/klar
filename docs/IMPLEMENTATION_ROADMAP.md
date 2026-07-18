@@ -84,18 +84,15 @@ erstattes av emulatorbeviset.
 
 ### Kontrollpunkt A – felles fundament
 
-**Status:** Pågår – A1-kjernen er implementert og de konfigurerte automatiske
-kommandoportene er grønne. Kravrevisjonen har åpne evidensgap, og fysiske og
-manuelle enhetsporter gjenstår.
+**Status:** Pågår – A1-kjernen er implementert, og kontrollpunkt F har lukket de
+historiske automatiske evidensgapene. Fysiske og manuelle enhetsporter gjenstår.
 
 Første vertikale slice er scope-låst i
 [`Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne`](./qa/CONTROL_POINT_A1.md).
 A1 har levert den klasseavgrensede autorisasjonskjernen, owner-kontrollflaten
-og første responsive ansattskall. De konfigurerte kontrollportene er grønne i
-lokal database, Chromium og WebKit, men hele kravmatrisen er ennå ikke
-uttømmende bevist. Kontrollpunkt A forblir åpent til evidensgapene er lukket og
-skjermleser, touch, safe-area/skjermtastatur og orienteringsbytte er
-dokumentert på reelt utstyr.
+og første responsive ansattskall. Den automatiske kravmatrisen er samlet og
+grønn i kontrollpunkt F. Kontrollpunkt A forblir åpent til skjermleser, touch,
+safe-area/skjermtastatur og orienteringsbytte er dokumentert på reelt utstyr.
 
 Start E05 og E06 som tverrgående fundament:
 
@@ -199,20 +196,27 @@ er verifisert på alle målenheter og ved midlertidig nettverksbrudd.
 
 ### Kontrollpunkt F – integrert 3.0-motor
 
-**Status:** Planlagt som samlende port for eksisterende A–E-arbeid.
+**Status:** Automatisert, lokal motorbaseline verifisert 18. juli 2026.
+Navngitte fysiske og manuelle produktporter er dokumentert åpne og følger sine
+delkontrollpunkter. Se
+[`CONTROL_POINT_F.md`](./qa/CONTROL_POINT_F.md).
 
 F lukker ikke målproduktet. Det beviser at sikkerhets-, plan-, oppgave-, XP- og
 køkjerne kan kjøres sammen før den historiske Klar-opplevelsen bygges ut:
 
 - kjør hele nåværende elev- og lærerløype med representative syntetiske planer;
 - lukk navngitte manuelle porter fra A–E eller dokumenter reelle blokkere;
-- kjør security/RLS, tom database, upgrade, rollback og autentisert E2E;
+- kjør security/RLS, tom database, representativ framoveroppgradering,
+  transaksjonell fail-closed tilbakeføring for implementerte operasjoner og
+  autentisert E2E;
 - verifiser at samme origin og separate browser contexts isolerer elev/ansatt;
 - dokumenter baseline for fem viewports, 200 prosent, reduced motion og fysisk
   iPad uten å kalle planlagte E07–E10-flater ferdige.
 
-**Utgangskrav:** Én grønn og reproduserbar motorbaseline som nye
-opplevelsesslicer kan bygges og sammenlignes mot.
+**Utgangskrav:** Den automatiserte delen er oppfylt med én grønn og
+reproduserbar motorbaseline som nye opplevelsesslicer kan bygges og sammenlignes
+mot. Fysisk kandidatretest står åpen. E04s planrevisjons-rollback, reimport og
+treveis merge er fortsatt uimplementert og inngår ikke i dette rollbackbeviset.
 
 ### Kontrollpunkt G – produktidentitet, kunstretning og motorvalg
 

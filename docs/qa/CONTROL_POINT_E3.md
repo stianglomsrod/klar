@@ -117,7 +117,7 @@ lagret i repoet.
 | `npm run test:e2e:visual` | Bestått 36/36 i Chromium for fem målviewports og relevante reflow-proxyer. |
 | `npm run verify:checkpoint` | Bestått på sluttkandidaten: lint, kjernelint, TypeScript, 90/90 enhetstester, produksjonsbuild og 4/4 offentlig Chromium-E2E. To moderate transitive PostCSS-funn under Next.js er registrert; ingen high/critical-funn. |
 | Målrettede WebKit-retester | Bestått 5/5 etter at testens harde reload ble erstattet med en fersk autentisert side. Etter siste databaseherding bestod køspec-en 4/4 på nytt. |
-| `npm run test:e2e:full:webkit` | Bestått 58/58 før den isolerte rå-reconcile-herdingen, inkludert to ansatte i åpen/`closing` kø, hydration, B2, axe, reflow og alle responsive WebKit-prosjekter. Den berørte køspec-en ble deretter retestet 4/4 på sluttkandidaten. |
+| `npm run test:e2e:full:webkit` | Den historiske runden bestod 58/58 før den isolerte rå-reconcile-herdingen, etterfulgt av målrettet køspec 4/4. Kontrollpunkt Fs sluttkandidat bestod deretter hele WebKit-matrisen 58/58 på nytt, inkludert to ansatte i åpen/`closing` kø, hydration, B2, axe, reflow og alle responsive WebKit-prosjekter. |
 
 ## Visuell evidens
 

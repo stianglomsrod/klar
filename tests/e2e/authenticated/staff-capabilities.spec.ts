@@ -34,6 +34,7 @@ const retainedCapabilities = [
   "class.workspace.read",
   "plan.preview",
 ] as const;
+const workspaceOnlyCapabilities = ["class.workspace.read"] as const;
 
 type CapturedRawAction = {
   url: string;
@@ -849,46 +850,70 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
     expect(assignmentState.rows[0]?.is_active).toBe(true);
 
     await restoreCapabilityProfile(database, assignmentId);
+    await retainOnlyCapabilities(database, assignmentId, retainedCapabilities);
     const stalePreviewPage = await context.newPage();
-    const initialQueueSync = stalePreviewPage.waitForResponse(
-      (response) => {
-        const request = response.request();
-        return (
-          request.method() === "GET" &&
-          new URL(response.url()).pathname ===
-            `/v3/teacher/classes/${classId}` &&
-          request.headers().rsc === "1" &&
-          (response.headers()["content-type"] ?? "").includes(
-            "text/x-component",
-          )
-        );
-      },
-    );
     await stalePreviewPage.goto(`/v3/teacher/classes/${classId}`);
-    await initialQueueSync;
     const stalePreviewPanel = stalePreviewPage.getByRole("region", {
       name: "Importer oppgaveforslag",
     });
-    await stalePreviewPanel.getByLabel("Ukeplan, maks 2 MB").setInputFiles({
+    await expect(stalePreviewPanel).toBeVisible();
+    await expect(
+      stalePreviewPage.getByRole("heading", { name: "Hjelpekø" }),
+    ).toHaveCount(0);
+    const stalePreviewFile = stalePreviewPanel.getByLabel("Ukeplan, maks 2 MB");
+    await stalePreviewFile.setInputFiles({
       name: "syntetisk-forhandsvisning.docx",
       mimeType: DOCX_MIME,
       buffer: weeklyPlanDocx,
     });
+    expect(
+      await stalePreviewFile.evaluate(
+        (input: HTMLInputElement) => input.files?.[0]?.name ?? null,
+      ),
+    ).toBe("syntetisk-forhandsvisning.docx");
+    const stalePreviewSubmit = stalePreviewPanel.getByRole("button", {
+      name: "Lag forhåndsvisning",
+    });
+    await expect(stalePreviewSubmit).toBeVisible();
     const beforePreviewDenial = await readProtectedState();
-    const withoutPlanPreview = STAFF_CAPABILITIES.filter(
-      (capability) => capability !== "plan.preview",
-    ) as [string, ...string[]];
     await retainOnlyCapabilities(
       database,
       assignmentId,
-      withoutPlanPreview,
+      workspaceOnlyCapabilities,
     );
-    await stalePreviewPanel
-      .getByRole("button", { name: "Lag forhåndsvisning" })
-      .click();
+    const stalePreviewResolution = await database.query<{
+      workspace_assignment_id: string | null;
+      preview_assignment_id: string | null;
+    }>(
+      `
+        select
+          public.resolve_active_staff_assignment(
+            $1::uuid,
+            $2::uuid,
+            'class.workspace.read'::public.staff_capability
+          )::text as workspace_assignment_id,
+          public.resolve_active_staff_assignment(
+            $1::uuid,
+            $2::uuid,
+            'plan.preview'::public.staff_capability
+          )::text as preview_assignment_id
+      `,
+      [staffId, classId],
+    );
+    expect(stalePreviewResolution.rows[0]).toEqual({
+      workspace_assignment_id: assignmentId,
+      preview_assignment_id: null,
+    });
+    expect(
+      await stalePreviewFile.evaluate(
+        (input: HTMLInputElement) => input.files?.[0]?.name ?? null,
+      ),
+    ).toBe("syntetisk-forhandsvisning.docx");
+    await stalePreviewSubmit.click();
     await expect(stalePreviewPage).toHaveURL(
       new RegExp(`${classId}\\?access=ended$`),
     );
+    await expect(stalePreviewPanel).toHaveCount(0);
     expect(await readProtectedState()).toEqual(beforePreviewDenial);
 
     const withoutPreviewPage = await context.newPage();

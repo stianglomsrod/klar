@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { expect, test, type Route } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import { assertLocalSupabaseUrl } from "../../../scripts/e2e/local-safety.mjs";
 import {
   expectNoAxeViolations,
@@ -42,6 +42,28 @@ function delayedServerAction() {
     await route.continue();
   };
   return { handler, release };
+}
+
+async function expectAccessEndedAfterOptionalStaleAction(
+  page: Page,
+  action: () => Promise<void>,
+) {
+  const heading = page.getByRole("heading", {
+    name: "Tilgangen er avsluttet",
+  });
+  if (!(await heading.isVisible())) {
+    try {
+      await action();
+    } catch (error) {
+      try {
+        await expect(heading).toBeVisible({ timeout: 5_000 });
+      } catch {
+        throw error;
+      }
+    }
+  }
+  await expect(heading).toBeVisible();
+  return heading;
 }
 
 test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async ({
@@ -491,40 +513,48 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
   const planAuditsBefore = planAuditBaseline.count;
   const supportAuditsBefore = supportAuditBaseline.count;
 
-  await substitutePage.locator("#task-title").fill("Avvist etter tilbakekalling");
-  await substitutePage.getByRole("button", { name: "Publiser løs oppgave" }).click();
-  await expect(
-    substitutePage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
-  ).toBeVisible();
-  await expect(
-    substitutePage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
-  ).toBeFocused();
+  const substituteAccessEnded = await expectAccessEndedAfterOptionalStaleAction(
+    substitutePage,
+    async () => {
+      await substitutePage
+        .locator("#task-title")
+        .fill("Avvist etter tilbakekalling", { timeout: 2_000 });
+      await substitutePage
+        .getByRole("button", { name: "Publiser løs oppgave" })
+        .click({ timeout: 2_000 });
+    },
+  );
+  await expect(substituteAccessEnded).toBeFocused();
+  await expect(substitutePage.locator("#task-title")).toHaveCount(0);
   await expect(substitutePage.getByText("Testelev", { exact: true })).toHaveCount(0);
   await expect(substitutePage.getByText("Oppgave publisert av vikar", { exact: true })).toHaveCount(0);
 
-  await staleHelpButton.click();
-  await expect(
-    staleHelpPage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
-  ).toBeVisible();
-  await staleSupportPage.getByRole("button", { name: "Lagre", exact: true }).click();
-  await expect(
-    staleSupportPage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
-  ).toBeVisible();
-  await stalePlanPage.getByRole("button", { name: "Lag forhåndsvisning" }).click();
-  await expect(
-    stalePlanPage.getByRole("heading", { name: "Tilgangen er avsluttet" }),
-  ).toBeVisible();
-  await stalePublishButton.click();
-  await expect(
-    stalePlanPublishPage.getByRole("heading", {
-      name: "Tilgangen er avsluttet",
-    }),
-  ).toBeVisible();
-  await expect(
-    stalePlanPublishPage.getByRole("heading", {
-      name: "Tilgangen er avsluttet",
-    }),
-  ).toBeFocused();
+  await expectAccessEndedAfterOptionalStaleAction(staleHelpPage, () =>
+    staleHelpButton.click({ timeout: 2_000 }),
+  );
+  await expect(staleHelpButton).toHaveCount(0);
+  const staleSupportSave = staleSupportPage.getByRole("button", {
+    name: "Lagre",
+    exact: true,
+  });
+  await expectAccessEndedAfterOptionalStaleAction(staleSupportPage, () =>
+    staleSupportSave.click({ timeout: 2_000 }),
+  );
+  await expect(staleSupportSave).toHaveCount(0);
+  const stalePlanPreview = stalePlanPage.getByRole("button", {
+    name: "Lag forhåndsvisning",
+  });
+  await expectAccessEndedAfterOptionalStaleAction(stalePlanPage, () =>
+    stalePlanPreview.click({ timeout: 2_000 }),
+  );
+  await expect(stalePlanPreview).toHaveCount(0);
+  const stalePublishAccessEnded =
+    await expectAccessEndedAfterOptionalStaleAction(
+      stalePlanPublishPage,
+      () => stalePublishButton.click({ timeout: 2_000 }),
+    );
+  await expect(stalePublishAccessEnded).toBeFocused();
+  await expect(stalePublishPanel).toHaveCount(0);
 
   await expect(
     substitutePage.getByRole("heading", { name: "Tilgangen er avsluttet" }),

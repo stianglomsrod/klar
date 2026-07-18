@@ -1,23 +1,23 @@
 # Kontrollpunkt A1 – aktive ansattoppdrag og autorisasjonskjerne
 
-**Status:** Implementert – de konfigurerte automatiske kommandoportene samt
-manuell Port A og NVDA-port B1 er grønne. Kravrevisjonen har åpne automatiske
-evidensgap, og VoiceOver-port B2 og de øvrige fysiske enhetsportene er ikke
-fullført på hele enhetsmatrisen
+**Status:** Implementert – kontrollpunkt F har lukket de historiske automatiske
+evidensgapene, og manuell Port A og NVDA-port B1 er grønne. VoiceOver-port B2 og
+de øvrige fysiske enhetsportene er ikke fullført på hele enhetsmatrisen.
 
 **Forberedt:** 15. juli 2026
 
-**Sist automatisk verifisert:** 16. juli 2026
+**Sist automatisk verifisert:** 18. juli 2026 i
+[`CONTROL_POINT_F.md`](./CONTROL_POINT_F.md)
 
-**Baseline:** `838aa96` på branch `3.0`
+**Historisk A1-baseline:** `838aa96` på branch `3.0`
 
 **Overordnet kontrollpunkt:**
 [Kontrollpunkt A – felles fundament](../IMPLEMENTATION_ROADMAP.md#kontrollpunkt-a--felles-fundament)
 
 Dette dokumentet er implementeringskontrakten og bevisoversikten for første
 vertikale slice av E05 og E06. A1-kjernen er implementert, men kontrollpunktet
-er ikke fullført før de åpne automatiske evidensgapene og de resterende fem
-fysiske og manuelle portkategoriene er dokumentert.
+er ikke fullført før de resterende fysiske og manuelle portkategoriene er
+dokumentert på den endelige kandidatcommiten.
 
 ## 1. Autoritative kilder og inngangskrav
 
@@ -516,10 +516,14 @@ første WebKit-forsøk hadde én ikke-reprodusert Server Action-fangsttimeout.
 Gjennomføringer, retest og den semantiske bildegranskingen er bevart i
 [`CONTROL_POINT_A1_AUTOMATED_QA.md`](./CONTROL_POINT_A1_AUTOMATED_QA.md).
 
-En etterfølgende kravrevisjon fant likevel åpne evidensgap for positiv
-owner+AAL2-klasse-/prototypeelevopprettelse, enkelte capability-negativer,
-direkte RLS-matrise og dynamisk immutabilitets-/slettevern. Grønne
-kommandoporter betyr derfor ikke at hele A1-bevismatrisen er komplett.
+Den etterfølgende kravrevisjonen av kandidat `c562bb0` fant da åpne evidensgap
+for positiv owner+AAL2-klasse-/prototypeelevopprettelse, enkelte
+capability-negativer, direkte RLS-matrise og dynamisk
+immutabilitets-/slettevern. De grønne kommandoportene på den historiske
+kandidaten var derfor ikke alene en komplett A1-bevismatrise. Kontrollpunkt F
+lukket senere disse automatiske gapene 18. juli 2026; se
+[`CONTROL_POINT_F.md`](./CONTROL_POINT_F.md). De fysiske portene nedenfor står
+fortsatt åpne.
 
 Automatiserte emuleringer og layoutproxyer erstatter ikke en fysisk
 enhetskontroll. Gjennomfør og loggfør portene med
