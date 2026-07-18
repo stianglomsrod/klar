@@ -123,8 +123,10 @@ hjelpeflyten. Samme assignment er samme oppgave i begge elevflater.
 - Ingen tekst-, lyd- eller bildevedlegg. Det krever et eget avklart
   lagrings-, skannings-, personvern- og slettingskontrollpunkt.
 - D3 leverte ingen belønningsclaim, blomsterhage, streak, avatar eller
-  klassekonkurranse. Varig blomsterclaim og hage er senere levert separat i
-  [B2](./CONTROL_POINT_B2.md); kuponginnløsning er fortsatt uavklart.
+  klassekonkurranse. Første varige kronbladclaim og en enkel hageflate ble
+  senere levert separat i [B2](./CONTROL_POINT_B2.md). Kuponglivsløpet og den
+  rike, levende hagen er senere kontraktsfestet, men fortsatt bare planlagt i
+  [E09](../epics/E09_LIVING_GARDEN_AND_CONDITIONAL_REWARDS.md).
 - Ingen uke-/timeplanvisning, søk, filter, lærerdefinert fagsymbol/-farge,
   elevarkiv eller automatisk skjuling av ferdig arbeid.
 - Ingen ny oppgavestatus, «I gang»-knapp, quizkrav eller egen XP-beregning.

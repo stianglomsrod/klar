@@ -24,6 +24,10 @@ oppdateres eksplisitt i samme commit som kontrollpunktet.
 | E04 | [Smart Import og ukeplaner](./E04_SMART_IMPORT_AND_WEEKLY_PLANS.md) | Pågår | E05, E06 |
 | E05 | [Ansattilgang og vikar](./E05_STAFF_ACCESS_AND_SUBSTITUTES.md) | Pågår | E06 |
 | E06 | [Responsive og tilgjengelige skall](./E06_RESPONSIVE_ACCESSIBLE_SHELLS.md) | Pågår | Tverrgående |
+| E07 | [Ansattarbeidsflate og innholdsbiblioteker](./E07_STAFF_WORKSPACE_AND_CONTENT_LIBRARIES.md) | Planlagt | W1–W2: E01, E03, E05, E06; W3: E04 |
+| E08 | [Interaktive quizer og lærersjekk](./E08_INTERACTIVE_QUIZZES_AND_CHECKS.md) | Planlagt | E01, E02, E04, E05, E06, E07 |
+| E09 | [Levende blomsterhage og betingede belønninger](./E09_LIVING_GARDEN_AND_CONDITIONAL_REWARDS.md) | Planlagt | E02, E05, E06, E07; R6a: E10 DCK1–DCK3; R6b: E08 Q4, R1–R5, E10 DCK1–DCK3 |
+| E10 | [Elevidentitet og kontekstuell dock](./E10_STUDENT_IDENTITY_AND_AMBIENT_DOCK.md) | Planlagt | DCK1–DCK3: E01, E02, E03, E06; DCK4a: E08 Q4, E09 R1/R6a; DCK4b: E09 R2–R6b |
 
 Se [implementeringsplanen](../IMPLEMENTATION_ROADMAP.md) for rekkefølge og
 kontrollpunkter.

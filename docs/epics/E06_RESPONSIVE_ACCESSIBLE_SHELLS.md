@@ -74,6 +74,13 @@ fysiske E1-porten for touch og skjermleser.
 Drag-and-drop kan være en ekstra snarvei. Alle draghandlinger skal ha
 tastatur-/touchalternativer som flytt opp/ned/først eller velg mål.
 
+Canvas/WebGL i den frivillige hagen er et presentasjonslag, ikke et unntak fra
+kravene. DOM skal eie navn, rolle, status og alternative kontroller.
+Frihåndsmaling skal ha en likeverdig semantisk komponist, planting skal ha
+enkelttrykk/D-pad/navngitte soner, og motorfeil skal gi en statisk, funksjonell
+fallback. Ambient bevegelse skal kunne pauses og stoppe helt ved reduced
+motion og når dokumentet er skjult.
+
 ## Målematrise
 
 Minimum automatisert og visuell kontroll:
@@ -100,6 +107,10 @@ redusert bevegelse. Nettverksavbrudd/reconnect skal inngå der realtime brukes.
 - Smart Import-opplasting, mapping, konflikt, bekreftelse og feil;
 - opprettelse og kontroll av tidsavgrenset vikaroppdrag;
 - progresjon, level-up, belønningsvalg og rolig/reduced-motion-modus.
+- interaktiv quiz med opplesing, autosave, ubesvartdialog og lærerreview;
+- malerverksted, blomstring, planting og levende hage med alternativ
+  betjening; og
+- elevens kontekstuelle dock ved safe-area, skjermtastatur og orienteringsbytte.
 
 ## Akseptansekriterier
 

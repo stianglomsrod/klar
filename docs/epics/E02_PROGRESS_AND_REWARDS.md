@@ -24,10 +24,13 @@ samlingsmetaforen, men ikke en konsistent bevaringsregel. Bevaring og
 anti-farming følger den senere eksplisitte produktbeslutningen i
 domenekontrakten § 7.3.
 
-Det som fortsatt gjenstår i epicen er fysisk VoiceOver/NVDA-bevis og
-avklaring/implementering av eventuelle andre belønningstyper, særlig
-kuponginnløsning. Det tidligere B2-WebKit-avviket ble lukket med en streng
-58/58-retest 18. juli uten runtime-allowlist.
+Det som fortsatt gjenstår i epicen er fysisk VoiceOver/NVDA-bevis og integrasjon
+mot de rikere belønningstypene. Kuponginnløsning, flerfargede kronblad,
+blomstring og levende hage er nå kontraktsfestet, men leveres separat i
+[E09](./E09_LIVING_GARDEN_AND_CONDITIONAL_REWARDS.md). E02 forblir den
+autoritative progresjonsmotoren under disse opplevelsene. Det tidligere
+B2-WebKit-avviket ble lukket med en streng 58/58-retest 18. juli uten
+runtime-allowlist.
 
 [Kontrollpunkt D2](../qa/CONTROL_POINT_D2.md) er et delbevis for iterasjons-
 og XP-grensen: flytt beholder samme assignment, historikk og ene XP-mulighet,
@@ -87,10 +90,10 @@ Belønningsvalg skal være en separat, transaksjonell serverkommando som låser
 entitlement og håndhever én claim samt eventuelle globale begrensninger.
 Klienten skal aldri sende eller skrive en autoritativ XP-saldo eller rolle.
 
-Kupongens senere innløsning er et eget, uavklart livsløp. Unik reward claim
-beviser at eleven bare valgte belønningen én gang; den avgjør ikke hvem som kan
-markere kupongen brukt, hvordan feilinnløsning rettes eller hvordan dobbel bruk
-hindres. Dette må kontraktsfestes før kuponginnløsning implementeres.
+Kuponginnløsning er et eget, transaksjonelt livsløp i E09. Unik reward claim i
+E02 beviser at eleven bare valgte belønningen én gang; E09 legger på
+elevforespørsel, autorisert ansattbekreftelse, idempotent innløsning og
+kompenserende retting uten å endre denne garantien.
 
 ## UX-regler
 

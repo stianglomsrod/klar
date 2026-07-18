@@ -7,8 +7,9 @@
 ## Grunnlag
 
 Retningen er samlet etter gjennomgang av masteroppgaven og dens figurer,
-prototypebildene, den tidligere Klar-implementasjonen i `archive/2x-ui` og på
-`origin/master`, samt produkteierens tidskodede
+prototypebildene og den tidligere Klar-implementasjonen i commit
+`8677e0a31c0caaaecdaf08fed82afe498e59cf43` (med `archive/2x-ui` som lokal
+kuratering), samt produkteierens tidskodede
 [videoomvisning](../../Prototypen/Videoomvisning/README.md). De offentlige
 produktbildene finnes i
 [Klar-casen](https://stianglomsrod.no/prosjekter/#klar). Fire ekstra reelle
@@ -51,6 +52,10 @@ flyten var ment å oppnå.
   egen «I gang»-knapp.
 - Første «Fullfør» åpner et rolig sjekkpunkt. Kamera, mikrofon, bilde og tekst
   er valgfrie; `✓ Ferdig` bekrefter også uten vedlegg.
+- Quiz/test får en tydeligere lilla oppgaveverden, men bruker samme dag,
+  progresjon og leveringsregler som andre oppgaver.
+- Level-up kan åpne en liten invitasjon til belønning, aldri et tvunget avbrudd.
+  Ventende kronblad eller kupong finnes igjen i footeren/docken.
 
 ### Ansattflaten
 
@@ -74,7 +79,8 @@ Anbefalt ansattnavigasjon bygger på de reelle prototypeflatene:
 - Fag og oppgaver;
 - Timeplaner;
 - Belønninger;
-- Meldinger;
+- Meldinger bare dersom kontrollpunkt N senere gir funksjonen en godkjent
+  kontrakt og egen epic;
 - Planer/Smart Import;
 - vikar- og tilgangsforvaltning for autoriserte administratorer.
 
@@ -86,14 +92,35 @@ Elevens toppnivå skal være mindre og oppgaveorientert:
 - egne belønninger når aktivert.
 
 I gjeldende 3.0-kjerne er «Dagen i dag» og «Fag og oppgaver» implementert.
-Timeplan og belønninger skal ikke vises som døde navigasjonsmål før de har en
-reell flate. Fagoversikten bruker én lenke per fag, beholder ferdige og
-gjenåpnede oppgaver i samme sammenheng og respekterer elevens valg om stille
-fremdriftsvisning.
+Timeplan, belønninger og meldinger skal ikke vises som døde navigasjonsmål før
+de har en reell, kontraktsfestet flate. Fagoversikten bruker én lenke per fag,
+beholder ferdige og gjenåpnede oppgaver i samme sammenheng og respekterer
+elevens valg om stille fremdriftsvisning.
 
 Navigasjonen skal aldri konkurrere med aktuell økt. På små skjermer kan
 sekundærnavigasjon ligge bak en kjent meny, mens footerhandlingene for den
 aktive konteksten forblir lette å nå.
+
+## Visuell intensitet og materialitet
+
+Klar skal være rolig uten å bli klinisk, lekent uten å bli støyende og varmt
+uten å bli babyaktig. Uttrykket må tåle aldersspennet fra omtrent fem til
+tretten år. Arbeidsflater prioriterer oversikt og forutsigbarhet; magien
+samles i sjeldne mestringsøyeblikk og frivillige belønningsrom.
+
+Tre intensitetsnivåer brukes bevisst:
+
+1. **Arbeid:** lyse flater, tydelig typografi, få samtidige valg og nesten
+   stillestående bakgrunn.
+2. **Mikromagi:** taktil knapprespons, myke lag, forsiktig lys og kort feedback
+   ved lagring, hjelp og fullføring.
+3. **Belønningsrom:** rikere dybde, papir-/gouache-/akvarelltekstur,
+   penselrespons, natur og sjeldne feiringer uten rangering eller mas.
+
+Prototypens gjenkjennelige skifer, blått og indigo beholdes som produktets
+arbeidsspråk. Naturpalett, tekstur og lys kan være sterkere i hagen og
+malerverkstedet. Unngå babyfont, tilfeldige emoji, generisk konfetti,
+overivrig maskot og spillelementer som konkurrerer med skolearbeidet.
 
 ## Fag og semantiske farger
 
@@ -149,8 +176,74 @@ Semantisk retning:
   men eleven skal kunne redusere eller skjule dette.
 - Samme nivå som gjenvinnes etter XP-reversering skal ikke gjenta stor feiring.
 - Reduced motion skal gi et komplett statisk alternativ uten funksjonstap.
-- Automatisk, kontinuerlig bevegelse skal unngås; den gamle tette
-  «halvveis»-feiringen er ikke modell for ny UI.
+- Automatisk, kontinuerlig bevegelse skal unngås i arbeidsflaten. Den frivillige
+  hagen kan ha rolig ambient vind og sommerfugler når «Ro i hagen» er av, fordi
+  liv er en del av selve opplevelsen der. Bevegelsen stopper i bakgrunnen og i
+  reduced motion og påvirker aldri progresjon.
+- Den gamle tette «halvveis»-feiringen er ikke modell for ny UI. En ferdig
+  femkronbladblomst er derimot en sjelden milepæl og kan få en mer
+  uttrykksfull, avbrytningssikker blomstring.
+
+## Interaktiv quiz/test
+
+Quiz/test er en egen oppgavetype, ikke et LMS-resultatkort. Den beholder
+prototypens tydelige lilla karakter og gir eleven én oppgave om gangen:
+
+- stor spørsmålstekst og valgfri opplesing;
+- tekstfelt, semantiske radioknapper, avkrysningsbokser eller valgfritt
+  lydsvar;
+- rolig fremdrift, «Forrige» og «Neste» uten tidspress;
+- autolagring, pause og fortsettelse etter refresh;
+- tydelig advarsel dersom eleven vil levere med ubesvarte spørsmål; og
+- ingen prosent, poengtavle eller grønn «riktig»-markering når læreren ikke har
+  definert og produktet ikke støtter automatisk fasit.
+
+Valgkort kan være store og taktile, men native semantics skal bestå. Lærerens
+gjennomgang viser elevens faktiske besvarelse og forsøkssekvens, ikke en
+konstruert korrekthet. XP presenteres som anerkjennelse av gyldig levering,
+aldri av antall riktige.
+
+## Malerverksted og levende hage
+
+Blomsterhagen er et flaggskip og et frivillig kreativt minispill. Den skal ikke
+se ut som et vanlig hvitt admin-kort med noen CSS-sirkler. Et eget
+renderingslag, en dokumentert kunstpipeline og en fysisk iPad-port skal gi
+taktil maling, dybde og et levende, personlig sted uten at React/DOM mister
+ansvaret for semantikk og kontroll.
+
+### Malerverksted
+
+- En pågående blomst står tydelig i sentrum i et eget fullskjermsrom.
+- Eleven velger et ledig kronblad, dypper en stor pensel i navngitte fargebrønner
+  og maler med synlige, overlappende strøk og flere farger.
+- Penselrespons, tekstur og fargeblanding skal føles umiddelbar. Dekning er
+  tilgivende og vises gjennom kronbladet, ikke som en prosentmåler.
+- Angre, gjør om, tøm, fortsett senere og «Behold kronbladet» ligger rolig og
+  forutsigbart. Første serverbekreftede, gyldige strøk reserverer
+  belønningsvalget.
+- En semantisk komponist tilbyr samme egenart med grunnfarge, aksentfarger og
+  navngitte mønstre for skjermleser, switch og tastatur. Dette er en likeverdig
+  skapende vei, ikke en tekstlig beskrivelse av et utilgjengelig canvas.
+
+### Blomstring og hage
+
+- Femte kronblad utløser én sjelden blomstring. Reduced motion viser samme
+  ferdige resultat som et statisk sceneskifte.
+- Den ferdige blomsten venter trygt på planting hvis eleven går ut av flyten.
+- Fri drag/berøring er den taktile hovedmetoden. Enkelttrykk, retningstaster,
+  D-pad, navngitte hagesoner og valgfri automatisk plassering gir samme
+  funksjon.
+- Plantene beveger seg forsiktig i seedet vind. Sommerfugler kan utforske,
+  lande, hvile og lette, men er aldri oppgaver eller samleobjekter.
+- Ingen blomst visner. Hagen krever ingen vanning, daglig besøk, mating eller
+  streak og gir aldri XP for lek eller vedlikehold.
+
+Motorvalget avgjøres etter en spike mellom et lite Canvas 2D-oppsett og PixiJS
+med WebGL på faktisk iPad 9. generasjon. WebGPU er ikke et krav. Phaser eller
+en generell fysikkmotor tas bare inn dersom målinger viser en konkret gevinst;
+rolig vind, sommerfuglstyring og plantekollisjon bør først løses med små,
+deterministiske systemer. Desktop-FPS eller en pen demo er ikke tilstrekkelig
+bevis.
 
 ## Hjelpekø
 
@@ -222,7 +315,10 @@ gjenopprettingsflyt, ikke en ny kø.
 - Smart Import med redigerbar, menneskekontrollert forhåndsvisning;
 - oppgavegjennomgang og retur; reaksjon og kommentar er en åpen retning som
   krever avklart personvern, moderering og oppbevaring;
-- valgfri blomsterhage, kuponger og level-up-belønning.
+- valgfri blomsterhage, kuponger og level-up-belønning;
+- quiz/test med ett spørsmål om gangen, opplesing og lærerreview;
+- malerverksted med flerfargede strøk, femkronbladblomst og planting; og
+- levende hage med rolig fysikk, sommerfugler og full alternativ betjening.
 
 De avklarte delene av disse flatene skal reimplementeres på 3.0-domenet og ikke
 kopieres sammen med 2.x-klientmutasjoner, gamle RLS-regler eller kjente

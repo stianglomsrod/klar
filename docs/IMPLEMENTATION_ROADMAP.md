@@ -2,7 +2,7 @@
 
 **Status:** Pågår
 
-**Sist avklart:** 17. juli 2026
+**Sist avklart:** 18. juli 2026
 
 **Autoritativ produktkilde:** [Domenekontrakten](./product/DOMAIN_CONTRACT.md)
 
@@ -10,6 +10,18 @@ Denne planen deler målbildet i kontrollerbare leveranser. Den beskriver ikke
 funksjoner som allerede er ferdige. Hver epic må ende i et eget kontrollpunkt
 med migrasjoner, autorisasjonstester, domenetester og verifisert UI der det er
 relevant.
+
+Planen skiller mellom to lag som begge er nødvendige:
+
+1. **3.0-motoren:** organisasjonsgrenser, AAL2, serveroperasjoner, planer,
+   assignments, immutable attempts, XP-ledger, kø og retry/samtidighet.
+2. **Klar-opplevelsen:** den tidsstyrte elevdagen, ansattens cockpit,
+   innholdsbiblioteker, interaktiv quiz, kontekstuell dock, kuponger og den
+   levende blomsterhagen.
+
+Commit `8677e0a31c0caaaecdaf08fed82afe498e59cf43`, masteroppgaven,
+videoomvisningen og `Prototypen/` er semantiske kilder for lag 2. De skal ikke
+erstatte sikkerhets- og datamodellen i lag 1.
 
 ## Epics
 
@@ -21,6 +33,10 @@ relevant.
 | E04 | [Smart Import og ukeplaner](./epics/E04_SMART_IMPORT_AND_WEEKLY_PLANS.md) | Full DOCX-tolkning med utkast, diff, revisjoner og trygg reimport |
 | E05 | [Ansattilgang og vikar](./epics/E05_STAFF_ACCESS_AND_SUBSTITUTES.md) | Lik pedagogisk funksjon innenfor eksplisitt og tidsavgrenset virkeområde |
 | E06 | [Responsive og tilgjengelige skall](./epics/E06_RESPONSIVE_ACCESSIBLE_SHELLS.md) | Sammenhengende elev- og lærerflater på mobil, iPad og PC |
+| E07 | [Ansattarbeidsflate og innholdsbiblioteker](./epics/E07_STAFF_WORKSPACE_AND_CONTENT_LIBRARIES.md) | Operativt cockpit og stabile arbeidsrom for klasse, elev, oppgave, plan og belønning |
+| E08 | [Interaktive quizer og lærersjekk](./epics/E08_INTERACTIVE_QUIZZES_AND_CHECKS.md) | Ett-spørsmål-om-gangen, autosave og lærerreview uten skjult fasit eller resultat-XP |
+| E09 | [Levende blomsterhage og betingede belønninger](./epics/E09_LIVING_GARDEN_AND_CONDITIONAL_REWARDS.md) | Flerfarget maling, kuponger, blomstring og en levende, fysisk verifisert hage |
+| E10 | [Elevidentitet og kontekstuell dock](./epics/E10_STUDENT_IDENTITY_AND_AMBIENT_DOCK.md) | Sammenhengende tid, hjelp, fremdrift og bare faktisk tilgjengelige belønninger |
 
 ## Avhengigheter
 
@@ -33,8 +49,21 @@ E04 Ukeplan/sesjoner ──────> E01 Elevens dag
 E02 XP/state machine ──────> E01 Fullfør-sjekkpunkt
 E01 Oppgavekontekst ───────> E03 «Hjelp med denne»
 
+E01/E03/E05 ────────────────> E07 W1–W2 ansattarbeidsflate
+E04 ────────────────────────> E07 W3 plan-/innholdsintegrasjon
+E01/E02/E04/E07 ───────────> E08 Interaktiv quiz
+E01/E02/E03 ───────────────> E10 Elevdock og identitet
+E02/E07 ───────────────────> E09 Domene, kuponger og hagemotor
+E10 DCK1–DCK3 ─────────────> E09 R6a kupongintegrasjon
+E10 DCK1–DCK3 ─────────────> E09 R6b samlet hageintegrasjon
+E08 Q4 ────────────────────> E09 R6b quizretur
+
 E06 gjelder i alle leveranser fra første komponent og første E2E-test.
 ```
+
+E09s motor-/kunstspike startes tidlig, men produksjonshagen bygges først når
+E02s entitlement og E10s inngang/retur er stabile. Slik kan grafikkvalget
+bevises på fysisk iPad uten å lage en parallell progresjonsmotor.
 
 ## Anbefalt leveranserekkefølge
 
@@ -168,13 +197,155 @@ Koble E03 til aktive timer/sesjoner:
 **Utgangskrav:** Realtime, avbrudd, overtakelse, omprioritering og avslutning
 er verifisert på alle målenheter og ved midlertidig nettverksbrudd.
 
-### Kontrollpunkt F – samlet pilotkandidat
+### Kontrollpunkt F – integrert 3.0-motor
 
-- kjør hele elev- og lærerløypa med representative DOCX-filer;
-- gjennomfør E2E på 360×640, mobil landskap, 768×1024, 1024×768 og desktop;
-- test tastatur, skjermleser, 200 % zoom, redusert bevegelse og avbrutt nett;
-- kjør sikkerhets-, RLS-, sletting-, migrasjons- og rollback-øvelse;
-- oppdater README og pilotrunbook først når funksjonene faktisk er verifisert.
+**Status:** Planlagt som samlende port for eksisterende A–E-arbeid.
+
+F lukker ikke målproduktet. Det beviser at sikkerhets-, plan-, oppgave-, XP- og
+køkjerne kan kjøres sammen før den historiske Klar-opplevelsen bygges ut:
+
+- kjør hele nåværende elev- og lærerløype med representative syntetiske planer;
+- lukk navngitte manuelle porter fra A–E eller dokumenter reelle blokkere;
+- kjør security/RLS, tom database, upgrade, rollback og autentisert E2E;
+- verifiser at samme origin og separate browser contexts isolerer elev/ansatt;
+- dokumenter baseline for fem viewports, 200 prosent, reduced motion og fysisk
+  iPad uten å kalle planlagte E07–E10-flater ferdige.
+
+**Utgangskrav:** Én grønn og reproduserbar motorbaseline som nye
+opplevelsesslicer kan bygges og sammenlignes mot.
+
+### Kontrollpunkt G – produktidentitet, kunstretning og motorvalg
+
+**Status:** Pågår på dokumentnivå; teknisk/kunstnerisk spike gjenstår.
+
+- forvalt de avklarte domenebeslutningene som låst målkontrakt og spor senere
+  endringer eksplisitt;
+- lag wireflows som kobler elevdag, dock, quiz, level-up, verksted og hage;
+- lag wireflows for ansattcockpit, arbeidsrom og biblioteker;
+- produser stilbibel og representative final-quality assets for hagen;
+- gjennomfør E09 R0: Canvas 2D mot PixiJS/WebGL på fysisk iPad 9. generasjon;
+- dokumenter renderer, fallback, kunstpipeline og forkastede alternativer i ADR.
+
+**Utgangskrav:** Navngitt referansesett, godkjente storyboards/stilbibel,
+render-ADR, kunstreview-rubrikk og beståtte fysiske målverdier finnes før
+produksjonsslicen starter.
+
+### Kontrollpunkt H – ansattcockpit og ressursarbeidsrom
+
+Lever E07 W1–W2:
+
+- handlingsrettet oversikt med aktive økter/køer, nylig brukte ressurser og
+  oppfølging;
+- stabile klasse-, gruppe- og elevarbeidsrom;
+- omfangssikre read-modeller, URL-er og sidepaneler/sheets;
+- samme pedagogiske kjernefunksjon for kontaktlærer, faglærer, ITO og vikar;
+- mobil-/iPad-komposisjon som ikke er en krympet desktoptabell.
+
+**Utgangskrav:** Læreren kan orientere seg og gå til riktig arbeid uten døde
+lenker, dekorativ statistikk eller datalekkasje ved utløpt oppdrag.
+
+### Kontrollpunkt I – plan- og innholdsbiblioteker
+
+Fullfør E04 og E07 W3 før nye rike oppgavetyper:
+
+- full strukturbevarende DOCX-import, utkast, diff og treveis reimport;
+- planbibliotek og eksplisitt publisering/ny iterasjon;
+- oppgavebibliotek med definisjon, revisjon, arkivering og utsending;
+- bibliotekskall med eksplisitte modulgrenser for senere quiz og belønninger;
+- regresjonsbevis for elevhistorikk og XP ved innholdsendring.
+
+**Utgangskrav:** Innhold kan gjenbrukes og endres uten at definisjon,
+iterasjon, assignment eller elevforsøk blandes sammen.
+
+### Kontrollpunkt J – elevens gjenkjennelige dag, dock og mediesjekkpunkt
+
+Fullfør E01 og lever E10 DCK1–DCK3:
+
+- prototypeforankret forrige/aktuell/neste-komposisjon;
+- oppgaveåpning uten «I gang», med opplesing og trinnvis støtte;
+- valgfritt tekst-, lyd- og bildesjekkpunkt etter «Fullfør»;
+- kontekstuell dock for nå, tid, hjelp, fremdrift og ventende belønning;
+- nøyaktig retur til økt/oppgave etter hjelp eller belønningsvalg;
+- betinget synlighet uten tomme hage-/kupong-/timeplanmål.
+- semantisk sammenligningsmatrise mot valgte prototypebilder for
+  forrige/aktuell/neste, primærhandling, dock og kognitiv belastning ved alle
+  målviewports.
+
+**Utgangskrav:** Sammenligningsmatrisen består uten ukjente avvik, og
+hovedflyten består 3.0s media-, autorisasjons-, touch- og
+tilgjengelighetsporter.
+
+### Kontrollpunkt K – interaktiv quiz/test
+
+Lever E08 Q1–Q4:
+
+- versjonert lærerbygger for tekst, enkeltvalg, flervalg og valgfritt lydsvar;
+- ett spørsmål om gangen, opplesing, autosave og fortsett senere;
+- atomisk levering, uforanderlig besvarelse, XP-reversering og nytt utkast
+  etter retur; ny forsøkssekvens oppstår først ved ny levering;
+- lærerreview uten falsk «riktig»-markering, prosent eller resultatbasert XP;
+- samme-origin rolle-E2E, WebKit, fysisk iPad og skjermleserbevis.
+
+**Utgangskrav:** Hele lærer→elev→review→retur→nytt forsøk fungerer uten
+parallell oppgave-/XP-modell.
+
+### Kontrollpunkt L – level-up, personlig uttrykk og kuponger
+
+Lever E09 R1/R6a og E10 DCK4a:
+
+- kort førstegangs level-up med «Velg nå» og «Senere»;
+- ventende entitlement i dock uten pressende badge;
+- prototypetest og eksplisitt valg av avatar/naturidentitet/ingen figur;
+- lærerdefinisjon, omfang, arkivering og betinget synlige kuponger;
+- elevforespørsel, ansattinnløsning, samtidighetsvern og kompenserende retting;
+- ingen belønningsflate når verken hage eller relevant lærerbelønning finnes.
+
+**Utgangskrav:** En milepæl gir høyst ett varig valg, kupongen kan ikke
+forsvinne eller brukes dobbelt, og skolearbeidet fungerer identisk uten
+spillifisering.
+
+### Kontrollpunkt M – levende blomsterhage
+
+Lever E09 R2–R5/R6b og E10 DCK4b på motoren som bestod G:
+
+- kronbladdomene, reservasjon ved første strøk, CAS og avbruddsikker autosave;
+- flerfarget, taktil maling med undo/redo og tilgivende dekning;
+- likeverdig semantisk komponist for tastatur, switch og skjermleser;
+- femte kronblad, én blomstring, pending placement og fri/alternativ planting;
+- produksjonskunst, seedet vind, sommerfugler, dybde og kvalitetsprofiler;
+- 200 blomster, context-loss, 30-minutters soak og alle harde iPad-budsjetter.
+- samlet retur fra «Velg nå/Senere», «Mal kronblad», blomstring, planting og fallback
+  til eksakt økt/oppgave gjennom E10s dock.
+
+**Utgangskrav:** Hagen består E09s kunstreview-rubrikk, latency/FPS/minne/
+bundle-/soak-budsjetter og alle domeneporter; ingen kreativ handling kan farme
+XP eller miste arbeid.
+
+### Kontrollpunkt N – feedback og kommunikasjon, beslutningsport
+
+Før reaksjoner, kommentarer, meldinger eller «skrytevegg» implementeres:
+
+- avgjør mottakere, moderering, varsling, oppbevaring, sletting og audit;
+- skill pedagogisk feedback fra sosial feed og offentlig sammenligning;
+- prototypetest minste nyttige flyt med barn og lærer;
+- oppdater domenekontrakt og opprett egen epic dersom retningen godkjennes.
+
+**Utgangskrav:** Enten en kontraktsfestet, avgrenset epic eller en eksplisitt
+beslutning om å utsette. Ingen chat-/kommentarfelt bygges ved antakelse.
+
+### Kontrollpunkt Z – samlet målproduktkandidat
+
+- kjør elev- og ansattløypa fra plan/import til oppgave, quiz, hjelp, retur,
+  level-up, kupong og hage;
+- gjennomfør E2E på 360×640, 640×360, 768×1024, 1024×768 og 1440×900;
+- test tastatur, NVDA, fysisk VoiceOver/Switch Control, 200 prosent, reduced
+  motion, avbrutt nett, orientation og background/resume;
+- kjør sikkerhets-, RLS-, media-, sletting-, migrasjons- og rollbackøvelse;
+- gjør fysisk iPad-soak av hagen og realistisk lærer/elev-samtidighet;
+- oppdater README og pilotrunbook bare med faktisk verifiserte funksjoner.
+
+**Utgangskrav:** Alle epics har lenket bevis, ingen planlagt funksjon omtales
+som tilgjengelig, og målproduktet kan piloteres uten kjente kritiske avvik.
 
 ## Arbeidsregler
 

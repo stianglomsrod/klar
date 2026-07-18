@@ -76,7 +76,7 @@ ikke bindende før det er avgjort og innarbeidet i denne kontrakten.
 
 ### 3.3 Frivillig, ikke-konkurrerende motivasjonsstøtte
 
-- XP, nivåer, blomster, streak og belønninger skal vise egen progresjon og
+- XP, nivåer, blomster og belønninger skal vise egen progresjon og
   mestring, aldri rangere elever mot hverandre.
 - Ansatte bestemmer hvilke motivasjonselementer som er tilgjengelige i
   omfanget de har ansvar for.
@@ -158,11 +158,20 @@ tillatt når alle medlemmene og ansvarlige ansatte tilhører samme organisasjon.
 | Planrevisjon | Et uforanderlig publisert øyeblikksbilde av en ukeplan. |
 | Importbatch | Én tolking og kontrollert sammenslåing av et kildedokument. |
 | Oppgavedefinisjon | Gjenbrukbart innhold: tittel, instruksjon, fag, støtte, XP-verdi og eventuelle medier. |
+| Interaktiv oppgave | En strukturert quiz/test med ett eller flere spørsmål som besvares inne i Klar. Første målversjon er lærerreviewet og har ingen automatisk fasit, karakter eller XP etter riktighet. |
 | Oppgaveiterasjon | En konkret tildeling av en oppgavedefinisjon til mottakere og tidspunkt. Har egen identitet. |
 | Fullføringsforsøk | Elevens bekreftede fullføring av én oppgaveiterasjon, med null eller flere frivillige vedlegg. |
+| Interaktivt svarutkast | Elevens autolagrede, gjenopptakbare svar på én interaktiv oppgave før levering. Utkastet er ikke et fullføringsforsøk og gir ikke XP. |
+| Interaktiv besvarelse | Det uforanderlige snapshotet av spørsmål og svar som hører til ett konkret fullføringsforsøk. Retur og ny levering lager en ny forsøkssekvens. |
 | XP-hendelse | Uforanderlig kredit- eller reverseringspost i elevens poenglogg. |
 | Nivåmilepæl | Historisk registrering av at eleven har nådd et nivå minst én gang. |
 | Belønningstildeling | Unik rett til å velge eller beholde én belønning for en nivåmilepæl. |
+| Belønningsdefinisjon | En aktiv eller avsluttet læreropprettet belønning som kan tilbys som kupong innenfor eksplisitt elev-/gruppe-/klasseomfang. |
+| Kupong | Elevens varige snapshot av én valgt belønningsdefinisjon. Kupongen kan forespørres brukt av eleven og innløses av en autorisert ansatt. |
+| Blomsterprosjekt | Elevens ene pågående blomst med fem kronbladplasser. Ferdig blomst kan plantes uten at senere omplassering påvirker XP eller belønning. |
+| Kronbladutkast | Autolagret kreativt arbeid knyttet til én belønningstildeling før et kronblad sluttføres. Første serverbekreftede, gyldige strøk reserverer belønningstypen. |
+| Kronbladartefakt | Uforanderlig, versjonert sluttresultat av elevens farger og penselstrøk på ett kronblad. |
+| Hageplassering | Elevens endringsbare plassering av en ferdig blomst i en navngitt scene og normaliserte koordinater. |
 | Hjelpekø | En ansattåpnet kø for én klasse/gruppe og normalt én undervisningsøkt. |
 | Kødeltakelse | En tidsavgrenset og reviderbar kobling mellom én ansattbruker og én hjelpekø. Deltakelse gir liveoppdateringer og køhandlinger så lenge et aktuelt oppdrag fortsatt autoriserer handlingen. |
 | Hjelpeforespørsel | Elevens aktive eller avsluttede køinnslag, valgfritt koblet til en oppgave. |
@@ -240,6 +249,40 @@ Ved bekreftelse skal fullføringsforsøket, eventuelle vedleggsreferanser,
 oppgavestatus og XP-kreditering behandles som én konsistent operasjon. En
 vedleggsfeil skal ikke gi en skjult halvfullført tilstand.
 
+### 6.4 Interaktiv quiz/test
+
+En lærer kan opprette en interaktiv oppgave som en gjenbrukbar, versjonert
+oppgavedefinisjon og tildele den gjennom samme mottaker-, økt- og
+iterasjonsmodell som en vanlig oppgave. Første bindende målversjon er en
+lærerreviewet aktivitet, ikke automatisk vurdering eller karaktersetting.
+
+En interaktiv oppgave skal kunne inneholde:
+
+- tekstsvar;
+- ett valg blant flere;
+- flere valg blant flere; og
+- valgfritt lydsvar per spørsmål når mediegrensen er godkjent.
+
+Elevflaten skal vise ett spørsmål om gangen, tydelig progresjon, forrige/neste,
+opplesing og forståelig status for ubesvarte spørsmål. Eleven skal kunne hoppe
+over et spørsmål og levere etter en tydelig advarsel. Ubesvart er en verdi i
+besvarelsen, ikke en teknisk feil.
+
+Svar skal autolagres som et privat utkast og kunne fortsettes etter refresh,
+nettverksavbrudd eller en frivillig pause. Levering skal snapshotte nøyaktig
+spørsmålsversjon, svar og eventuelle godkjente lydreferanser til ett nytt
+fullføringsforsøk. Lærerretur bevarer den tidligere besvarelsen og lar eleven
+fortsette i et nytt utkast basert på forsøket. Først neste levering oppretter
+en ny forsøkssekvens; tidligere svar skal aldri overskrives som om de ikke har
+eksistert.
+
+XP skal følge samme leverings- og reverseringsregler som andre oppgaver. Det
+skal ikke beregnes XP, nivå, belønning eller rangering fra antall riktige svar.
+Automatisk fasit, poengsum og umiddelbar retting er utsatt og skal ikke bygges
+inn skjult i den første modellen. Lærerens review kan vise hva eleven valgte,
+men skal ikke bruke «riktig» eller grønn korrektmarkering når ingen fasit
+finnes.
+
 ## 7. Oppgavestatus, XP, nivå og belønning
 
 ### 7.1 Tilstander og overganger
@@ -303,6 +346,26 @@ Retur fra ansatt skal ha en kort pedagogisk forklaring eller strukturert årsak
 som eleven kan forstå, men fritekst skal dataminimeres. Angre og retur skal
 bevare historikken; de skal ikke hard-slette fullføringsforsøket eller
 XP-hendelsene.
+
+### 7.5 Førstegangs nivåoppgang
+
+Første gang en elev når et nytt nivå, kan UI-et gi en kort og tydelig
+markering. Hvis en belønning faktisk er tilgjengelig, skal eleven få et enkelt
+valg mellom «Velg nå» og «Senere». En level-up skal ikke tvinge eleven ut av en
+pågående arbeidsflyt eller åpne et minispill automatisk.
+
+En ventende belønning skal finnes igjen på tvers av refresh og enheter. Den kan
+vises som en diskret pensel-, blomst- eller kuponginngang i elevens faste dock,
+uten alarmfarge, pressende badge eller gjentatte avbrytelser. En rolig
+påminnelse ved en naturlig øktsovergang er tillatt. Etter belønningsvalg,
+maling eller planting skal eleven kunne gå tilbake til den eksakte
+arbeidskonteksten hen kom fra.
+
+Hvis flere belønningstyper er tilgjengelige for milepælen, er valget
+eksklusivt: én milepæl gir fortsatt maksimalt én claim. Før eleven har lagret
+kreativt arbeid, kan valget endres. Første serverbekreftede, gyldige
+penselstrøk reserverer entitlementet til kronbladet slik at arbeidet ikke kan
+forsvinne ved XP-reversering eller senere deaktivering.
 
 ## 8. Hjelpekø
 
@@ -487,23 +550,109 @@ En oppgave med fullførings- eller returhistorikk skal ikke miste denne
 historikken ved flytting. Hvis handlingen gjelder bare enkelte mottakere, skal
 mottakeromfanget velges eksplisitt og ikke utledes skjult av systemet.
 
-## 10. Motivasjonsstøtte og elevvalg
+## 10. Motivasjonsstøtte, belønninger og levende hage
+
+### 10.1 Kapabiliteter og betinget synlighet
 
 Ansatte setter et tilgjengelighetsnivå for motivasjonselementer per relevant
 klasse, gruppe eller elev. Eleven kan deretter velge en roligere presentasjon
-innenfor disse rammene. En anbefalt kapabilitetsmodell er:
+innenfor disse rammene. Kapabilitetsmodellen omfatter:
 
 - rolig progresjon uten synlige poeng;
 - XP og nivå;
-- blomsterhage eller annen personlig samling;
-- streak der fravær kan pause, men ikke straffe;
-- individuelle belønninger eller kuponger;
+- blomsterhage som personlig, kreativt minispill;
+- individuelle læreropprettede belønninger som kuponger; og
 - senere felles klasseelementer uten individuell rangering.
 
+Når en kapabilitet ikke er tilgjengelig, skal elevflaten ikke vise en tom
+lenke, låst teaser eller tekst om at systemet «mangler» noe. Blomsterhagen
+finnes bare når en autorisert ansatt har åpnet rammen og eleven ikke har valgt
+å skjule den. Kupongsystemet finnes bare når læreren har aktive
+belønningsdefinisjoner eller eleven allerede eier en kupong.
+
 Å skjule eller skru ned et element er et visningsvalg, ikke sletting. XP-logg,
-nivåmilepæler, opptjente blomster og valgte belønninger skal bestå. Det skal
-ikke finnes toppliste, offentlig poengsammenligning eller konkurranse som gjør
-støttebehov synlig.
+nivåmilepæler, kronbladutkast, opptjente blomster og valgte kuponger skal
+bestå og komme tilbake identisk ved ny aktivering. Senere aktivering gjelder
+som standard nye milepæler fra aktiveringstidspunktet; eldre milepæler skal
+ikke plutselig gi en kø av retroaktive belønninger uten en eksplisitt,
+forhåndsvist ansatthandling.
+
+### 10.2 Belønningsvalg og kuponger
+
+Én milepæl kan tilby følgende synlige resultat:
+
+| Tilgjengelig for eleven | Resultat |
+| --- | --- |
+| Hage, ingen aktive lærerbelønninger | Kronblad kan velges. |
+| Ingen hage, aktive lærerbelønninger | Én tilgjengelig kupong kan velges. |
+| Hage og aktive lærerbelønninger | Eleven velger eksklusivt mellom kronblad og én kupong. |
+| Verken hage eller lærerbelønninger | Rolig level-up uten tom belønningsflate. |
+
+En kupong skal snapshotte tittel, kort beskrivelse, symbol, ansvarlig omfang og
+vilkår slik de var ved claim. Senere arkivering av belønningsdefinisjonen skal
+ikke gjøre en utstedt kupong usynlig eller ubrukelig.
+
+Eleven kan forespørre «Bruk kupong». En autorisert ansatt i aktuelt omfang
+bekrefter innløsningen. Forespørsel, bekreftet innløsning og eventuell retting
+skal være idempotente, reviderbare overganger. Feilinnløsning rettes med en
+kompenserende hendelse; den historiske claimen eller innløsningen slettes
+ikke. Samtidige bekreftelser kan aldri bruke samme kupong to ganger.
+
+### 10.3 Malerverksted og kronblad
+
+Blomsterhagen er et kreativt minispill, ikke et administrativt rutenett. Ett
+kronblad utformes i et fullskjerms malerverksted. Eleven skal kunne:
+
+1. velge ett ledig kronblad på den ene pågående blomsten;
+2. dyppe penselen i én eller flere navngitte farger;
+3. male flere, overlappende strøk innenfor kronbladmasken;
+4. angre, gjøre om, tømme eller fortsette senere; og
+5. bekrefte «Behold kronbladet» når kronbladet er tilstrekkelig dekket.
+
+«Helt malt» skal være en tilgivende, deterministisk dekningsregel. Barnet skal
+ikke måtte treffe hver kantpiksel eller se en prosentmåler. Små hull kan fylles
+visuelt med siste eller dominerende farge før sluttresultatet bekreftes.
+
+Penselstrøk skal lagres i et avgrenset, validert og versjonert format med
+normaliserte koordinater, palett-ID og penselparametre. Fritt SVG, HTML eller
+ukontrollert bildeinnhold skal ikke lagres som sannhet. Utkast autolagres,
+bruker versjonskontroll ved samtidige enheter og kan overtas eksplisitt; det
+skal ikke blindt flettes. Endelig sluttføring skal atomisk validere entitlement,
+feature-ramme, elev, organisasjon, dekningsregel og ledig kronblad før et
+uforanderlig artefakt og claim opprettes.
+
+Et ferdig kronblad slettes ikke. Senere kosmetisk oppussing kan tillates som en
+ny visningsrevisjon, men gir aldri XP, nytt claim eller ny level-up-feiring.
+
+### 10.4 Blomstring, planting og levende hage
+
+En blomst har fem kronblad. Kronblad 1–4 gir kort og varm respons. Det femte
+kronbladet fullfører blomsten nøyaktig én gang og kan utløse en sjelden,
+uttrykksfull blomstring. Hvis eleven forlater flyten før planting, skal blomsten
+ligge trygt i en plantekasse som `pending placement` ved neste besøk.
+
+Eleven kan plante og senere flytte en ferdig blomst fritt innenfor gyldig jord.
+Drag er hovedinteraksjonen for touch eller mus, men samme plassering skal kunne
+gjøres med enkelttrykk, retningstaster/D-pad og navngitte hagesoner. Flytting
+endrer bare plasseringen, aldri claim, XP eller blomstringshistorikk.
+
+Hagen skal oppleves levende gjennom rolig vind, blomsterbevegelse og
+sommerfugler som kan utforske, lande på blomster, drikke nektar, hvile og lette
+igjen. Slik ambient fysikk er lokal og flyktig; den skal ikke skrive løpende
+simulasjonstilstand til databasen eller påvirke progresjon. Eleven kan berøre
+dyr og blomster uten å få XP eller åpne en vedlikeholdsplikt.
+
+Ingen blomst skal visne, og ingen dyr skal bli sultne fordi eleven ikke besøker
+hagen. Det skal ikke finnes vanningstvang, besøksstreak, tap av eiendeler eller
+andre plikter. Hagen kan utvides med nye bed eller dekorative områder uten å
+arkivere gamle blomster som tap.
+
+### 10.5 Ikke-konkurrerende garanti
+
+Det skal ikke finnes toppliste, offentlig poengsammenligning eller konkurranse
+som gjør støttebehov synlig. Strøk, dekningsgrad, tidsbruk, hagebesøk,
+sommerfuglinteraksjon, flytting og oppussing gir aldri XP. Samme blomst kan
+bare utløse den store blomstringsfeiringen én gang.
 
 ## 11. Responsivitet og tilgjengelighet
 
@@ -530,6 +679,25 @@ primærhandling. Ansattflaten kan være tettere, men skal ha samme semantiske og
 motoriske tilgjengelighet. Dialoger og sidepaneler skal håndtere fokus,
 Escape/lukking og fokusretur korrekt.
 
+Malerverkstedet og hagen kan bruke direkte berøring, penselstrøk og drag som
+den mest taktile hovedopplevelsen, men ingen kjernehandling kan kreve en
+bestemt bane, multitouch, trykkfølsomhet, tidskritisk gest eller drag alene.
+Samme kreative resultat skal kunne lages med én peker, tastatur/D-pad,
+Switch Control og en semantisk skjermleserkomponist. Komponisten skal tilby
+navngitte farger, aksentfarger, mønstre eller myke felt og lagre samme
+versjonerte kronbladformat som frihåndsmalingen.
+
+Ambient bevegelse i hagen skal kunne pauses med «Ro i hagen». Ved redusert
+bevegelse skal kontinuerlig vind, flyging og partikler stanse, mens den ferdige
+blomsten, hagens innhold og alle handlinger består. Lyd, bevegelse og
+feiringsintensitet skal styres uavhengig. Canvas eller WebGL kan være
+presentasjonslag, men React/DOM skal eie tilgjengelig navn, status, dialoger og
+alternative kontroller. Motorfeil skal ikke låse eleven ute fra eget arbeid.
+
+Grafikkvalget skal verifiseres på fysisk iPad 9. generasjon i både stående og
+liggende retning. Lavere kvalitetsprofil kan redusere partikler, shaders og
+antall sommerfugler, men ikke kreativ funksjon, lesbarhet eller kontroll.
+
 ## 12. Personvern, medier og revisjon
 
 ### 12.1 Dataminimering
@@ -544,6 +712,16 @@ Escape/lukking og fokusretur korrekt.
   oppbevaring og sletting før funksjonen aktiveres i skolepilot.
 - Sensoriske elevdata og vedleggsinnhold skal ikke kopieres til generell
   telemetri eller revisjonslogg.
+- Svarutkast og kreative strøk skal lagres i avgrensede, validerte formater.
+  Rå pekerhendelser, frie SVG-/HTML-payloads, opptak av hele maleøkten og
+  detaljert telemetri om hvert strøk skal ikke beholdes.
+- Vedvarende lokal cache av kreative utkast skal være bundet til organisasjon,
+  elev og prosjekt, ha kvote/utløp og aldri kunne leses av neste bruker på delt
+  utstyr. Logout og brukerbytte skal håndtere usynkronisert arbeid eksplisitt;
+  det kan verken lekke eller slettes lydløst.
+- Revisjon av quiz, kupong og hage skal lagre hendelses-ID-er, omfang,
+  skjemaversjon og nødvendige hasher, ikke svartekst, lydinnhold eller selve
+  penseldataene.
 
 ### 12.2 Revisjonsspor
 
@@ -554,6 +732,9 @@ ressurs, hendelsestype og tidspunkt:
 - opprettelse, endring, arkivering og ny iterasjon av oppgave;
 - fullføring, angre, retur og tilhørende XP-kredit/reversering;
 - nivåmilepæl og belønningstildeling;
+- levering og retur av interaktiv besvarelse;
+- reservasjon og sluttføring av kronblad, blomstring og plassering;
+- opprettelse, claim, forespørsel, innløsning og retting av kupong;
 - åpning, innmelding, personlig uttreden, global stenging, prioritering,
   overføring og håndtering av hjelpekø;
 - endring av elevtilpasning og motivasjonsramme;
@@ -590,6 +771,23 @@ En samsvarende implementasjon skal alltid bevare disse garantiene:
     global stenging stopper nye elever, men bevarer aktive forespørsler.
 18. En kø uten gyldige deltakere kan ikke bli stående åpen eller miste aktive
     forespørsler; den skal kunne overtas av en ny autorisert ansatt.
+19. Quizsvar kan ikke gi XP, nivå eller belønning etter riktighet eller
+    prosentresultat; XP følger bare gyldig levering og reversering.
+20. Leverte quizbesvarelser er uforanderlige snapshots. Retur og ny levering
+    oppretter en ny forsøkssekvens uten å overskrive tidligere svar.
+21. En milepæl kan gi kronblad eller kupong, aldri begge. Første
+    serverbekreftede, gyldige strøk reserverer kronbladvalget; et tomt besøk i
+    verkstedet gjør det ikke.
+22. Penselstrøk, hagebesøk, planting, flytting og sommerfuglinteraksjon gir
+    aldri XP, nytt claim eller ny blomstringsfeiring.
+23. Kronbladutkast, artefakter, blomster, plasseringer og utstedte kuponger
+    slettes ikke når XP reverseres eller motivasjonsfunksjonen skjules.
+24. Samtidige eller gjentatte kall kan ikke sluttføre samme kronblad, blomst
+    eller kuponginnløsning mer enn én gang.
+25. Et motivasjonssystem som ikke er tilgjengelig skal være fraværende i
+    elevflaten, uten tom lenke, låst teaser eller mangelspråk.
+26. Ingen elev må bruke hage, kupong eller annen spillifisering for å kunne
+    åpne, forstå, fullføre eller få hjelp med skolearbeidet.
 
 ## 14. Minimumsscenarier for kontraktstester
 
@@ -623,13 +821,43 @@ Planer, implementasjoner og epics som realiserer kontrakten skal minst dekke:
     den andre fortsetter uten avbrudd. Tilbakekalling av siste oppdrag setter
     køen i trygg `stenger`-tilstand, og en ny autorisert ansatt kan overta og
     tømme den uten tap eller duplikat.
+14. Elev svarer på en interaktiv oppgave, hopper over ett spørsmål, fortsetter
+    etter refresh og leverer etter advarsel. Læreren ser et uforanderlig
+    snapshot uten automatisk «riktig»-markering eller resultatbasert XP.
+15. Lærer returnerer en interaktiv besvarelse. Tidligere forsøk bevares, nytt
+    forsøk kan leveres, og XP reverseres og krediteres etter samme regler som
+    for en vanlig oppgave.
+16. Elev når et nytt nivå med både hage og lærerbelønning tilgjengelig, velger
+    «Senere» og finner samme ene ventende belønning etter refresh og på en ny
+    enhet.
+17. Elev åpner malerverkstedet uten å male og kan fortsatt velge kupong. Etter
+    første serverbekreftede, gyldige strøk er kronbladet reservert, og XP-retur
+    sletter ikke arbeidet. Før reservasjonen krever verkstedet nettforbindelse;
+    etterpå kan et isolert lokalt utkast fortsette ved kort nettbrudd.
+18. Elev bruker flere farger, fortsetter etter orienteringsbytte og sluttfører
+    samme kronblad fra touch og fra den alternative komponisten uten doble
+    claims eller tap av visuell egenart.
+19. Det femte kronbladet fullfører én blomst og én blomstringshendelse. Avbrutt
+    feiring og planting kan gjenopptas; blomsten kan plasseres med drag,
+    enkelttrykk, tastatur og navngitt hagesone.
+20. To ansatte forsøker å innløse samme kupong samtidig. Bare én innløsning
+    lykkes; retting skjer som en reviderbar kompenserende hendelse.
+21. Lærer skjuler og senere gjenåpner hage eller kuponger. Elevflaten viser
+    ingen tomme spor mens funksjonen er skjult, og utkast, blomster og utstedte
+    kuponger kommer tilbake uendret.
+22. En hage med 200 blomster, rolig vind og sommerfugler består fysisk
+    iPad-port, 30 minutters soak, bakgrunn/gjenopptak, reduced motion og
+    motorfallback uten å miste kontroller eller lagret arbeid.
 
 ## 15. Avgrensninger og åpne beslutninger
 
 Følgende er ikke en del av den bindende målkontrakten nå:
 
 - foresattflate;
-- karaktersetting eller vurdering som LMS;
+- karaktersetting, høyinnsatsprøver eller vurdering som LMS;
+- automatisk fasit, poengsum og umiddelbar retting av interaktiv quiz/test;
+- streak, besøksserier eller annen kalenderbasert motivasjon før en egen
+  anti-straff-, fraværs- og synlighetskontrakt er besluttet;
 - offentlig eller privat elevrangering;
 - automatisk flytting av uferdige oppgaver til neste dag;
 - krav om at skolearbeidet utføres eller dokumenteres inne i Klar;
@@ -646,8 +874,8 @@ historiske flyter som ennå ikke er normative valg:
   forhåndsvise, endre og stoppe framtidige iterasjoner;
 - personvern-, modererings- og oppbevaringsregler for reaksjon og kommentar på
   frivillig elevmedia; og
-- det eksakte livsløpet for innløsning og retting av en valgt kupong, utover
-  garantien om én unik belønningstildeling og claim per nivåmilepæl.
+- om en senere sjekkliste skal være en egen, ikke-XP-givende planstruktur eller
+  en avgrenset oppgavetype.
 
 Disse alternativene skal ikke implementeres ved gjetning. De er forskjellige
 fra, og endrer ikke, forbudet mot automatisk flytting eller kopiering av
@@ -661,6 +889,8 @@ normativ mål-flyt, ikke en påstand om aktiv pilotfunksjon.
 Følgende kan avgjøres gjennom prototyping og brukertest uten å endre domenet:
 
 - animasjon, avatar og feiringsintensitet innenfor reduced-motion-kravet;
+- eksakt penseltekstur, palett, hagescene og sommerfugluttrykk innenfor den
+  bindende motor-, ytelses- og tilgjengelighetsporten;
 - eksakt visuell plassering av forrige/aktuell/neste økt ved dagens ytterkanter;
 - visuell utforming av den kompakte avmeldingen fra hjelpekø;
 - terskel og UI for usikker elementmatching i Smart Import;

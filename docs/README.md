@@ -51,8 +51,9 @@ tilgjengelighetsfeil.
 - [Kontrollpunkt B1](./qa/CONTROL_POINT_B1.md) – verifisert atomisk
   oppgaveovergang, XP, elevangre og ansattretur.
 - [Kontrollpunkt B2](./qa/CONTROL_POINT_B2.md) – varig blomsterclaim,
-  ansattramme, elevpreferanse og responsiv hage; automatisert WebKit er grønn,
-  mens fysisk skjermleserretest er åpen.
+  ansattramme, elevpreferanse og den første enkle responsive hageflaten;
+  automatisert WebKit er grønn, mens fysisk skjermleserretest er åpen. Den rike
+  levende hagen er fortsatt planlagt i E09.
 - [Kontrollpunkt C1](./qa/CONTROL_POINT_C1.md) – første strukturerte
   klasseukerevisjon, øktstyrt elevdag og lagrede responsive QA-artefakter.
 - [Kontrollpunkt D2](./qa/CONTROL_POINT_D2.md) – eksplisitt flytt av samme
