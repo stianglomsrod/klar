@@ -14,7 +14,42 @@ const primaryClassId = "30000000-0000-4000-8000-000000000001";
 const helpClassId = "30000000-0000-4000-8000-000000000005";
 const helpStudentId = "10000000-0000-4000-8000-000000000012";
 const lifecycleHelpStudentId = "10000000-0000-4000-8000-000000000013";
+const helpStaffId = "10000000-0000-4000-8000-000000000014";
 const captureChromiumEvidence = process.env.KLAR_E2E_BROWSER === "chromium";
+
+async function captureEvidence(
+  page: Page,
+  evidencePath: string,
+  options: { fullPage?: boolean } = {},
+) {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await page.screenshot({
+        path: evidencePath,
+        animations: "disabled",
+        ...options,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await page.waitForTimeout(attempt * 150);
+    }
+  }
+  throw lastError;
+}
+
+async function positionEvidenceRegion(page: Page, region: Locator) {
+  await region.evaluate((element) => {
+    const stickyHeaderOffset = window.innerWidth < 1024 ? 72 : 16;
+    const top = window.scrollY + element.getBoundingClientRect().top;
+    window.scrollTo({
+      top: Math.max(0, top - stickyHeaderOffset),
+      behavior: "instant",
+    });
+  });
+  await page.waitForTimeout(50);
+}
 
 async function resetHelpQueueFixture() {
   const database = await openLocalDatabase();
@@ -36,6 +71,15 @@ async function resetHelpQueueFixture() {
     await database.query(
       `
         delete from public.help_requests
+        where queue_session_id in (
+          select id from public.help_queue_sessions where class_id = $1::uuid
+        )
+      `,
+      [helpClassId],
+    );
+    await database.query(
+      `
+        delete from public.help_queue_staff_participants
         where queue_session_id in (
           select id from public.help_queue_sessions where class_id = $1::uuid
         )
@@ -288,10 +332,10 @@ test("elev og AAL2-ansatt fullfører en øktbundet hjelpekø", async ({
       simulatedSafeArea.evaluate((element) => element.parentNode?.removeChild(element)),
     ]);
     if (captureChromiumEvidence) {
-      await studentPage.screenshot({
-        path: "docs/qa/evidence/E1/student-hand-360x640.png",
-        animations: "disabled",
-      });
+      await captureEvidence(
+        studentPage,
+        "docs/qa/evidence/E1/student-hand-360x640.png",
+      );
     }
 
     await activeHelp.click();
@@ -378,10 +422,10 @@ test("elev og AAL2-ansatt fullfører en øktbundet hjelpekø", async ({
     ).toBeVisible();
     await studentPage.setViewportSize({ width: 768, height: 1024 });
     if (captureChromiumEvidence) {
-      await studentPage.screenshot({
-        path: "docs/qa/evidence/E1/student-task-help-768x1024.png",
-        animations: "disabled",
-      });
+      await captureEvidence(
+        studentPage,
+        "docs/qa/evidence/E1/student-task-help-768x1024.png",
+      );
     }
     await studentPage.setViewportSize({ width: 360, height: 640 });
 
@@ -420,10 +464,10 @@ test("elev og AAL2-ansatt fullfører en øktbundet hjelpekø", async ({
           viewport.width === 1440 &&
           viewport.height === 900)
       ) {
-        await teacherPage.screenshot({
-          path: `docs/qa/evidence/E1/teacher-active-${viewport.width}x${viewport.height}.png`,
-          animations: "disabled",
-        });
+        await captureEvidence(
+          teacherPage,
+          `docs/qa/evidence/E1/teacher-active-${viewport.width}x${viewport.height}.png`,
+        );
       }
     }
 
@@ -447,10 +491,10 @@ test("elev og AAL2-ansatt fullfører en øktbundet hjelpekø", async ({
     ).toBeVisible();
     await teacherPage.evaluate(() => window.scrollTo(0, 0));
     if (captureChromiumEvidence) {
-      await teacherPage.screenshot({
-        path: "docs/qa/evidence/E1/teacher-natural-closed-1024x768.png",
-        animations: "disabled",
-      });
+      await captureEvidence(
+        teacherPage,
+        "docs/qa/evidence/E1/teacher-natural-closed-1024x768.png",
+      );
     }
     await expect(queue.getByRole("button", { name: "Åpne kø" })).toHaveCount(0);
     await expect(activeTaskHelp).toBeVisible();
@@ -638,7 +682,7 @@ test("aktiv hånd overlever klassebytte og naturlig øktslutt", async ({
   }
 });
 
-test("to AAL2-ansatte prioriterer, overfører og frigir hjelp privat", async ({
+test("to AAL2-ansatte overfører og forlater åpen eller stengende kø personlig", async ({
   browser,
   baseURL,
 }) => {
@@ -707,6 +751,21 @@ test("to AAL2-ansatte prioriterer, overfører og frigir hjelp privat", async ({
     const helpStaffQueue = queueOn(helpStaffPage);
     await ownerQueue.getByRole("button", { name: "Åpne kø" }).click();
     await expect(ownerQueue.getByText("Åpen", { exact: true })).toBeVisible();
+
+    await expect(
+      helpStaffQueue.getByRole("button", { name: "Bli med" }),
+    ).toBeVisible();
+    await expect(
+      helpStaffQueue.getByRole("button", { name: "Steng kø" }),
+    ).toHaveCount(0);
+    await helpStaffQueue.getByRole("button", { name: "Bli med" }).click();
+    await Promise.all([
+      expect(ownerQueue.getByText(/2 ansatte deltar/)).toBeVisible(),
+      expect(helpStaffQueue.getByText(/2 ansatte deltar/)).toBeVisible(),
+      expect(
+        helpStaffQueue.getByRole("button", { name: "Forlat køen" }),
+      ).toBeVisible(),
+    ]);
 
     const queueSession = await database.query<{ id: string }>(
       `select id::text
@@ -888,6 +947,23 @@ test("to AAL2-ansatte prioriterer, overfører og frigir hjelp privat", async ({
       { width: 720, height: 450 },
     ]) {
       await helpStaffPage.setViewportSize(viewport);
+      await positionEvidenceRegion(helpStaffPage, helpStaffQueue);
+      await expect(helpStaffQueue.getByText(/2 ansatte deltar/)).toBeVisible();
+      await expectMinimumTargetSize(
+        helpStaffQueue.getByRole("button", { name: "Forlat køen" }),
+      );
+      await expectMinimumTargetSize(
+        helpStaffQueue.getByRole("button", { name: "Steng kø" }),
+      );
+      await expectNoHorizontalOverflow(helpStaffPage);
+      await expectNoAxeViolations(helpStaffPage);
+      if (captureChromiumEvidence) {
+        await captureEvidence(
+          helpStaffPage,
+          `docs/qa/evidence/E3/shared-queue-participant-${viewport.width}x${viewport.height}.png`,
+          { fullPage: false },
+        );
+      }
       const priorityControl = helpStaffRow.getByRole("button", {
         name: "Endre prioritet – Hjelpeelev",
       });
@@ -902,15 +978,123 @@ test("to AAL2-ansatte prioriterer, overfører og frigir hjelp privat", async ({
         responsiveDialog.getByRole("button", { name: "Lukk" }),
       );
       if (captureChromiumEvidence) {
-        await helpStaffPage.screenshot({
-          path: `docs/qa/evidence/E2/staff-priority-dialog-${viewport.width}x${viewport.height}.png`,
-          fullPage: false,
-        });
+        await captureEvidence(
+          helpStaffPage,
+          `docs/qa/evidence/E2/staff-priority-dialog-${viewport.width}x${viewport.height}.png`,
+          { fullPage: false },
+        );
       }
       await helpStaffPage.keyboard.press("Escape");
       await expect(responsiveDialog).toBeHidden();
       await expect(priorityControl).toBeFocused();
     }
+
+    await helpStaffQueue.getByRole("button", { name: "Forlat køen" }).click();
+    await Promise.all([
+      expect(
+        helpStaffQueue.getByRole("button", { name: "Bli med" }),
+      ).toBeVisible(),
+      expect(helpStaffQueue.getByText(/1 ansatt deltar/)).toBeVisible(),
+      expect(ownerQueue.getByText(/1 ansatt deltar/)).toBeVisible(),
+      expect(
+        ownerQueue.getByRole("button", { name: "Steng kø" }),
+      ).toBeVisible(),
+      expect(
+        helpStaffRow.getByRole("button", {
+          name: "Endre prioritet – Hjelpeelev",
+        }),
+      ).toHaveCount(0),
+      expect(activeHelp).toBeVisible(),
+    ]);
+    const participationState = await database.query<{
+      status: string;
+      active_participants: number;
+      helper_is_active: boolean;
+    }>(
+      `select
+         queue.status::text as status,
+         (select count(*)::integer
+          from public.help_queue_staff_participants as participant
+          where participant.queue_session_id = queue.id
+            and participant.left_at is null) as active_participants,
+         exists (
+           select 1
+           from public.help_queue_staff_participants as participant
+           where participant.queue_session_id = queue.id
+             and participant.user_id = $2::uuid
+             and participant.left_at is null
+         ) as helper_is_active
+       from public.help_queue_sessions as queue
+       where queue.id = $1::uuid`,
+      [queueSessionId, helpStaffId],
+    );
+    expect(participationState.rows[0]).toEqual({
+      status: "open",
+      active_participants: 1,
+      helper_is_active: false,
+    });
+    await expectStudentPrivacy(studentPage);
+
+    await helpStaffQueue.getByRole("button", { name: "Bli med" }).click();
+    await Promise.all([
+      expect(ownerQueue.getByText(/2 ansatte deltar/)).toBeVisible(),
+      expect(helpStaffQueue.getByText(/2 ansatte deltar/)).toBeVisible(),
+    ]);
+    await ownerQueue.getByRole("button", { name: "Steng kø" }).click();
+    await Promise.all([
+      expect(ownerQueue.getByText("Stenger", { exact: true })).toBeVisible(),
+      expect(helpStaffQueue.getByText("Stenger", { exact: true })).toBeVisible(),
+      expect(
+        helpStaffQueue.getByRole("button", { name: "Forlat køen" }),
+      ).toBeVisible(),
+    ]);
+    await helpStaffQueue.getByRole("button", { name: "Forlat køen" }).click();
+    await Promise.all([
+      expect(ownerQueue.getByText(/1 ansatt deltar/)).toBeVisible(),
+      expect(helpStaffQueue.getByText(/1 ansatt deltar/)).toBeVisible(),
+      expect(
+        helpStaffQueue.getByRole("button", { name: "Bli med" }),
+      ).toHaveCount(0),
+      expect(
+        helpStaffQueue.getByRole("button", { name: "Forlat køen" }),
+      ).toHaveCount(0),
+    ]);
+    const closingParticipationState = await database.query<{
+      status: string;
+      active_participants: number;
+      helper_is_active: boolean;
+    }>(
+      `select
+         queue.status::text as status,
+         (select count(*)::integer
+          from public.help_queue_staff_participants as participant
+          where participant.queue_session_id = queue.id
+            and participant.left_at is null) as active_participants,
+         exists (
+           select 1
+           from public.help_queue_staff_participants as participant
+           where participant.queue_session_id = queue.id
+             and participant.user_id = $2::uuid
+             and participant.left_at is null
+         ) as helper_is_active
+       from public.help_queue_sessions as queue
+       where queue.id = $1::uuid`,
+      [queueSessionId, helpStaffId],
+    );
+    expect(closingParticipationState.rows[0]).toEqual({
+      status: "closing",
+      active_participants: 1,
+      helper_is_active: false,
+    });
+
+    await claimAndResolve(ownerPage, ownerQueue, "Hjelpeelev", () =>
+      ownerQueue.getByRole("listitem").filter({ hasText: "Livsløpselev" }),
+    );
+    await claimAndResolve(ownerPage, ownerQueue, "Livsløpselev", () =>
+      ownerQueue.getByRole("heading", { name: "Hjelpekø" }),
+    );
+    await expect(ownerQueue.getByText("Stengt", { exact: true })).toBeVisible();
+    await expect(activeHelp).toHaveCount(0);
 
     await Promise.all([
       expectNoHorizontalOverflow(ownerPage),

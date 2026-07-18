@@ -39,6 +39,8 @@ const e2Migration = "20260717000001_help_queue_staff_controls.sql";
 const d2Migration = "20260717000002_task_iteration_scheduling.sql";
 const d3Migration = "20260717000003_student_task_catalog.sql";
 const b2Migration = "20260717000004_flower_rewards.sql";
+const helpQueueParticipationMigration =
+  "20260718000000_help_queue_staff_participation.sql";
 const activeContainers = new Set();
 
 function runDocker(args, options = {}) {
@@ -216,6 +218,13 @@ function applyD3(containerName) {
 
 function applyB2(containerName) {
   runSql(containerName, `supabase/migrations/${b2Migration}`);
+}
+
+function applyHelpQueueParticipation(containerName) {
+  runSql(
+    containerName,
+    `supabase/migrations/${helpQueueParticipationMigration}`,
+  );
 }
 
 function applyA1Followups(containerName) {
@@ -1225,8 +1234,7 @@ async function runTaskScheduleConcurrency(config) {
     config,
     "klar-d2-load-concurrency-fixture",
     async (client) => {
-      const [staff, plan, sessions, assignments] = await Promise.all([
-        client.query(
+      const staff = await client.query(
           `select assignment.id::text
            from public.staff_assignments as assignment
            join public.staff_assignment_class_scopes as scope
@@ -1240,14 +1248,14 @@ async function runTaskScheduleConcurrency(config) {
            order by assignment.starts_at desc, assignment.id
            limit 1`,
           [actorId, classId],
-        ),
-        client.query(
+      );
+      const plan = await client.query(
           `select plan.id::text, plan.lock_version::integer
            from public.weekly_plans as plan
            where plan.class_id = $1 and plan.week_start_date = $2::date`,
           [classId, planWeek],
-        ),
-        client.query(
+      );
+      const sessions = await client.query(
           `select session.id::text,
              session.teaching_session_id::text,
              session.position::integer
@@ -1256,8 +1264,8 @@ async function runTaskScheduleConcurrency(config) {
            where plan.class_id = $1 and plan.week_start_date = $2::date
            order by session.position`,
           [classId, planWeek],
-        ),
-        client.query(
+      );
+      const assignments = await client.query(
           `select assignment.id::text as assignment_id,
              assignment.student_id::text,
              assignment.iteration_id::text,
@@ -1279,8 +1287,7 @@ async function runTaskScheduleConcurrency(config) {
            where plan.class_id = $1 and plan.week_start_date = $2::date
            order by revision_session.position, assignment.student_id`,
           [classId, planWeek],
-        ),
-      ]);
+      );
       assert.equal(staff.rowCount, 1);
       assert.equal(plan.rowCount, 1);
       assert.equal(sessions.rowCount, 4);
@@ -1854,12 +1861,14 @@ async function runWeeklyPlanConcurrency(config) {
 
 async function runHelpQueueConcurrency(config) {
   const organizationId = "b0000000-0000-4000-8000-000000000001";
+  const ownerId = "a0000000-0000-4000-8000-000000000001";
   const classId = "c0000000-0000-4000-8000-000000000001";
   const firstStudentId = "a0000000-0000-4000-8000-000000000006";
   const secondStudentId = "a0000000-0000-4000-8000-000000000009";
   const firstStaffId = "a0000000-0000-4000-8000-000000000003";
   const secondStaffId = "a0000000-0000-4000-8000-000000000004";
   const revocationStaffId = "a0000000-0000-4000-8000-00000000000a";
+  const expiryStaffId = "a0000000-0000-4000-8000-00000000000c";
   const requestSql =
     "select public.request_student_help_v2($1,$2,$3,$4) as result";
 
@@ -1897,11 +1906,22 @@ async function runHelpQueueConcurrency(config) {
       [[firstStaffId, secondStaffId, revocationStaffId], classId],
     );
     assert.equal(assignments.rows.length, 3);
+    const assignmentByStaff = new Map(
+      assignments.rows.map((row) => [row.user_id, row.id]),
+    );
+    for (const [staffId, commandId] of [
+      [firstStaffId, "e1a10000-0000-4000-8000-000000000001"],
+      [revocationStaffId, "e1a10000-0000-4000-8000-000000000002"],
+    ]) {
+      const joined = await client.query(
+        "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+        [queue.rows[0].id, staffId, assignmentByStaff.get(staffId), commandId],
+      );
+      assert.equal(joined.rows[0].result.participating, true);
+    }
     return {
       queueId: queue.rows[0].id,
-      assignmentByStaff: new Map(
-        assignments.rows.map((row) => [row.user_id, row.id]),
-      ),
+      assignmentByStaff,
     };
   });
 
@@ -1977,6 +1997,10 @@ async function runHelpQueueConcurrency(config) {
   );
   assert.equal(claimRace.filter((result) => result.status === "fulfilled").length, 1);
   assert.equal(claimRace.filter((result) => result.status === "rejected").length, 1);
+  assert.match(
+    claimRace.find((result) => result.status === "rejected").reason.message,
+    /ownership version is stale|already taken/i,
+  );
 
   const claimOwner = await withClient(config, "klar-e1-resolve-claim", async (client) => {
     const owner = await client.query(
@@ -2114,11 +2138,15 @@ async function runHelpQueueConcurrency(config) {
           where entity_id = $1 and event_name = 'help.requeued'
             and metadata ->> 'reason' = 'claimant_assignment_inactive') as requeues,
          (select count(*)::integer from public.help_queue_command_receipts
-          where actor_id = $2 and request_id = $3 and command = 'claim_help') as receipts`,
+          where actor_id = $2 and request_id = $3 and command = 'claim_help') as receipts,
+         (select count(*)::integer from public.help_queue_staff_participants
+          where queue_session_id = $4 and user_id = $2
+            and left_at is not null and leave_reason = 'assignment_inactive') as retired_participants`,
       [
         revokeRaceRequest,
         revocationStaffId,
         "e1c00000-0000-4000-8000-000000000005",
+        state.queueId,
       ],
     );
     assert.deepEqual(result.rows[0], {
@@ -2126,6 +2154,7 @@ async function runHelpQueueConcurrency(config) {
       claimed_by: null,
       requeues: claimWonRevocationRace ? 1 : 0,
       receipts: claimWonRevocationRace ? 1 : 0,
+      retired_participants: 1,
     });
     await client.query(
       "select public.cancel_student_help_v2($1,$2,$3)",
@@ -2133,6 +2162,155 @@ async function runHelpQueueConcurrency(config) {
         revokeRaceRequest,
         firstStudentId,
         "e1c00000-0000-4000-8000-000000000006",
+      ],
+    );
+  });
+
+  const expiryState = await withClient(
+    config,
+    "klar-e1-expiry-race-setup",
+    async (client) => {
+      const assignment = await client.query(
+        `select public.create_staff_assignment(
+           $1,$2,$3,$4,'substitute',
+           clock_timestamp() - interval '1 minute',
+           clock_timestamp() + interval '5 seconds',
+           $5
+         ) as id`,
+        [
+          organizationId,
+          "a0000000-0000-4000-8000-000000000001",
+          expiryStaffId,
+          classId,
+          "e1ce0000-0000-4000-8000-000000000001",
+        ],
+      );
+      const assignmentId = assignment.rows[0].id;
+      const assignmentWindow = await client.query(
+        "select ends_at from public.staff_assignments where id = $1",
+        [assignmentId],
+      );
+      const joined = await client.query(
+        "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+        [
+          state.queueId,
+          expiryStaffId,
+          assignmentId,
+          "e1ce0000-0000-4000-8000-000000000002",
+        ],
+      );
+      assert.equal(joined.rows[0].result.participating, true);
+      assert.equal(joined.rows[0].result.participant_count, 3);
+      const request = await client.query(requestSql, [
+        state.queueId,
+        firstStudentId,
+        "e1ce0000-0000-4000-8000-000000000003",
+        null,
+      ]);
+      const claimed = await client.query(
+        "select public.claim_student_help_v3($1,$2,$3,$4,$5) as result",
+        [
+          request.rows[0].result.request_id,
+          request.rows[0].result.ownership_version,
+          expiryStaffId,
+          assignmentId,
+          "e1ce0000-0000-4000-8000-000000000004",
+        ],
+      );
+      assert.equal(claimed.rows[0].result.status, "claimed");
+      return {
+        assignmentId,
+        endsAt: assignmentWindow.rows[0].ends_at,
+        requestId: request.rows[0].result.request_id,
+      };
+    },
+  );
+
+  let assignmentExpired = false;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    assignmentExpired = await withClient(
+      config,
+      `klar-e1-expiry-clock-${attempt}`,
+      async (client) => {
+        const result = await client.query(
+          "select clock_timestamp() >= $1::timestamptz + interval '100 milliseconds' as expired",
+          [expiryState.endsAt],
+        );
+        return result.rows[0].expired;
+      },
+    );
+    if (assignmentExpired) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.equal(assignmentExpired, true, "Det tidsavgrensede k\u00f8oppdraget utl\u00f8p ikke innen testfristen.");
+
+  const expiryRace = await synchronizedPair(
+    config,
+    "help-assignment-expiry",
+    (client) => client.query(
+      "select public.reconcile_expired_staff_assignments($1) as count",
+      [organizationId],
+    ),
+    (client) => client.query(
+      "select public.reconcile_expired_staff_assignments($1) as count",
+      [organizationId],
+    ),
+  );
+  assert(expiryRace.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    expiryRace.map((result) => result.value.rows[0].count).sort(),
+    [0, 1],
+  );
+
+  await withClient(config, "klar-e1-assert-expiry-race", async (client) => {
+    const result = await client.query(
+      `select
+         (select status::text from public.help_queue_sessions where id = $1) as queue_status,
+         (select count(*)::integer from public.help_queue_staff_participants
+          where queue_session_id = $1 and left_at is null) as active_participants,
+         (select status::text from public.help_requests where id = $2) as request_status,
+         (select claimed_by from public.help_requests where id = $2) as claimed_by,
+         (select count(*)::integer from public.staff_assignments
+          where id = $3 and expiry_audited_at is not null) as expired_assignments,
+         (select count(*)::integer from public.audit_events
+          where entity_id = $3 and event_name = 'staff_assignment.expired') as expiry_audits,
+         (select count(*)::integer from public.audit_events
+          where entity_id = $2 and event_name = 'help.requeued'
+            and metadata ->> 'reason' = 'claimant_assignment_inactive') as requeue_audits,
+         (select count(*)::integer
+          from public.help_queue_staff_participants as participant
+          where participant.queue_session_id = $1
+            and participant.user_id = $4
+            and participant.left_at is not null
+            and participant.leave_reason = 'assignment_inactive') as retired_participants,
+         (select count(*)::integer
+          from public.audit_events as audit
+          join public.help_queue_staff_participants as participant
+            on participant.id = audit.entity_id
+          where participant.queue_session_id = $1
+            and participant.user_id = $4
+            and audit.event_name = 'help_queue.staff_left'
+            and audit.metadata ->> 'reason' = 'assignment_inactive') as leave_audits
+       `,
+      [state.queueId, expiryState.requestId, expiryState.assignmentId, expiryStaffId],
+    );
+    assert.deepEqual(result.rows[0], {
+      queue_status: "open",
+      active_participants: 2,
+      request_status: "waiting",
+      claimed_by: null,
+      expired_assignments: 1,
+      expiry_audits: 1,
+      requeue_audits: 1,
+      retired_participants: 1,
+      leave_audits: 1,
+    });
+    await client.query(
+      "select public.cancel_student_help_v2($1,$2,$3)",
+      [
+        expiryState.requestId,
+        firstStudentId,
+        "e1ce0000-0000-4000-8000-000000000005",
       ],
     );
   });
@@ -2290,6 +2468,102 @@ async function runHelpQueueConcurrency(config) {
     );
   });
 
+  const leaveRaceState = await withClient(
+    config,
+    "klar-e1-participant-leave-race-setup",
+    async (client) => {
+      const participants = await client.query(
+        `select user_id::text, participation_version::text
+         from public.help_queue_staff_participants
+         where queue_session_id = $1
+           and user_id = any($2::uuid[])
+           and left_at is null
+         order by user_id`,
+        [state.queueId, [firstStaffId, secondStaffId]],
+      );
+      assert.equal(participants.rows.length, 2);
+      return new Map(
+        participants.rows.map((participant) => [
+          participant.user_id,
+          participant.participation_version,
+        ]),
+      );
+    },
+  );
+  const leaveRaceRequestIds = [
+    "e1cf0000-0000-4000-8000-000000000001",
+    "e1cf0000-0000-4000-8000-000000000002",
+  ];
+  const leaveRace = await synchronizedPair(
+    config,
+    "help-participant-leave",
+    (client) => client.query(
+      "select public.leave_help_queue_staff_v1($1,$2,$3,$4,$5) as result",
+      [
+        state.queueId,
+        leaveRaceState.get(firstStaffId),
+        firstStaffId,
+        state.assignmentByStaff.get(firstStaffId),
+        leaveRaceRequestIds[0],
+      ],
+    ),
+    (client) => client.query(
+      "select public.leave_help_queue_staff_v1($1,$2,$3,$4,$5) as result",
+      [
+        state.queueId,
+        leaveRaceState.get(secondStaffId),
+        secondStaffId,
+        state.assignmentByStaff.get(secondStaffId),
+        leaveRaceRequestIds[1],
+      ],
+    ),
+  );
+  assert.equal(leaveRace.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(leaveRace.filter((result) => result.status === "rejected").length, 1);
+  assert.match(
+    leaveRace.find((result) => result.status === "rejected").reason.message,
+    /Last participant must close the help queue/i,
+  );
+  const leavingStaffId = leaveRace[0].status === "fulfilled"
+    ? firstStaffId
+    : secondStaffId;
+  await withClient(config, "klar-e1-assert-participant-leave-race", async (client) => {
+    const result = await client.query(
+      `select
+         (select status::text from public.help_queue_sessions where id = $1) as status,
+         (select count(*)::integer from public.help_queue_staff_participants
+          where queue_session_id = $1 and left_at is null) as active_participants,
+         (select count(*)::integer from public.help_queue_command_receipts
+          where command = 'leave_queue' and request_id = any($2::uuid[])) as receipts,
+         (select count(*)::integer from public.audit_events
+          where event_name = 'help_queue.staff_left'
+            and actor_id = any($3::uuid[])
+            and metadata ->> 'reason' = 'voluntary') as audits`,
+      [
+        state.queueId,
+        leaveRaceRequestIds,
+        [firstStaffId, secondStaffId],
+      ],
+    );
+    assert.deepEqual(result.rows[0], {
+      status: "open",
+      active_participants: 1,
+      receipts: 1,
+      audits: 1,
+    });
+    const rejoined = await client.query(
+      "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+      [
+        state.queueId,
+        leavingStaffId,
+        state.assignmentByStaff.get(leavingStaffId),
+        "e1cf0000-0000-4000-8000-000000000003",
+      ],
+    );
+    assert.equal(rejoined.rows[0].result.participating, true);
+    assert.equal(rejoined.rows[0].result.participant_count, 2);
+  });
+
   const queueBeforeClose = await withClient(
     config,
     "klar-e1-version-before-close",
@@ -2357,6 +2631,282 @@ async function runHelpQueueConcurrency(config) {
     );
     assert.deepEqual(finalQueue.rows[0], { status: "closed", active: 0 });
   });
+
+  const joinCloseOpenState = await withClient(
+    config,
+    "klar-e1-join-close-race-setup",
+    async (client) => {
+      const targetClass = await client.query(
+        "select public.create_class_for_teacher($1,$2,$3,$4) as id",
+        [organizationId, ownerId, "Samtidig køklasse", "2026/2027"],
+      );
+      const targetClassId = targetClass.rows[0].id;
+      await client.query(
+        `insert into public.class_memberships (
+           class_id, organization_id, user_id, role, created_by
+         ) values ($1,$2,$3,'student',$4)`,
+        [targetClassId, organizationId, firstStudentId, ownerId],
+      );
+      const assignmentByStaff = new Map();
+      for (const [staffId, requestId] of [
+        [firstStaffId, "e1dd0000-0000-4000-8000-000000000001"],
+        [secondStaffId, "e1dd0000-0000-4000-8000-000000000002"],
+      ]) {
+        const assignment = await client.query(
+          `select public.create_staff_assignment(
+             $1,$2,$3,$4,'substitute',
+             clock_timestamp() - interval '1 minute',
+             clock_timestamp() + interval '1 day',$5
+           ) as id`,
+          [organizationId, ownerId, staffId, targetClassId, requestId],
+        );
+        assignmentByStaff.set(staffId, assignment.rows[0].id);
+      }
+      const fixtureWindow = await client.query(
+        `select
+           date_trunc('week', clock_timestamp() at time zone 'Europe/Oslo')::date as week_start,
+           clock_timestamp() - interval '10 minutes' as starts_at,
+           clock_timestamp() + interval '2 hours' as ends_at`,
+      );
+      const candidate = {
+        schema_version: "weekly_plan_v1",
+        sessions: [
+          {
+            logical_key: "e1dc0000-0000-4000-8000-000000000001",
+            title: "Samtidig køøkt",
+            subject: "Norsk",
+            starts_at: fixtureWindow.rows[0].starts_at,
+            ends_at: fixtureWindow.rows[0].ends_at,
+            tasks: [
+              {
+                logical_key: "e1dc0000-0000-4000-8000-000000000002",
+                title: "Samtidig køoppgave",
+                description: "Syntetisk oppgave for join- og stengingsrace.",
+                subject: "Norsk",
+                estimated_minutes: 10,
+                support_level: 2,
+              },
+            ],
+          },
+        ],
+      };
+      const published = await client.query(
+        `select public.publish_initial_weekly_plan(
+           $1,$2,$3,$4,'Europe/Oslo',0,$5,$6,$7::jsonb
+         ) as result`,
+        [
+          targetClassId,
+          secondStaffId,
+          assignmentByStaff.get(secondStaffId),
+          fixtureWindow.rows[0].week_start,
+          "e1dd0000-0000-4000-8000-000000000003",
+          "f".repeat(64),
+          JSON.stringify(candidate),
+        ],
+      );
+      const revision = await client.query(
+        `select id
+         from public.plan_revision_sessions
+         where revision_id = $1
+         order by starts_at, id
+         limit 1`,
+        [published.rows[0].result.revision_id],
+      );
+      const opened = await client.query(
+        "select public.open_help_queue_session($1,$2,$3,$4,$5) as result",
+        [
+          targetClassId,
+          revision.rows[0].id,
+          secondStaffId,
+          assignmentByStaff.get(secondStaffId),
+          "e1de0000-0000-4000-8000-000000000001",
+        ],
+      );
+      assert.equal(opened.rows[0].result.status, "open");
+      assert.equal(opened.rows[0].result.participating, true);
+      assert.equal(opened.rows[0].result.participant_count, 1);
+      assert.notEqual(opened.rows[0].result.queue_session_id, state.queueId);
+      return {
+        queueId: opened.rows[0].result.queue_session_id,
+        classId: targetClassId,
+        assignmentByStaff,
+      };
+    },
+  );
+
+  const concurrentJoinRequestIds = [
+    "e1de0000-0000-4000-8000-000000000002",
+    "e1de0000-0000-4000-8000-000000000003",
+  ];
+  const concurrentJoinRace = await synchronizedPair(
+    config,
+    "help-participant-concurrent-join",
+    (client) => client.query(
+      "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+      [
+        joinCloseOpenState.queueId,
+        firstStaffId,
+        joinCloseOpenState.assignmentByStaff.get(firstStaffId),
+        concurrentJoinRequestIds[0],
+      ],
+    ),
+    (client) => client.query(
+      "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+      [
+        joinCloseOpenState.queueId,
+        firstStaffId,
+        joinCloseOpenState.assignmentByStaff.get(firstStaffId),
+        concurrentJoinRequestIds[1],
+      ],
+    ),
+  );
+  assert(concurrentJoinRace.every((result) => result.status === "fulfilled"));
+  assert.deepEqual(
+    concurrentJoinRace
+      .map((result) => result.value.rows[0].result.changed)
+      .sort(),
+    [false, true],
+  );
+  assert(
+    concurrentJoinRace.every(
+      (result) => result.value.rows[0].result.participant_count === 2,
+    ),
+  );
+
+  const joinCloseState = await withClient(
+    config,
+    "klar-e1-join-close-race-ready",
+    async (client) => {
+      const joined = await client.query(
+        `select
+           participant.participation_version::text,
+           (select count(*)::integer from public.help_queue_staff_participants
+            where queue_session_id = $1 and left_at is null) as participant_count,
+           (select count(*)::integer from public.help_queue_command_receipts
+            where actor_id = $2 and command = 'join_queue'
+              and request_id = any($3::uuid[])) as receipt_count,
+           (select count(*)::integer from public.audit_events
+            where actor_id = $2 and event_name = 'help_queue.staff_joined'
+              and metadata ->> 'queue_session_id' = $1::text) as audit_count
+         from public.help_queue_staff_participants as participant
+         where participant.queue_session_id = $1
+           and participant.user_id = $2
+           and participant.left_at is null`,
+        [joinCloseOpenState.queueId, firstStaffId, concurrentJoinRequestIds],
+      );
+      assert.deepEqual(
+        {
+          participant_count: joined.rows[0].participant_count,
+          receipt_count: joined.rows[0].receipt_count,
+          audit_count: joined.rows[0].audit_count,
+        },
+        { participant_count: 2, receipt_count: 2, audit_count: 1 },
+      );
+      const left = await client.query(
+        "select public.leave_help_queue_staff_v1($1,$2,$3,$4,$5) as result",
+        [
+          joinCloseOpenState.queueId,
+          joined.rows[0].participation_version,
+          firstStaffId,
+          joinCloseOpenState.assignmentByStaff.get(firstStaffId),
+          "e1de0000-0000-4000-8000-000000000004",
+        ],
+      );
+      assert.equal(left.rows[0].result.status, "open");
+      assert.equal(left.rows[0].result.participant_count, 1);
+      const request = await client.query(requestSql, [
+        joinCloseOpenState.queueId,
+        firstStudentId,
+        "e1df0000-0000-4000-8000-000000000001",
+        null,
+      ]);
+      const queue = await client.query(
+        "select lock_version from public.help_queue_sessions where id = $1",
+        [joinCloseOpenState.queueId],
+      );
+      return {
+        queueId: joinCloseOpenState.queueId,
+        requestId: request.rows[0].result.request_id,
+        lockVersion: queue.rows[0].lock_version,
+      };
+    },
+  );
+  const joinCloseRace = await synchronizedPair(
+    config,
+    "help-participant-join-close",
+    (client) => client.query(
+      "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+      [
+        joinCloseState.queueId,
+        firstStaffId,
+        joinCloseOpenState.assignmentByStaff.get(firstStaffId),
+        "e1df0000-0000-4000-8000-000000000002",
+      ],
+    ),
+    (client) => client.query(
+      "select public.begin_close_help_queue_session($1,$2,$3,$4,$5) as result",
+      [
+        joinCloseState.queueId,
+        joinCloseState.lockVersion,
+        secondStaffId,
+        joinCloseOpenState.assignmentByStaff.get(secondStaffId),
+        "e1df0000-0000-4000-8000-000000000003",
+      ],
+    ),
+  );
+  assert.equal(joinCloseRace[1].status, "fulfilled");
+  if (joinCloseRace[0].status === "rejected") {
+    assert.match(
+      joinCloseRace[0].reason.message,
+      /Only an open help queue can be joined|Help queue does not accept staff participants/i,
+    );
+  }
+  await withClient(config, "klar-e1-assert-join-close-race", async (client) => {
+    const beforeDrain = await client.query(
+      `select
+         queue.status::text as status,
+         (select count(*)::integer from public.help_queue_staff_participants
+          where queue_session_id = queue.id and left_at is null) as participants,
+         (select count(*)::integer from public.help_queue_command_receipts
+          where actor_id = $2 and request_id = $3 and command = 'join_queue') as join_receipts,
+         (select count(*)::integer from public.help_queue_command_receipts
+          where actor_id = $4 and request_id = $5 and command = 'close_queue') as close_receipts
+       from public.help_queue_sessions as queue
+       where queue.id = $1`,
+      [
+        joinCloseState.queueId,
+        firstStaffId,
+        "e1df0000-0000-4000-8000-000000000002",
+        secondStaffId,
+        "e1df0000-0000-4000-8000-000000000003",
+      ],
+    );
+    assert.deepEqual(beforeDrain.rows[0], {
+      status: "closing",
+      participants: joinCloseRace[0].status === "fulfilled" ? 2 : 1,
+      join_receipts: joinCloseRace[0].status === "fulfilled" ? 1 : 0,
+      close_receipts: 1,
+    });
+    await client.query(
+      "select public.cancel_student_help_v2($1,$2,$3)",
+      [
+        joinCloseState.requestId,
+        firstStudentId,
+        "e1df0000-0000-4000-8000-000000000004",
+      ],
+    );
+    const finalQueue = await client.query(
+      `select status::text as status,
+         (select count(*)::integer from public.help_queue_staff_participants
+          where queue_session_id = $1 and left_at is null) as active_participants
+       from public.help_queue_sessions where id = $1`,
+      [joinCloseState.queueId],
+    );
+    assert.deepEqual(finalQueue.rows[0], {
+      status: "closed",
+      active_participants: 0,
+    });
+  });
 }
 
 async function runHelpQueueStaffControlConcurrency(config) {
@@ -2401,6 +2951,17 @@ async function runHelpQueueStaffControlConcurrency(config) {
     const assignmentByStaff = new Map(
       assignments.rows.map((row) => [row.user_id, row.id]),
     );
+    const firstStaffJoin = await client.query(
+      "select public.join_help_queue_staff_v1($1,$2,$3,$4) as result",
+      [
+        queue.rows[0].id,
+        firstStaffId,
+        assignmentByStaff.get(firstStaffId),
+        "e2900000-0000-4000-8000-000000000003",
+      ],
+    );
+    assert.equal(firstStaffJoin.rows[0].result.participating, true);
+    assert.equal(firstStaffJoin.rows[0].result.participant_count, 2);
     const firstRequest = await client.query(
       "select public.request_student_help_v2($1,$2,$3,$4) as result",
       [
@@ -2529,6 +3090,7 @@ async function runEmptyScenario() {
     applyD2(container.name);
     applyD3(container.name);
     applyB2(container.name);
+    applyHelpQueueParticipation(container.name);
     runSql(container.name, "supabase/verification/rls_smoke.sql");
     runSql(container.name, "supabase/verification/staff_rls_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/progress_rls_rpc_smoke.sql");
@@ -2545,6 +3107,11 @@ async function runEmptyScenario() {
     runSql(container.name, "supabase/verification/student_task_catalog_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_session_rpc_smoke.sql");
     runSql(container.name, "supabase/verification/help_queue_staff_controls_rpc_smoke.sql");
+    runSql(container.name, "supabase/verification/help_queue_staff_participation_rpc_smoke.sql");
+    runSql(
+      container.name,
+      "supabase/verification/help_queue_staff_participation_resilience_rpc_smoke.sql",
+    );
     await runHelpQueueStaffControlConcurrency(container.config);
     await runHelpQueueConcurrency(container.config);
     await runWeeklyPlanConcurrency(container.config);
@@ -2591,6 +3158,11 @@ function runUpgradeScenario() {
     runSql(positive.name, "supabase/verification/flower_reward_upgrade_restore.sql");
     applyB2(positive.name);
     runSql(positive.name, "supabase/verification/flower_reward_upgrade_smoke.sql");
+    applyHelpQueueParticipation(positive.name);
+    runSql(
+      positive.name,
+      "supabase/verification/help_queue_staff_participation_upgrade_smoke.sql",
+    );
   } finally {
     cleanupContainer(positive.name);
   }

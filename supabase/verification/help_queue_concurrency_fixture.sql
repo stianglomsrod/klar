@@ -15,6 +15,21 @@ values (
   'a0000000-0000-4000-8000-000000000001'
 );
 
+insert into auth.users (id, email, raw_user_meta_data)
+values (
+  'a0000000-0000-4000-8000-00000000000c',
+  'help-expiry-race@concurrency.test',
+  '{"display_name":"Help expiry race"}'::jsonb
+);
+
+insert into public.memberships (organization_id, user_id, role, created_by)
+values (
+  'b0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-00000000000c',
+  'teacher',
+  'a0000000-0000-4000-8000-000000000001'
+);
+
 select public.create_staff_assignment(
   'b0000000-0000-4000-8000-000000000001',
   'a0000000-0000-4000-8000-000000000001',

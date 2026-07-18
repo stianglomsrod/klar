@@ -1,6 +1,6 @@
 # E03 – Kontekstuell hjelpekø
 
-**Status:** Pågår – E1s kjernekø og E2s private ansattstyring er lokalt verifisert
+**Status:** Pågår – E1s kjernekø, E2s private ansattstyring og E3s delte ansattdeltakelse er lokalt verifisert; gruppe/livepanel og fysisk enhetsport gjenstår
 
 **Kontrakt:** [§ 8 Hjelpekø](../product/DOMAIN_CONTRACT.md#8-hjelpekø)
 
@@ -19,6 +19,8 @@ omprioritering. E1 har levert en aktiv kø for eksakt
 claim/resolve, sikker realtime-invalidering og deterministisk
 `open → closing → closed`. E2 har i tillegg levert atomisk, reviderbar
 omprioritering, frigivelse og overføring mellom autoriserte ansatte.
+E3 utvider dette med eksplisitt deltakelse per ansattbruker, personlig uttreden
+uten global stenging og trygg overtakelse dersom en kø mister alle deltakere.
 
 ## Omfang
 
@@ -29,7 +31,10 @@ omprioritering, frigivelse og overføring mellom autoriserte ansatte.
 - kompakt elevstatus og avmelding;
 - ansattrekkefølge, ventetid, overtakelse, løsning, frigivelse og overføring;
 - atomisk, reviderbar prioritering;
-- realtime og gjenoppretting etter forbindelsesbrudd.
+- realtime og gjenoppretting etter forbindelsesbrudd;
+- eksplisitt «Bli med», personlig «Forlat køen» og separat global «Steng kø»;
+- overføring og videre drift når én av flere ansatte går til en annen klasse;
+- automatisk uttreden ved utløpt/tilbakekalt oppdrag og redning av ubemannet kø.
 
 Epicen omfatter ikke elevchat, krav om begrunnelse, synlig kønummer,
 ventetidsløfte eller eksponering av andre elever.
@@ -70,6 +75,28 @@ ventetidsløfte eller eksponering av andre elever.
 - global livewidget/klassefilter for ansatte;
 - fysisk E1-retest av touch, safe-area og skjermleser på reell enhet.
 
+## Delt ansattdeltakelse
+
+- Den som åpner køen er første deltaker. En annen autorisert ansatt må velge
+  «Bli med» før hen kan bruke operative køkommandoer eller abonnere på løpende
+  ansattoppdateringer.
+- Deltakelse har én identitet per kø og ansattbruker. Hvert kall autoriseres
+  likevel med et aktuelt oppdrag, slik at et nytt overlappende oppdrag kan brukes
+  uten å duplisere deltakeren.
+- «Forlat køen» er personlig: køen, elevstatusene og de andre deltakernes arbeid
+  fortsetter. Handlingen kan også brukes mens køen tømmes i `closing`, og
+  avvises hvis brukeren eier arbeid eller er siste deltaker.
+- «Steng kø» er global og kan velges av enhver aktiv deltaker. Køen går til
+  `closing`, tar ikke imot nye elever og lar gjenværende deltakere tømme aktive
+  forespørsler.
+- Overføring kan bare skje til en annen aktiv deltaker med aktuelt autorisert
+  oppdrag i samme klasse.
+- Reconcile fjerner utløpte eller tilbakekalte deltakere, re-køer eid arbeid og
+  sender en staff-only invalidering. Ved null deltakere går en åpen kø til
+  `closing`; en ny autorisert ansatt kan melde seg inn for å tømme restarbeidet.
+- Join, leave og alle køkommandoer er atomiske, idempotente og reviderbare.
+  Browserroller har ikke direkte tabell- eller RPC-tilgang.
+
 ## Elevens interaksjonskontrakt
 
 | Tilstand | Synlig kontroll | Handling |
@@ -97,6 +124,8 @@ oppgavekontekst uten å miste køtid eller intern posisjon.
   nøyaktig intern rekkefølge.
 - Bare én ansatt kan eie/overtake en forespørsel av gangen.
 - Eieren kan løse den; eksplisitte handlinger frigir eller overfører eierskap.
+- En ansatt som skal videre til en annen klasse frigir, overfører eller løser
+  eget arbeid og velger deretter «Forlat køen». De andre deltakernes kø fortsetter.
 - Autoriserte ansatte kan flytte opp/ned eller først. Drag kan tilbys på PC,
   men aldri være eneste metode.
 - Omprioritering skjer i én versjonskontrollert serveroperasjon og logger aktør,
@@ -116,6 +145,8 @@ eksplisitt kansellert. Først da blir køen `lukket`.
   tidsstempler.
 - `help_queue_order`: separat, staff-only intern rang for aktive
   forespørsler.
+- `help_queue_staff_participants`: service-only deltakelse per kø og
+  ansattbruker, med join-/leave-årsak, versjon og oppdraget som auditgrunnlag.
 - Unik aktiv forespørsel per `(queue_session, student)`.
 - Serverkommandoer for open/close, request/cancel, contextualize, claim,
   release/transfer, resolve og reorder.
@@ -146,6 +177,16 @@ eksplisitt kansellert. Først da blir køen `lukket`.
   usynlig aktiv forespørsel.
 - [x] Reconnect, dobbeltrykk og retry gir semantisk stabil status.
 - [x] Handling utenfor aktiv klasse/økt/ansattoppdrag avvises.
+- [x] To ansatte kan delta; én kan overføre arbeid og forlate uten å stenge for
+  den andre.
+- [x] Ikke-deltakere kan ikke mutere køen eller motta køens staff-only
+  realtime-abonnement.
+- [x] Siste deltaker kan ikke forlate en åpen kø, men enhver aktiv deltaker kan
+  starte global `closing`.
+- [x] En ikke-siste deltaker uten eid arbeid kan forlate en stengende kø; den
+  gjenværende deltakeren fortsetter å tømme den.
+- [x] Tilbakekalling, null deltakere, redning, overlappende oppdrag og identiske
+  retryer bevarer aktive forespørsler og revisjonsspor.
 - [ ] Flyten fungerer på mobil, iPad og PC ved 200 % zoom og med skjermleser.
 
 ## Tester og ferdigbevis
@@ -160,7 +201,9 @@ lekkasje av prioritet, og når audit og tilgjengelighet er verifisert.
 
 Automatisert og visuelt delbevis finnes i
 [Kontrollpunkt E1](../qa/CONTROL_POINT_E1.md) og
-[kontrollpunkt E2](../qa/CONTROL_POINT_E2.md). Det samlede kriteriet for fysisk
+[kontrollpunkt E2](../qa/CONTROL_POINT_E2.md). Deltakelse, personlig uttreden,
+automatisk sikker uttreden/re-køing og eksplisitt overtakelse er dokumentert i
+[kontrollpunkt E3](../qa/CONTROL_POINT_E3.md). Det samlede kriteriet for fysisk
 skjermleser/touch står åpent selv om Chromium, WebKit, axe, tastatur og
 viewportmatrisen er grønne.
 

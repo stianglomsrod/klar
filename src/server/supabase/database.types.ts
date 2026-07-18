@@ -291,6 +291,20 @@ type HelpQueueSessionRow = {
   updated_at: string;
 };
 
+type HelpQueueStaffParticipantRow = {
+  id: string;
+  organization_id: string;
+  class_id: string;
+  queue_session_id: string;
+  user_id: string;
+  staff_assignment_id: string;
+  joined_at: string;
+  left_at: string | null;
+  leave_reason: "voluntary" | "queue_closed" | "assignment_inactive" | null;
+  participation_version: number;
+  updated_at: string;
+};
+
 type HelpQueueCommandReceiptRow = {
   organization_id: string;
   actor_id: string;
@@ -298,6 +312,8 @@ type HelpQueueCommandReceiptRow = {
   command:
     | "open_queue"
     | "close_queue"
+    | "join_queue"
+    | "leave_queue"
     | "request_help"
     | "cancel_help"
     | "claim_help"
@@ -783,6 +799,22 @@ export type Database = {
           updated_at?: string;
         }
       >;
+      help_queue_staff_participants: TableDefinition<
+        HelpQueueStaffParticipantRow,
+        {
+          id?: string;
+          organization_id: string;
+          class_id: string;
+          queue_session_id: string;
+          user_id: string;
+          staff_assignment_id: string;
+          joined_at?: string;
+          left_at?: string | null;
+          leave_reason?: HelpQueueStaffParticipantRow["leave_reason"];
+          participation_version?: number;
+          updated_at?: string;
+        }
+      >;
       help_queue_signals: TableDefinition<
         HelpQueueSignalRow,
         {
@@ -1180,6 +1212,14 @@ export type Database = {
         Args: { p_class_id?: string | null };
         Returns: number;
       };
+      reconcile_help_queue_staff_participants_v1: {
+        Args: { p_class_id?: string | null };
+        Returns: number;
+      };
+      is_active_help_queue_staff_participant_v1: {
+        Args: { p_queue_session_id: string };
+        Returns: boolean;
+      };
       open_help_queue_session: {
         Args: {
           p_class_id: string;
@@ -1194,6 +1234,25 @@ export type Database = {
         Args: {
           p_queue_session_id: string;
           p_expected_version: number;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      join_help_queue_staff_v1: {
+        Args: {
+          p_queue_session_id: string;
+          p_actor_id: string;
+          p_staff_assignment_id: string;
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      leave_help_queue_staff_v1: {
+        Args: {
+          p_queue_session_id: string;
+          p_expected_participation_version: number;
           p_actor_id: string;
           p_staff_assignment_id: string;
           p_request_id: string;
@@ -1256,6 +1315,14 @@ export type Database = {
         Returns: Json;
       };
       read_help_queue_staff_snapshot_v1: {
+        Args: {
+          p_organization_id: string;
+          p_class_id: string;
+          p_queue_session_id: string;
+        };
+        Returns: Json;
+      };
+      read_help_queue_staff_snapshot_v2: {
         Args: {
           p_organization_id: string;
           p_class_id: string;

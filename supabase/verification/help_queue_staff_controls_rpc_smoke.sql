@@ -30,11 +30,14 @@ declare
   transfer_retry jsonb;
   resolve_result jsonb;
   staff_snapshot jsonb;
+  first_staff_join jsonb;
+  first_staff_join_retry jsonb;
   original_requested_at timestamptz;
   original_claimed_at timestamptz;
   student_signal_version bigint;
   activity_before_stale bigint;
   staff_signal_before_stale bigint;
+  staff_signal_before_noop bigint;
   denial_message text;
 begin
   insert into auth.users (id, email, raw_user_meta_data)
@@ -104,6 +107,33 @@ begin
   limit 1;
   if first_staff_assignment_id is null or second_staff_assignment_id is null then
     raise exception 'E2 fixture lacks two authorized help queue managers';
+  end if;
+
+  first_staff_join := public.join_help_queue_staff_v1(
+    queue_row.id,
+    first_staff_id,
+    first_staff_assignment_id,
+    'e2510000-0000-4000-8000-000000000001'
+  );
+  first_staff_join_retry := public.join_help_queue_staff_v1(
+    queue_row.id,
+    first_staff_id,
+    first_staff_assignment_id,
+    'e2510000-0000-4000-8000-000000000001'
+  );
+  if first_staff_join is distinct from first_staff_join_retry
+    or first_staff_join ->> 'changed' <> 'true'
+    or first_staff_join ->> 'participating' <> 'true'
+    or (first_staff_join ->> 'participant_count')::integer <> 2
+    or (
+      select count(*)
+      from public.audit_events
+      where event_name = 'help_queue.staff_joined'
+        and actor_id = first_staff_id
+        and metadata ->> 'queue_session_id' = queue_row.id::text
+    ) <> 1
+  then
+    raise exception 'Shared queue join was not atomic and receipt-idempotent';
   end if;
 
   select assignment.id
@@ -199,6 +229,11 @@ begin
   select queue.* into queue_row
   from public.help_queue_sessions as queue
   where queue.id = queue_row.id;
+  select signal.signal_version
+  into staff_signal_before_noop
+  from public.help_queue_signals as signal
+  where signal.queue_session_id = queue_row.id
+    and signal.staff_only;
   no_op_result := public.reorder_student_help_v1(
     queue_row.id,
     (first_request ->> 'request_id')::uuid,
@@ -216,10 +251,9 @@ begin
       where event_name = 'help.reordered'
         and entity_id = (first_request ->> 'request_id')::uuid
     )
-    or exists (
-      select 1 from public.help_queue_signals
-      where queue_session_id = queue_row.id and staff_only
-    )
+    or (select signal_version from public.help_queue_signals
+        where queue_session_id = queue_row.id and staff_only)
+      is distinct from staff_signal_before_noop
   then
     raise exception 'Boundary reorder no-op produced audit or signal noise';
   end if;
@@ -606,6 +640,38 @@ do $$
 begin
   if (select count(*) from public.help_queue_signals where staff_only) <> 1 then
     raise exception 'Authorized AAL2 staff cannot observe the E2 invalidation signal';
+  end if;
+  if not public.is_active_help_queue_staff_participant_v1(
+    (
+      select queue_session_id
+      from public.help_queue_signals
+      where staff_only
+      limit 1
+    )
+  ) then
+    raise exception 'Active queue participant was not recognized at the RLS boundary';
+  end if;
+end;
+$$;
+
+reset role;
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"a0000000-0000-4000-8000-00000000000a","aal":"aal2","role":"authenticated"}',
+  true
+);
+do $$
+begin
+  if exists (
+    select 1 from public.help_queue_signals where staff_only
+  ) then
+    raise exception 'Authorized non-participant can observe staff-only invalidation';
+  end if;
+  if not exists (
+    select 1 from public.help_queue_signals where not staff_only
+  ) then
+    raise exception 'Authorized non-participant cannot discover queue lifecycle';
   end if;
 end;
 $$;

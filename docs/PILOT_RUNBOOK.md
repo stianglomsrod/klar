@@ -23,7 +23,10 @@ beskriver tekniske utviklings- og driftsgrep, ikke en produksjonsutrulling.
   den aktuelle undervisningsøkten, ta og løse forespørsler. Eleven får hånd
   bare i riktig økt og kan bruke generell eller oppgaveknyttet hjelp. Ansatte
   kan prioritere køen privat og reviderbart samt frigi eller overføre en
-  overtatt forespørsel. Gruppekø og global køwidget er ikke implementert.
+  overtatt forespørsel. Flere ansatte kan velge «Bli med»; én kan overføre eget
+  arbeid og «Forlat køen» uten å stenge eller beholde staff-varsler, mens
+  «Steng kø» er en separat global handling. Gruppekø og global køwidget er ikke
+  implementert.
 - Pushvarsler, innleveringer, fritekst om eleven og konkurrerende spillelementer
   er ikke del av første pilot.
 - Elevkontoer bruker korte visningsnavn, tilfeldig intern e-post, elevkode og
@@ -55,6 +58,14 @@ En ny lokal dato stopper ikke laben globalt. Tidløse scenarioer kan fortsatt
 brukes med bevarte data; et valgt tidsstyrt scenario avvises individuelt når
 tidsforutsetningen i aktiv planrevisjon ikke er oppfylt, og ber da om
 `npm run lab:reset`.
+
+Et registrert scenario som blir avbrutt av krasj eller tvungen lukking åpnes
+automatisk først ved neste `npm run lab`. En foreldreløs runner-lås overtas
+bare når den registrerte prosessen beviselig er borte, en atomisk
+operasjonsport er vunnet og dirty-manifestets tilfeldige runner-ID matcher
+låsens eier. Scenarioets refresh-tokens må fornyes, faktisk bruker-ID/AAL2 må
+bestå og vinduene må lukkes ryddig; ingen reset eller clean-markering skjer som
+følge av låsovertakelsen alene. Eldre ubundet dirty-metadata krever reset.
 
 Pilotmiljøet starter med [`PILOT_ENABLED=false`](../.env.pilot.example). Denne
 verdien sender innlogging og alle 3.0-ruter til en nøytral stengt-side. Endre
@@ -102,8 +113,11 @@ legges i repoet, deles i skjermbilder eller skrives i logger.
    nivåmilepæl → velg ett kronblad → angre og gjenvinn samme nivå uten ny
    belønning → skjul og vis hagen → angre/ansattretur → åpne hjelpekø →
    generell og oppgaveknyttet hånd → avmelding → claim → privat reorder →
-   release/transfer → resolve →
-   `closing`/`closed` → reconnect.
+   andre ansatt velger «Bli med» → release/transfer bare til aktiv deltaker →
+   personlig «Forlat køen» mens eier og elev forblir aktive → meld inn igjen →
+   global «Steng kø» → personlig «Forlat køen» i `closing` mens gjenværende
+   ansatt løser → `closed` → bekreft at utmeldt ansatt ikke får staff-varsler →
+   reconnect.
 10. Åpne piloten med `PILOT_ENABLED=true` og kontroller `/api/health` igjen.
 
 ## Minimumskontroll før hver testøkt
@@ -200,7 +214,12 @@ idempotens/rollback, claim-race, request-vs-memberskaps-/rollerace og en
 publisert signaltabell uten runtime-sletting eller cascade. E2-pakken dekker
 atomisk og reviderbar staff-reorder, release/transfer, private metadata,
 stale-/eierskapsrace og ett konsistent staff-snapshot. Realtime brukes bare
-som invalidering før autoritativ serverlesing. D2-pakken bygger det stabile
+som invalidering før autoritativ serverlesing. E3-pakken verifiserer eksplisitt
+deltakelse, personlig uttreden i `open` og `closing`, deltakerbundet overføring,
+global stenging, atomisk uttreden/re-køing ved endret tilgang og eksplisitt
+overtakelse av en ubemannet kø. Den rå sesjons-reconcile-hjelperen er uten
+runtime-grant; det offentlige reconcile-navnet inkluderer alltid
+deltakeropprydding. D2-pakken bygger det stabile
 planleggingslaget både fra tom database og representativ C1/B1-oppgradering,
 og verifiserer RLS/grants, rolleparitet, idempotens, samtidighet, audit,
 request-versus-flytt, framtidsskjuling og null XP-sideeffekt fra en gammel
@@ -210,9 +229,9 @@ oppgraderingskompatibilitet og samme fullførings-/XP-operasjon fra
 fagdetaljen i Chromium og WebKit. B2-pakken verifiserer varig
 blomsterentitlement/claim, RLS/grants, retry, rollback, samtidige fargevalg,
 claim-versus-angre, organisasjonsbundet klasseovergang, separate elev- og
-ansattpreferanser og komplett Chromium-flyt. B2s WebKit-produktpåstander
-passerer, men runtimeporten er fortsatt åpen fordi Next.js sine interne
-RSC-fallbacks rapporteres som access-control-feil av motoren.
+ansattpreferanser og komplett Chromium-/WebKit-flyt. WebKit-retesten 18. juli
+brukte autoritative, ferske sider etter serverhandlinger i stedet for å avbryte
+pågående RSC-oppdateringer; runtimefeilkontrollen ble beholdt uendret.
 Testene bruker bare syntetiske data og lokal Supabase.
 
 ## Manuell B2-port som gjenstår
@@ -239,11 +258,16 @@ WebKit/axe og tidligere A1-runder erstatter ikke denne konkrete flyten.
 ## Manuell E03-port som gjenstår
 
 Før E03s samlede enhetskriterium kan lukkes, skal elevhånd, «Står i kø»,
-avmelding, oppgavekontekst, lærerens claim/reorder/release/transfer/resolve og
-reconnect prøves på en reell touch-enhet med skjermleser. Kontroller safe-area,
-virtuelt tastatur, live-regioner og fokusretur. A1-iPad-runden under er nyttig
-skallbevis, men er ikke et fysisk E03-bevis fordi den ikke gjennomførte denne
-køflyten.
+avmelding, oppgavekontekst og reconnect prøves på en reell touch-enhet med
+skjermleser. Bruk to AAL2-ansatte: la ansatt 2 velge «Bli med», utfør
+claim/reorder/release/transfer/resolve, og bekreft at overføring bare tilbys til
+en aktiv deltaker. La ansatt 2 velge personlig «Forlat køen» i `open`, og
+bekreft at elev og ansatt 1 fortsetter mens ansatt 2 ikke lenger får
+staff-varsler. Meld ansatt 2 inn igjen, velg separat global «Steng kø», og la
+ansatt 2 forlate i `closing` mens ansatt 1 tømmer køen til `closed`. Kontroller
+safe-area, virtuelt tastatur, live-regioner og fokusretur. A1-iPad-runden under
+er nyttig skallbevis, men er ikke et fysisk E03-bevis fordi den ikke
+gjennomførte denne køflyten.
 
 ## Manuelle enhetsporter før Kontrollpunkt A kan lukkes
 

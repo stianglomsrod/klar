@@ -167,6 +167,27 @@ Ansattflaten kan vise eksakt rekkefølge, ventetid, oppgavekontekst og ansvarlig
 ansatt. Drag kan være en rask desktopmetode, men må suppleres med flytt
 opp/ned/først for tastatur og berøring.
 
+En åpen kø skal skille tydelig mellom tre voksenhandlinger:
+
+- «Bli med» gir køhandlinger og løpende oppdateringer;
+- «Forlat køen» stopper bare den aktuelle ansattes deltakelse og varsler;
+- «Steng kø» stopper nye elevforespørsler for alle, men lar deltakerne tømme
+  det som allerede står i kø.
+
+En ikke-deltakende ansatt kan se en kort status og orientere seg, men
+elevkortene skal være uten handlingskontroller. Deltakerantallet skal være
+synlig for ansatte. En ansatt som eier en forespørsel skal få en konkret beskjed
+om å løse, frigi eller overføre før «Forlat køen» kan brukes. Siste deltaker skal
+ledes til «Steng kø» i stedet for å kunne etterlate en åpen, ubemannet kø.
+Mens køen tømmes i `closing`, skal en ikke-siste deltaker uten eid arbeid fortsatt
+kunne velge «Forlat køen»; kollegaens køflate og elevens status fortsetter uten
+avbrudd.
+
+Hvis alle deltakere forsvinner på grunn av utløpt eller tilbakekalt tilgang,
+vises køen som `stenger`. Har den fortsatt elever, skal en autorisert ansatt få
+en rolig «Bli med»-handling for å overta og tømme den. Dette er en
+gjenopprettingsflyt, ikke en ny kø.
+
 ## Responsive mål
 
 - Mobil er ikke en krympet desktop. Tabeller blir kort, sheets blir

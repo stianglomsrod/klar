@@ -12,6 +12,7 @@ const INITIAL_SYNC_RETRY_MS = 5_000;
 export function useHelpQueueRealtime(
   classId: string | null,
   sessionEndsAt: string | null = null,
+  subscribeToSignals = true,
 ) {
   const router = useRouter();
 
@@ -75,11 +76,13 @@ export function useHelpQueueRealtime(
           }
         });
     };
-    void startSubscription().catch(finishInitialSync);
-    initialSyncTimer = window.setTimeout(() => {
-      initialSyncTimer = null;
-      refresh();
-    }, INITIAL_SYNC_RETRY_MS);
+    if (subscribeToSignals) {
+      void startSubscription().catch(finishInitialSync);
+      initialSyncTimer = window.setTimeout(() => {
+        initialSyncTimer = null;
+        refresh();
+      }, INITIAL_SYNC_RETRY_MS);
+    }
 
     let sessionTimer: number | null = null;
     const transitionAt = sessionEndsAt
@@ -120,7 +123,7 @@ export function useHelpQueueRealtime(
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [classId, router, sessionEndsAt]);
+  }, [classId, router, sessionEndsAt, subscribeToSignals]);
 }
 
 export function StudentHelpQueueRealtime({

@@ -202,6 +202,12 @@ test("owner oppretter, vikar bruker og owner tilbakekaller klasseoppdrag", async
       .getByText("Testelev", { exact: true }),
   ).toBeVisible();
 
+  const substituteQueue = substitutePage.getByRole("region", {
+    name: "Hjelpekø",
+  });
+  await substituteQueue.getByRole("button", { name: "Bli med" }).click();
+  await expect(substituteQueue.getByText(/Du deltar$/)).toBeVisible();
+
   await requestStudentHelp();
   await substitutePage
     .getByRole("button", {

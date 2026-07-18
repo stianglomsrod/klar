@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("staff help queue snapshot boundary", () => {
-  test("reads active order and requests through one atomic RPC", () => {
+  test("reads active order, requests and participants through one atomic RPC", () => {
     const source = readFileSync(
       path.join(root, "src/server/help/help-service.ts"),
       "utf8",
@@ -19,7 +19,7 @@ describe("staff help queue snapshot boundary", () => {
     const teacherRead = source.slice(start, end);
 
     assert.equal(
-      [...teacherRead.matchAll(/\.rpc\(\s*["']read_help_queue_staff_snapshot_v1["']/g)]
+      [...teacherRead.matchAll(/\.rpc\(\s*["']read_help_queue_staff_snapshot_v2["']/g)]
         .length,
       1,
     );

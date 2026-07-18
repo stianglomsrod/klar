@@ -10,14 +10,18 @@ import {
   Clock3,
   Hand,
   LockKeyhole,
+  LogOut,
   RotateCcw,
   Send,
   SlidersHorizontal,
+  UserPlus,
   X,
 } from "lucide-react";
 import {
   claimStudentHelpAction,
   closeTeacherHelpQueueAction,
+  joinTeacherHelpQueueAction,
+  leaveTeacherHelpQueueAction,
   openTeacherHelpQueueAction,
   releaseStudentHelpAction,
   reorderStudentHelpAction,
@@ -112,6 +116,9 @@ export function TeacherHelpQueue({
         state.queue.status,
         state.queue.lockVersion,
         state.queue.activityVersion,
+        state.queue.participating,
+        state.queue.participantCount,
+        state.queue.participationVersion,
       ].join(":")
     : "none";
   const commandIds = useRef(new Map<string, string>());
@@ -128,6 +135,7 @@ export function TeacherHelpQueue({
       state.nextTransitionAt,
       state.currentSession?.endsAt ?? null,
     ),
+    !state.queue || state.queue.status === "closed" || state.queue.participating,
   );
 
   useEffect(() => {
@@ -435,11 +443,22 @@ export function TeacherHelpQueue({
   const queueOpen = state.queue?.status === "open";
   const queueClosing = state.queue?.status === "closing";
   const queueClosed = state.queue?.status === "closed";
+  const canJoinQueue = Boolean(
+    state.queue &&
+      !state.queue.participating &&
+      (queueOpen ||
+        (queueClosing &&
+          state.queue.participantCount === 0 &&
+          state.requests.length > 0)),
+  );
   const session = state.currentSession;
   const waitingCount = state.requests.filter(
     (request) => request.status === "waiting",
   ).length;
   const claimedCount = state.requests.length - waitingCount;
+  const ownedClaimCount = state.requests.filter(
+    (request) => request.claimedByCurrentTeacher,
+  ).length;
   const priorityRequest = priorityDialog
     ? state.requests.find((request) => request.id === priorityDialog.requestId) ?? null
     : null;
@@ -482,14 +501,25 @@ export function TeacherHelpQueue({
             )}
           </div>
           {session ? (
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-700">
-              <strong>{session.title}</strong>
-              <span aria-hidden="true">·</span>
-              <span>
-                {timeFormatter.format(new Date(session.startsAt))}–
-                {timeFormatter.format(new Date(session.endsAt))}
-              </span>
-            </p>
+            <>
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-slate-700">
+                <strong>{session.title}</strong>
+                <span aria-hidden="true">·</span>
+                <span>
+                  {timeFormatter.format(new Date(session.startsAt))}–
+                  {timeFormatter.format(new Date(session.endsAt))}
+                </span>
+              </p>
+              {state.queue && state.queue.status !== "closed" && (
+                <p className="mt-1 text-sm font-semibold text-slate-700">
+                  {state.queue.participantCount}{" "}
+                  {state.queue.participantCount === 1
+                    ? "ansatt deltar"
+                    : "ansatte deltar"}
+                  {state.queue.participating ? " · Du deltar" : " · Du deltar ikke"}
+                </p>
+              )}
+            </>
           ) : (
             <p className="mt-2 text-slate-700">Ingen undervisningsøkt pågår nå.</p>
           )}
@@ -513,7 +543,72 @@ export function TeacherHelpQueue({
             {loadingKey === `open:${session.id}` ? "Åpner …" : "Åpne kø"}
           </button>
         )}
-        {queueOpen && state.queue && (
+        {canJoinQueue && state.queue && (
+          <button
+            type="button"
+            onClick={() =>
+              void mutate(
+                `join:${state.queue!.id}`,
+                (requestId) =>
+                  joinTeacherHelpQueueAction(
+                    classId,
+                    state.queue!.id,
+                    requestId,
+                  ),
+                { kind: "heading" },
+              ).then((success) => {
+                if (success) setAnnouncement("Du deltar nå i hjelpekøen.");
+              })
+            }
+            disabled={Boolean(loadingKey)}
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-5 py-3 font-black text-white focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:bg-slate-500"
+          >
+            <UserPlus aria-hidden="true" className="h-5 w-5" />
+            {loadingKey === `join:${state.queue.id}` ? "Blir med …" : "Bli med"}
+          </button>
+        )}
+        {!queueClosed &&
+          state.queue &&
+          state.queue.participating &&
+          state.queue.participantCount > 1 &&
+          state.queue.participationVersion !== null && (
+            <button
+              type="button"
+              aria-describedby={
+                ownedClaimCount > 0 ? "leave-queue-guidance" : undefined
+              }
+              onClick={() =>
+                void mutate(
+                  `leave:${state.queue!.id}:${state.queue!.participationVersion}`,
+                  (requestId) =>
+                    leaveTeacherHelpQueueAction(
+                      classId,
+                      state.queue!.id,
+                      state.queue!.participationVersion!,
+                      requestId,
+                    ),
+                  { kind: "heading" },
+                ).then((success) => {
+                  if (success) {
+                    setAnnouncement(
+                      queueClosing
+                        ? "Du har forlatt hjelpekøen. De andre ansatte fullfører køen."
+                        : "Du har forlatt hjelpekøen. Køen er fortsatt åpen for de andre ansatte.",
+                    );
+                  }
+                })
+              }
+              disabled={Boolean(loadingKey) || ownedClaimCount > 0}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-indigo-300 bg-white px-5 py-3 font-black text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:text-slate-500"
+            >
+              <LogOut aria-hidden="true" className="h-5 w-5" />
+              {loadingKey ===
+              `leave:${state.queue.id}:${state.queue.participationVersion}`
+                ? "Forlater …"
+                : "Forlat køen"}
+            </button>
+          )}
+        {queueOpen && state.queue && state.queue.participating && (
           <button
             type="button"
             onClick={() =>
@@ -557,6 +652,34 @@ export function TeacherHelpQueue({
       </span>
 
       <div className="p-5 sm:p-6">
+        {!queueClosed &&
+          state.queue?.participating &&
+          state.queue.participantCount > 1 &&
+          ownedClaimCount > 0 && (
+            <p
+              id="leave-queue-guidance"
+              className="mb-4 rounded-2xl bg-amber-50 p-4 font-semibold text-amber-950"
+            >
+              Frigi, overfør eller ferdigstill hjelpen du har tatt før du
+              forlater køen.
+            </p>
+          )}
+        {canJoinQueue && state.queue && (
+          <p className="mb-4 rounded-2xl bg-indigo-50 p-4 font-semibold text-indigo-950">
+            {queueClosing
+              ? "Bli med for å ta over og hjelpe elevene som fortsatt står i kø."
+              : "Bli med for å ta elever, prioritere og motta oppdateringer fra denne køen."}
+          </p>
+        )}
+        {queueOpen &&
+          state.queue?.participating &&
+          state.queue.participantCount > 1 && (
+            <p className="mb-4 rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-700">
+              «Forlat køen» gjelder bare deg. «Steng kø» stopper nye
+              hjelpeforespørsler for hele klassen, mens de som allerede venter
+              fortsatt skal hjelpes.
+            </p>
+          )}
         {queueClosed ? (
           <p className="rounded-2xl bg-slate-50 p-5 text-slate-600">
             Køen er stengt for denne undervisningsøkten.
@@ -628,7 +751,7 @@ export function TeacherHelpQueue({
                     )}
                   </div>
                   <div className="grid w-full gap-2 sm:col-span-2 sm:grid-cols-2 lg:col-span-1 lg:flex lg:w-auto lg:flex-wrap lg:justify-end">
-                    {request.status === "waiting" && (
+                    {request.status === "waiting" && state.queue?.participating && (
                       <button
                         type="button"
                         onClick={() => void claimRequest(request)}
@@ -681,19 +804,24 @@ export function TeacherHelpQueue({
                         </button>
                       </>
                     )}
-                    <button
-                      type="button"
-                      onClick={(event) =>
-                        openPriorityDialog(request, event.currentTarget)
-                      }
-                      disabled={Boolean(loadingKey)}
-                      data-help-request-priority={request.id}
-                      aria-label={`Endre prioritet – ${request.studentName}`}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2.5 font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:text-slate-400"
-                    >
-                      <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
-                      Endre prioritet
-                    </button>
+                    {state.queue?.participating && (
+                      <button
+                        type="button"
+                        onClick={(event) =>
+                          openPriorityDialog(request, event.currentTarget)
+                        }
+                        disabled={Boolean(loadingKey)}
+                        data-help-request-priority={request.id}
+                        aria-label={`Endre prioritet – ${request.studentName}`}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-indigo-300 bg-indigo-50 px-4 py-2.5 font-bold text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:text-slate-400"
+                      >
+                        <SlidersHorizontal
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                        />
+                        Endre prioritet
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}

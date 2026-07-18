@@ -285,7 +285,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   });
   const { data: seededHelpRequest, error: seededHelpRequestError } = await admin
     .from("help_requests")
-    .select("id, ownership_version")
+    .select("id, ownership_version, queue_session_id")
     .eq("organization_id", organizationId)
     .eq("class_id", classId)
     .eq("student_id", studentId)
@@ -299,6 +299,10 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
   }
   const helpRequestId = seededHelpRequest.id;
   const helpOwnershipVersion = seededHelpRequest.ownership_version;
+  const helpQueueSessionId = seededHelpRequest.queue_session_id;
+  if (!helpQueueSessionId) {
+    throw new Error("Den øktbundne E2E-hjelpeforespørselen mangler kø-ID.");
+  }
   const token = randomUUID().slice(0, 8);
   const deniedTaskTitle = `Avvist oppgave ${token}`;
   const deniedPlanTitles = [
@@ -319,6 +323,9 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       weekly_plan_count: number;
       weekly_plan_audits: number;
       help_audits: number;
+      participant_count: number;
+      participant_audits: number;
+      participant_receipts: number;
       support_audits: number;
       help_status: string;
       claimed_by: string | null;
@@ -363,6 +370,25 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
           ) as help_audits,
           (
             select count(*)::integer
+            from public.help_queue_staff_participants
+            where class_id = $1::uuid
+              and user_id = $5::uuid
+          ) as participant_count,
+          (
+            select count(*)::integer
+            from public.audit_events
+            where event_name = 'help_queue.staff_joined'
+              and actor_id = $5::uuid
+              and metadata ->> 'class_id' = $1::text
+          ) as participant_audits,
+          (
+            select count(*)::integer
+            from public.help_queue_command_receipts
+            where actor_id = $5::uuid
+              and command = 'join_queue'
+          ) as participant_receipts,
+          (
+            select count(*)::integer
             from public.audit_events
             where event_name = 'student.experience.updated'
               and entity_id = $3::uuid
@@ -390,7 +416,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
               and student_id = $3::uuid
           ) as progress_enabled
       `,
-      [classId, helpRequestId, studentId, organizationId],
+      [classId, helpRequestId, studentId, organizationId, staffId],
     );
     return rows[0];
   }
@@ -692,7 +718,7 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       supportPage.getByText("Tilpass visning", { exact: true }),
     ).toHaveCount(0);
 
-    const [taskRpc, planRpc, weeklyPlanRpc, helpRpc, supportRpc] =
+    const [taskRpc, planRpc, weeklyPlanRpc, helpRpc, joinHelpRpc, supportRpc] =
       await Promise.all([
         admin.rpc("publish_task_to_class", {
           p_class_id: classId,
@@ -745,6 +771,12 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
           p_staff_assignment_id: assignmentId,
           p_command_request_id: randomUUID(),
         }),
+        admin.rpc("join_help_queue_staff_v1", {
+          p_queue_session_id: helpQueueSessionId,
+          p_actor_id: staffId,
+          p_staff_assignment_id: assignmentId,
+          p_request_id: randomUUID(),
+        }),
         admin.rpc("update_student_experience_for_staff", {
           p_organization_id: organizationId,
           p_class_id: classId,
@@ -761,6 +793,10 @@ test("et aktivt oppdrag håndhever hver tildelt kapabilitet", async ({
       [
         weeklyPlanRpc,
         "Staff assignment does not authorize weekly plan publishing",
+      ],
+      [
+        joinHelpRpc,
+        "Staff assignment does not authorize help queue management",
       ],
       [
         helpRpc,

@@ -85,9 +85,8 @@ redusert bevegelse.
 **Status:** Pågår – B1 har levert oppgaveovergang, XP-ledger, angre og
 ansattretur. [B2](./qa/CONTROL_POINT_B2.md) har levert varig kronbladvalg,
 blomsterhage, ansattramme og elevens separate synlighetspreferanse. B2s
-database-, Chromium- og responsive porter er grønne; WebKit-runtimeavvik og
-fysisk VoiceOver/NVDA-retest er åpne. Kuponginnløsning og øvrige E02-flater
-gjenstår.
+database-, Chromium-, WebKit- og responsive porter er grønne; fysisk
+VoiceOver/NVDA-retest er åpen. Kuponginnløsning og øvrige E02-flater gjenstår.
 
 Implementer E02 før elevens nye fullførflyt kobles på:
 
@@ -150,8 +149,9 @@ symboler, korte handlingsord og opplesing, på mobil, iPad og PC.
 
 **Status:** Pågår – E1 leverer det øktbundne livsløpet, elevhånden, FIFO,
 claim/resolve, privacy og reconnect. E2 leverer atomisk og reviderbar manuell
-reorder, release/transfer og privat staff-snapshot. Grupper, globalt livepanel
-og fysisk enhetsport gjenstår.
+reorder, release/transfer og privat staff-snapshot. E3s delte
+ansattdeltakelse med personlig uttreden, global stenging og trygg overtakelse
+er lokalt verifisert. Grupper, globalt livepanel og fysisk enhetsport gjenstår.
 
 Koble E03 til aktive timer/sesjoner:
 
@@ -159,6 +159,10 @@ Koble E03 til aktive timer/sesjoner:
 - elevens hånd vises bare mens køen er aktiv;
 - generell hjelp og oppgaveknyttet hjelp bruker samme kø;
 - ansattrekkefølge kan endres atomisk og reviderbart;
+- flere ansatte kan delta samtidig; én kan forlate egne oppdateringer uten å
+  stenge køen for de andre, også mens de gjenværende tømmer en stengende kø;
+- en ubemannet kø med aktive elever går til `closing` og kan overtas av en ny
+  autorisert ansatt;
 - elevens kompakte tilstander lover aldri en bestemt køplass.
 
 **Utgangskrav:** Realtime, avbrudd, overtakelse, omprioritering og avslutning

@@ -61,6 +61,7 @@ declare
   second_student_id uuid := '81000000-0000-4000-8000-000000000007';
   historical_student_id uuid := '81000000-0000-4000-8000-000000000008';
   staff_assignment_id uuid;
+  second_staff_assignment_id uuid;
   week_start date;
   session_starts_at timestamptz;
   session_ends_at timestamptz;
@@ -93,6 +94,16 @@ begin
   if staff_assignment_id is null then
     raise exception 'E2 upgrade fixture lacks a current help queue assignment';
   end if;
+  second_staff_assignment_id := public.create_staff_assignment(
+    organization_id,
+    '81000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001',
+    class_id,
+    'contact_teacher',
+    transaction_timestamp() - interval '2 hours',
+    transaction_timestamp() + interval '1 day',
+    'e2800000-0000-4000-8000-000000000002'
+  );
 
   week_start := (transaction_timestamp() at time zone 'Europe/Oslo')::date
     - (extract(isodow from transaction_timestamp() at time zone 'Europe/Oslo')::integer - 1);
@@ -159,8 +170,8 @@ begin
 
   perform public.claim_student_help_v2(
     (second_request ->> 'request_id')::uuid,
-    actor_id,
-    staff_assignment_id,
+    '81000000-0000-4000-8000-000000000001',
+    second_staff_assignment_id,
     'e2840000-0000-4000-8000-000000000001'
   );
   perform public.cancel_student_help_v2(

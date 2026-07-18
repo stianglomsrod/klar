@@ -6,6 +6,8 @@ import {
   cancelOwnHelp,
   claimStudentHelp,
   closeTeacherHelpQueue,
+  joinTeacherHelpQueue,
+  leaveTeacherHelpQueue,
   openTeacherHelpQueue,
   releaseStudentHelp,
   reorderStudentHelp,
@@ -99,6 +101,40 @@ export async function closeTeacherHelpQueueAction(
     return { success: true };
   } catch (error) {
     return resultFromError(error, "Kunne ikke stenge hjelpekøen.");
+  }
+}
+
+export async function joinTeacherHelpQueueAction(
+  classId: string,
+  queueSessionId: string,
+  requestId: string,
+): Promise<MutationResult> {
+  try {
+    await joinTeacherHelpQueue(classId, queueSessionId, requestId);
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke bli med i hjelpekøen.");
+  }
+}
+
+export async function leaveTeacherHelpQueueAction(
+  classId: string,
+  queueSessionId: string,
+  expectedParticipationVersion: number,
+  requestId: string,
+): Promise<MutationResult> {
+  try {
+    await leaveTeacherHelpQueue(
+      classId,
+      queueSessionId,
+      expectedParticipationVersion,
+      requestId,
+    );
+    revalidatePath(`/v3/teacher/classes/${classId}`);
+    return { success: true };
+  } catch (error) {
+    return resultFromError(error, "Kunne ikke forlate hjelpekøen.");
   }
 }
 

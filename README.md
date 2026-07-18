@@ -33,7 +33,8 @@ En ansatt eller vikar med personlig konto, AAL2 og et aktivt klasseoppdrag kan:
 - følge oppgavefremdrift, åpne og stenge hjelpekø for den aktuelle økten og ta
   eller løse elevforespørsler innenfor sitt klasseoppdrag;
 - prioritere køen privat og reviderbart, frigi en overtatt forespørsel eller
-  overføre den til en annen aktiv og autorisert ansatt i samme klasse;
+  overføre den til en annen aktiv kø-deltaker med aktuelt autorisert
+  klasseoppdrag;
 - angi hvor mye struktur den enkelte eleven skal få se;
 - åpne eller lukke blomsterhagen for en elev i eget klasseomfang uten å kunne
   endre elevens personlige valg om å vise den.
@@ -165,14 +166,17 @@ npm run lab:list
 npm run lab -- --scenario=rewards
 ```
 
-Gjenbruk gjør aldri en skjult reset. Ugyldig cache, en avbrutt økt eller en
-endret fixture stopper med beskjed om `npm run lab:reset`. En datoendring alene
-stopper ikke laben; bare valgte tidsstyrte scenarioer avvises dersom
-tidsforutsetningen i aktiv planrevisjon ikke er oppfylt. Tilkoblingen har ingen
-fallback til `.env.local`, et linket prosjekt eller pilotdatabasen. Verkstedet
-er uformell utforsking og registrerer ikke QA som bestått. Når et formelt manuelt
-kontrollpunkt ønskes, brukes fortsatt den separate `npm run qa:a1:desktop` og
-tilhørende bevisprotokoll. Se
+Gjenbruk gjør aldri en skjult reset. Et registrert scenario kan etter krasj
+gjenopptas bare når runneren beviser at låsens PID er død, den tilfeldige
+runnerbindingen matcher, og faste identiteter og AAL2 fortsatt valideres. En
+aktiv lås krever at kjøringen avsluttes; ukjent låseierskap krever manuell
+kontroll. Ubundet eller inkonsistent dirty-cache stopper med beskjed om
+`npm run lab:reset`. En datoendring alene stopper ikke laben; bare valgte
+tidsstyrte scenarioer avvises dersom tidsforutsetningen i aktiv planrevisjon
+ikke er oppfylt. Tilkoblingen har ingen fallback til `.env.local`, et linket
+prosjekt eller pilotdatabasen. Verkstedet er uformell utforsking og registrerer
+ikke QA som bestått. Når et formelt manuelt kontrollpunkt ønskes, brukes fortsatt
+den separate `npm run qa:a1:desktop` og tilhørende bevisprotokoll. Se
 [`docs/qa/LOCAL_EXPLORATION_LAB.md`](./docs/qa/LOCAL_EXPLORATION_LAB.md).
 
 ## Verifikasjon
@@ -207,13 +211,10 @@ pilotprosjektet som reserve. Visuelle kjøringer lagrer QA-artefakter i
 `test-results/<browser>-<modus>`; historiske prototypebilder er ikke
 pixel-baselines.
 
-Den autentiserte grunnsuiten er verifisert lokalt i Chromium og WebKit. B2s
-funksjonelle WebKit-flyt passerer alle produktoppslag, men Next.js sine interne
-RSC-fallbacks registreres fortsatt som runtimefeil av WebKit; dette åpne
-avviket er dokumentert i kontrollpunktet og skjules ikke. Suiten er fortsatt
-en eksplisitt lokal kontrollpunktport. CI beholder offentlig Playwright-smoke
-og kjører den separate databasepakken i både tomt og representativt
-oppgraderingsscenario.
+Den autentiserte grunnsuiten og den samlede automatiserte produktmatrisen er
+verifisert lokalt i Chromium og WebKit. Suiten er fortsatt en eksplisitt lokal
+kontrollpunktport. CI beholder offentlig Playwright-smoke og kjører den
+separate databasepakken i både tomt og representativt oppgraderingsscenario.
 
 Første strukturerte klasseuke og den øktstyrte elevdagen er dokumentert med
 akseptansekriterier, avvik, retester og syntetiske fem-viewport-bilder i
@@ -229,6 +230,14 @@ Privat, reviderbar ansattprioritering, release/transfer og atomisk staff-
 snapshot er dokumentert i
 [`docs/qa/CONTROL_POINT_E2.md`](./docs/qa/CONTROL_POINT_E2.md). Den samlede
 fysiske touch-/skjermleserporten for E03 står fortsatt åpen.
+
+Delt ansattdeltakelse, personlig uttreden, global stenging, automatisk sikker
+uttreden ved endret tilgang og eksplisitt overtakelse av ubemannet kø er
+dokumentert i
+[`docs/qa/CONTROL_POINT_E3.md`](./docs/qa/CONTROL_POINT_E3.md). To ansatte kan
+delta; én ikke-siste deltaker uten eid arbeid kan forlate både åpen og stengende
+kø uten å stanse kollegaens arbeid. Siste deltaker i åpen kø må velge «Steng
+kø». Den samlede fysiske E03-porten står fortsatt åpen.
 
 Eksplisitt flytt av samme uferdige oppgave og ny, lenket utsending er
 dokumentert i
@@ -249,8 +258,8 @@ VoiceOver/NVDA gjenstår.
 Den varige blomsterbelønningen er dokumentert i
 [`docs/qa/CONTROL_POINT_B2.md`](./docs/qa/CONTROL_POINT_B2.md). Tom database,
 representativ oppgradering, RLS/grants, retry/samtidighet, komplett
-Chromium-flyt og seks kuraterte responsive bilder er verifisert. B2s
-WebKit-runtimeavvik og fysisk VoiceOver/NVDA-flyt står fortsatt åpne.
+Chromium-/WebKit-flyt og seks kuraterte responsive bilder er verifisert. Den
+fysiske VoiceOver/NVDA-flyten står fortsatt åpen.
 
 A1s konfigurerte automatiske kommandoporter er grønne på kodekandidaten
 `c562bb0`, men en kravrevisjon har identifisert åpne testmatrisehull som er

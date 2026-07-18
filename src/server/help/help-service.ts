@@ -75,6 +75,9 @@ export type TeacherHelpQueueState = {
     status: "open" | "closing" | "closed";
     lockVersion: number;
     activityVersion: number;
+    participating: boolean;
+    participantCount: number;
+    participationVersion: number | null;
   } | null;
   requests: TeacherHelpQueueItem[];
   transferTargets: TeacherHelpTransferTarget[];
@@ -132,6 +135,12 @@ type TeacherHelpQueueSnapshot = {
     task_assignment_id: string | null;
     ownership_version: number;
   }>;
+  participantRows: Array<{
+    id: string;
+    user_id: string;
+    staff_assignment_id: string;
+    participation_version: number;
+  }>;
 };
 
 function isNullableUuid(value: unknown): value is string | null {
@@ -148,7 +157,8 @@ function parseTeacherHelpQueueSnapshot(
     !isRecord(value) ||
     !isRecord(value.queue) ||
     !Array.isArray(value.order_rows) ||
-    !Array.isArray(value.request_rows)
+    !Array.isArray(value.request_rows) ||
+    !Array.isArray(value.participant_rows)
   ) {
     throw new PrototypeDataError();
   }
@@ -235,6 +245,36 @@ function parseTeacherHelpQueueSnapshot(
   ) {
     throw new PrototypeDataError();
   }
+  const participantRows = value.participant_rows.map((row) => {
+    if (
+      !isRecord(row) ||
+      typeof row.id !== "string" ||
+      !isUuid(row.id) ||
+      typeof row.user_id !== "string" ||
+      !isUuid(row.user_id) ||
+      typeof row.staff_assignment_id !== "string" ||
+      !isUuid(row.staff_assignment_id) ||
+      !isInteger(row.participation_version) ||
+      row.participation_version < 1
+    ) {
+      throw new PrototypeDataError();
+    }
+    return {
+      id: row.id,
+      user_id: row.user_id,
+      staff_assignment_id: row.staff_assignment_id,
+      participation_version: row.participation_version,
+    };
+  });
+  if (
+    new Set(participantRows.map((participant) => participant.user_id)).size !==
+      participantRows.length ||
+    new Set(
+      participantRows.map((participant) => participant.staff_assignment_id),
+    ).size !== participantRows.length
+  ) {
+    throw new PrototypeDataError();
+  }
   return {
     queue: {
       id: queue.id,
@@ -247,6 +287,7 @@ function parseTeacherHelpQueueSnapshot(
     },
     orderRows,
     requestRows,
+    participantRows,
   };
 }
 
@@ -302,9 +343,12 @@ function assertPositiveVersion(value: number, message: string): void {
 
 async function reconcileHelpQueues(classId?: string): Promise<void> {
   const admin = getSupabaseAdminClient();
-  const { error } = await admin.rpc("reconcile_help_queue_sessions", {
-    p_class_id: classId ?? null,
-  });
+  const { error } = await admin.rpc(
+    "reconcile_help_queue_staff_participants_v1",
+    {
+      p_class_id: classId ?? null,
+    },
+  );
   if (error) throw new PrototypeDataError();
 }
 
@@ -581,7 +625,7 @@ export async function getTeacherHelpQueue(
 
   async function readAtomicActiveQueue(queueId: string) {
     const { data, error } = await admin.rpc(
-      "read_help_queue_staff_snapshot_v1",
+      "read_help_queue_staff_snapshot_v2",
       {
         p_organization_id: actor.organizationId,
         p_class_id: actor.classId,
@@ -599,6 +643,7 @@ export async function getTeacherHelpQueue(
         queue: null,
         orderRows: [],
         requestRows: [],
+        participantRows: [],
       }
     );
   }
@@ -606,10 +651,16 @@ export async function getTeacherHelpQueue(
   const queueSnapshot =
     visibleQueue && visibleQueue.status !== "closed"
       ? await readAtomicActiveQueue(visibleQueue.id)
-      : { queue: visibleQueue, orderRows: [], requestRows: [] };
+      : {
+          queue: visibleQueue,
+          orderRows: [],
+          requestRows: [],
+          participantRows: [],
+        };
   visibleQueue = queueSnapshot.queue;
   const orderRows = queueSnapshot.orderRows;
   const requestRows = queueSnapshot.requestRows;
+  const participantRows = queueSnapshot.participantRows;
   const requestById = new Map(
     requestRows.map((request) => [request.id, request]),
   );
@@ -671,6 +722,9 @@ export async function getTeacherHelpQueue(
     string,
     (typeof targetAssignmentResult.data)[number]
   >();
+  const activeParticipantUserIds = new Set(
+    participantRows.map((participant) => participant.user_id),
+  );
   for (const assignment of targetAssignmentResult.data) {
     if (
       assignment.user_id === actor.userId ||
@@ -678,6 +732,7 @@ export async function getTeacherHelpQueue(
       !activeCapabilityKeys.has(
         `${assignment.id}:${assignment.profile_version}`,
       ) ||
+      !activeParticipantUserIds.has(assignment.user_id) ||
       targetAssignmentByUser.has(assignment.user_id)
     ) {
       continue;
@@ -695,6 +750,7 @@ export async function getTeacherHelpQueue(
     ...orderRows.flatMap((orderRow) =>
       orderRow.last_changed_by ? [orderRow.last_changed_by] : [],
     ),
+    ...participantRows.map((participant) => participant.user_id),
     ...targetAssignmentByUser.keys(),
   ];
   const profileResult = profileIds.length
@@ -751,6 +807,9 @@ export async function getTeacherHelpQueue(
         endsAt: sessionResult.data.ends_at,
       }
     : null;
+  const currentParticipant = participantRows.find(
+    (participant) => participant.user_id === actor.userId,
+  );
   return {
     currentSession,
     nextTransitionAt,
@@ -760,6 +819,10 @@ export async function getTeacherHelpQueue(
           status: visibleQueue.status as "open" | "closing" | "closed",
           lockVersion: visibleQueue.lock_version,
           activityVersion: visibleQueue.activity_version,
+          participating: Boolean(currentParticipant),
+          participantCount: participantRows.length,
+          participationVersion:
+            currentParticipant?.participation_version ?? null,
         }
       : null,
     requests: orderRows.map((orderRow) => {
@@ -861,6 +924,70 @@ export async function closeTeacherHelpQueue(
   });
   if (error || data === null) {
     await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError("Køen ble endret. Oppdater og prøv igjen.");
+  }
+  return parseHelpQueueCommand(data);
+}
+
+export async function joinTeacherHelpQueue(
+  classId: string,
+  queueSessionId: string,
+  requestId: string,
+): Promise<HelpQueueCommandResult> {
+  assertUuid(queueSessionId, "Ugyldig hjelpekø.");
+  assertUuid(requestId, "Ugyldig forespørsels-ID.");
+  const actor = await requireStaffCapability(classId, "help_queue.manage");
+  const admin = getSupabaseAdminClient();
+  await reconcileHelpQueues(actor.classId);
+  const { data, error } = await admin.rpc("join_help_queue_staff_v1", {
+    p_queue_session_id: queueSessionId,
+    p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
+    p_request_id: requestId,
+  });
+  if (error || data === null) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    throw new PrototypeDataError(
+      "Køen ble endret eller er ikke åpen lenger. Oppdater og prøv igjen.",
+    );
+  }
+  return parseHelpQueueCommand(data);
+}
+
+export async function leaveTeacherHelpQueue(
+  classId: string,
+  queueSessionId: string,
+  expectedParticipationVersion: number,
+  requestId: string,
+): Promise<HelpQueueCommandResult> {
+  assertUuid(queueSessionId, "Ugyldig hjelpekø.");
+  assertUuid(requestId, "Ugyldig forespørsels-ID.");
+  assertPositiveVersion(
+    expectedParticipationVersion,
+    "Ugyldig deltakerversjon.",
+  );
+  const actor = await requireStaffCapability(classId, "help_queue.manage");
+  const admin = getSupabaseAdminClient();
+  await reconcileHelpQueues(actor.classId);
+  const { data, error } = await admin.rpc("leave_help_queue_staff_v1", {
+    p_queue_session_id: queueSessionId,
+    p_expected_participation_version: expectedParticipationVersion,
+    p_actor_id: actor.userId,
+    p_staff_assignment_id: actor.staffAssignmentId,
+    p_request_id: requestId,
+  });
+  if (error || data === null) {
+    await requireStaffCapability(classId, "help_queue.manage");
+    if (error?.message.includes("release, transfer or resolve")) {
+      throw new PrototypeDataError(
+        "Frigi, overfør eller ferdigstill eleven du hjelper før du forlater køen.",
+      );
+    }
+    if (error?.message.includes("Last participant")) {
+      throw new PrototypeDataError(
+        "Du er den siste ansatte i køen. Steng køen når elevene ikke skal kunne be om ny hjelp.",
+      );
+    }
     throw new PrototypeDataError("Køen ble endret. Oppdater og prøv igjen.");
   }
   return parseHelpQueueCommand(data);

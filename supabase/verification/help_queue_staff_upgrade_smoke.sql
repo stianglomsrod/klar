@@ -76,7 +76,7 @@ begin
       and request.student_id = second_student_id
       and request.status = 'claimed'
       and request.ownership_version = 1
-      and request.claimed_by = '81000000-0000-4000-8000-000000000003'
+      and request.claimed_by = '81000000-0000-4000-8000-000000000001'
       and request.ownership_changed_at = request.claimed_at
       and request.claimed_at = request.requested_at + interval '30 seconds'
       and order_row.position = 2

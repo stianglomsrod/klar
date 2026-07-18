@@ -2,6 +2,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 export async function expectNoAxeViolations(page: Page) {
+  // Next metadata can arrive after the first streamed body chunk. Waiting for
+  // the title prevents axe from scanning a transient, incomplete document.
+  await expect(page).toHaveTitle(/\S/);
   const scan = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();

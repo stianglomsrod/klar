@@ -448,6 +448,12 @@ begin
     'e1500000-0000-4000-8000-000000000006',
     null
   );
+  perform public.join_help_queue_staff_v1(
+    queue_row.id,
+    'a0000000-0000-4000-8000-000000000003',
+    recovery_staff_assignment_id,
+    'e1590000-0000-4000-8000-000000000001'
+  );
   perform public.claim_student_help_v3(
     (recovery_request_result ->> 'request_id')::uuid,
     (recovery_request_result ->> 'ownership_version')::bigint,
@@ -460,6 +466,7 @@ begin
     'a0000000-0000-4000-8000-000000000001',
     recovery_staff_assignment_id
   );
+  perform public.reconcile_help_queue_staff_participants_v1(class_id);
   if not exists (
     select 1
     from public.help_requests
@@ -473,7 +480,14 @@ begin
     where entity_id = (recovery_request_result ->> 'request_id')::uuid
       and event_name = 'help.requeued'
       and metadata ->> 'reason' = 'claimant_assignment_inactive'
-  ) <> 1 then
+  ) <> 1 or not exists (
+    select 1
+    from public.help_queue_staff_participants as participant
+    where participant.queue_session_id = queue_row.id
+      and participant.user_id = 'a0000000-0000-4000-8000-000000000003'
+      and participant.left_at is not null
+      and participant.leave_reason = 'assignment_inactive'
+  ) then
     raise exception 'Inactive claimant did not return atomically to the queue';
   end if;
   delete from public.class_memberships as membership
@@ -762,8 +776,21 @@ begin
         where entity_id = queue_row.id
           and event_name = 'help_queue.closed'
           and actor_id is null) <> 1
+    or exists (
+      select 1
+      from public.help_queue_staff_participants as participant
+      where participant.queue_session_id = queue_row.id
+        and participant.left_at is null
+    )
+    or not exists (
+      select 1
+      from public.audit_events as event
+      where event.event_name = 'help_queue.staff_left'
+        and event.metadata ->> 'queue_session_id' = queue_row.id::text
+        and event.metadata ->> 'reason' = 'queue_closed'
+    )
   then
-    raise exception 'Natural empty session end did not close and audit the queue';
+    raise exception 'Natural empty session end did not close, retire participants and audit the queue';
   end if;
 end;
 $$;
@@ -801,8 +828,13 @@ begin
     select 1 from public.help_requests
     where id = (request_result ->> 'request_id')::uuid
       and status = 'waiting'
+  ) or not exists (
+    select 1
+    from public.help_queue_staff_participants as participant
+    where participant.queue_session_id = queue_row.id
+      and participant.left_at is null
   ) then
-    raise exception 'Natural session end did not preserve the active pupil';
+    raise exception 'Natural session end did not preserve the active pupil and staff participant';
   end if;
   denial_message := null;
   begin
@@ -979,7 +1011,26 @@ select set_config(
 do $$
 begin
   if (select count(distinct queue_session_id) from public.help_queue_signals) <> 1
-    or (select count(*) from public.help_queue_signals) <> 3
+    or (
+      select count(*)
+      from public.help_queue_signals
+      where staff_only
+    ) <> 1
+    or (
+      select count(*)
+      from public.help_queue_signals
+      where not staff_only
+    ) <> (
+      select count(*)
+      from public.class_memberships as class_membership
+      join public.memberships as organization_membership
+        on organization_membership.organization_id = class_membership.organization_id
+       and organization_membership.user_id = class_membership.user_id
+       and organization_membership.role = 'student'
+      where class_membership.class_id = 'c0000000-0000-4000-8000-000000000001'
+        and class_membership.organization_id = 'b0000000-0000-4000-8000-000000000001'
+        and class_membership.role = 'student'
+    )
   then
     raise exception 'AAL2 help manager could not read the queue signal';
   end if;

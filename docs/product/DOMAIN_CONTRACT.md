@@ -164,6 +164,7 @@ tillatt når alle medlemmene og ansvarlige ansatte tilhører samme organisasjon.
 | Nivåmilepæl | Historisk registrering av at eleven har nådd et nivå minst én gang. |
 | Belønningstildeling | Unik rett til å velge eller beholde én belønning for en nivåmilepæl. |
 | Hjelpekø | En ansattåpnet kø for én klasse/gruppe og normalt én undervisningsøkt. |
+| Kødeltakelse | En tidsavgrenset og reviderbar kobling mellom én ansattbruker og én hjelpekø. Deltakelse gir liveoppdateringer og køhandlinger så lenge et aktuelt oppdrag fortsatt autoriserer handlingen. |
 | Hjelpeforespørsel | Elevens aktive eller avsluttede køinnslag, valgfritt koblet til en oppgave. |
 | Elevpreferanse | Elevens egne valg for informasjonsmengde og synlige motivasjonselementer. |
 | Revisjonshendelse | Teknisk spor etter en sikkerhets- eller pedagogisk mutasjon. |
@@ -317,6 +318,24 @@ forespørsel skal ikke forsvinne lydløst dersom køen stenges. Køen skal førs
 slutte å ta imot nye elever; aktive forespørsler skal avsluttes, håndteres eller
 kanselleres eksplisitt.
 
+Den som åpner køen blir første aktive deltaker. Andre autoriserte ansatte kan
+melde seg inn eksplisitt. Deltakelsen tilhører ansattbrukeren, mens hvert kall
+fortsatt må autoriseres med et aktuelt oppdrag for den konkrete klassen. Bytte
+mellom overlappende oppdrag for samme bruker skal derfor ikke skape en ny
+deltaker eller gjøre en gyldig deltaker handlingslammet.
+
+«Forlat køen» er en personlig handling og skal ikke stenge køen for de andre.
+Den er bare tillatt når minst én annen aktiv deltaker blir igjen og den som går
+ut ikke eier en aktiv forespørsel. Eide forespørsler må først løses, frigis eller
+overføres. «Steng kø» er en egen, global handling som enhver aktiv deltaker kan
+velge; den stopper nye elevforespørsler, men lar gjenværende deltakere tømme
+køen før den blir lukket.
+
+Utløpt eller tilbakekalt oppdrag skal fjerne brukerens deltakelse automatisk og
+returnere eventuelt eid arbeid til køen. Hvis ingen gyldige deltakere gjenstår,
+går køen til `stenger` uten å miste aktive forespørsler. En ny autorisert ansatt
+kan da overta den foreldreløse køen og tømme den.
+
 ### 8.2 Elevinteraksjon
 
 Elevens køflate skal være ikonførst og tekstfattig:
@@ -352,9 +371,21 @@ Autoriserte ansatte skal kunne se nøyaktig rekkefølge, ventetid, elev,
 eventuell oppgavekontekst og køstatus. De skal kunne:
 
 - åpne og stenge køen;
+- melde seg inn i en delt kø og se hvor mange ansatte som deltar;
+- forlate egne liveoppdateringer uten å stenge køen for de andre;
 - overta, løse og avslutte en forespørsel;
+- frigi eller overføre en forespørsel til en annen aktiv deltaker;
 - prioritere eller flytte en forespørsel uten at dette eksponeres for eleven;
 - se hvem som sist endret prioritet og når.
+
+En autorisert ansatt som ikke deltar, kan orientere seg i køstatusen, men skal
+ikke kunne mutere køen eller abonnere på den løpende ansattstrømmen før
+vedkommende velger «Bli med». Dette gjør at en lærer som går til en annen klasse
+kan velge «Forlat køen» og slippe varsler, mens de gjenværende lærerne fortsetter
+uavbrutt. Personlig uttreden skal også være mulig mens køen tømmes i `closing`,
+så lenge en annen deltaker står igjen og den som går ikke eier en aktiv
+forespørsel. Global «Steng kø» og personlig «Forlat køen» skal aldri være samme
+handling.
 
 Stille prioritering er en pedagogisk tilpasning, ikke en elevrangering. Hver
 manuell endring av rekkefølgen skal logges med aktør, tidspunkt, kø,
@@ -523,7 +554,8 @@ ressurs, hendelsestype og tidspunkt:
 - opprettelse, endring, arkivering og ny iterasjon av oppgave;
 - fullføring, angre, retur og tilhørende XP-kredit/reversering;
 - nivåmilepæl og belønningstildeling;
-- åpning, stenging, prioritering og håndtering av hjelpekø;
+- åpning, innmelding, personlig uttreden, global stenging, prioritering,
+  overføring og håndtering av hjelpekø;
 - endring av elevtilpasning og motivasjonsramme;
 - opprettelse, endring og utløp av vikartilgang.
 
@@ -552,6 +584,12 @@ En samsvarende implementasjon skal alltid bevare disse garantiene:
 13. Publisering og reimport kan ikke omskrive historien til et elevforsøk.
 14. Ingen oppgave flyttes eller opprettes automatisk etter skoletid.
 15. Deaktivering av et motivasjonselement sletter ikke opptjent progresjon.
+16. Én ansattbruker kan bare ha én aktiv deltakelse i samme kø, uavhengig av
+    hvor mange samtidige oppdrag brukeren har.
+17. Personlig uttreden stenger ikke en delt kø og kan ikke etterlate eid arbeid;
+    global stenging stopper nye elever, men bevarer aktive forespørsler.
+18. En kø uten gyldige deltakere kan ikke bli stående åpen eller miste aktive
+    forespørsler; den skal kunne overtas av en ny autorisert ansatt.
 
 ## 14. Minimumsscenarier for kontraktstester
 
@@ -581,6 +619,10 @@ Planer, implementasjoner og epics som realiserer kontrakten skal minst dekke:
     eget omfang, og blir avvist utenfor omfanget.
 12. Elev- og ansattflytene fungerer med berøring, tastatur, skjermleser,
     redusert bevegelse og responsiv bredde på mobil, iPad og PC.
+13. To ansatte deltar i samme kø. Den ene overfører arbeid og forlater køen;
+    den andre fortsetter uten avbrudd. Tilbakekalling av siste oppdrag setter
+    køen i trygg `stenger`-tilstand, og en ny autorisert ansatt kan overta og
+    tømme den uten tap eller duplikat.
 
 ## 15. Avgrensninger og åpne beslutninger
 
